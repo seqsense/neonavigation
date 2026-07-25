@@ -115,7 +115,7 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
       TIMEOUT 120)
   endif()
 
-  ament_auto_package()
+  ament_auto_package(INSTALL_TO_SHARE launch)
 
 else()
   message(

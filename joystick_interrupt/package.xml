@@ -21,6 +21,8 @@
   <!-- ROS 2 interface layer uses the real rclcpp and component registration. -->
   <depend condition="$ROS_VERSION == 2">rclcpp</depend>
   <depend condition="$ROS_VERSION == 2">rclcpp_components</depend>
+  <!-- Joystick driver used by launch/ps4.launch.py (ROS 1 used the 'joy' pkg too). -->
+  <exec_depend condition="$ROS_VERSION == 2">joy</exec_depend>
 
   <depend>geometry_msgs</depend>
   <depend>sensor_msgs</depend>
