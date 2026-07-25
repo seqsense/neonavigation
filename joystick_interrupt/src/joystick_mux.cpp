@@ -28,7 +28,10 @@
  */
 
 #include <ros/ros.h>
-#include <sensor_msgs/Joy.h>
+
+#include "rclcpp/rclcpp.hpp"
+
+#include "sensor_msgs/msg/joy.hpp"
 
 #include <topic_tools/shape_shifter.h>
 
@@ -39,27 +42,28 @@ class JoystickMux
 private:
   ros::NodeHandle nh_;
   ros::NodeHandle pnh_;
+  rclcpp::Logger logger_;
   ros::Subscriber sub_topics_[2];
   ros::Subscriber sub_joy_;
   ros::Publisher pub_topic_;
   ros::Timer timer_;
   double timeout_;
   int interrupt_button_;
-  ros::Time last_joy_msg_;
+  rclcpp::Time last_joy_msg_;
   bool advertised_;
   int selected_;
 
-  void cbJoy(const sensor_msgs::Joy::Ptr msg)
+  void cbJoy(const sensor_msgs::msg::Joy::Ptr msg)
   {
     if (static_cast<size_t>(interrupt_button_) >= msg->buttons.size())
     {
-      ROS_ERROR(
+      RCLCPP_ERROR(logger_,
           "Out of range: number of buttons (%lu) must be greater than interrupt_button (%d).",
           msg->buttons.size(), interrupt_button_);
       return;
     }
 
-    last_joy_msg_ = ros::Time::now();
+    last_joy_msg_ = rclcpp::Clock(RCL_ROS_TIME).now();
     if (msg->buttons[interrupt_button_])
     {
       selected_ = 1;
@@ -79,7 +83,7 @@ private:
         if (neonavigation_common::compat::getCompat() !=
             neonavigation_common::compat::current_level)
         {
-          ROS_ERROR(
+          RCLCPP_ERROR(logger_,
               "Use %s (%s%s) topic instead of %s (%s%s)",
               nh_.resolveName("mux_output", false).c_str(),
               neonavigation_common::compat::getSimplifiedNamespace(nh_).c_str(),
@@ -99,7 +103,7 @@ private:
   };
   void cbTimer(const ros::TimerEvent& /* e */)
   {
-    if (ros::Time::now() - last_joy_msg_ > ros::Duration(timeout_))
+    if (rclcpp::Clock(RCL_ROS_TIME).now() - last_joy_msg_ > rclcpp::Duration::from_seconds(timeout_))
     {
       selected_ = 0;
     }
@@ -109,6 +113,8 @@ public:
   JoystickMux()
     : nh_("")
     , pnh_("~")
+    , logger_(rclcpp::get_logger("joystick_mux"))
+    , last_joy_msg_(0, RCL_ROS_TIME)
   {
     neonavigation_common::compat::checkCompatMode();
     sub_joy_ = nh_.subscribe("joy", 1, &JoystickMux::cbJoy, this);
@@ -121,7 +127,7 @@ public:
 
     pnh_.param("interrupt_button", interrupt_button_, 5);
     pnh_.param("timeout", timeout_, 0.5);
-    last_joy_msg_ = ros::Time::now();
+    last_joy_msg_ = rclcpp::Clock(RCL_ROS_TIME).now();
 
     timer_ = nh_.createTimer(ros::Duration(0.1), &JoystickMux::cbTimer, this);
 
