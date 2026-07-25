@@ -121,10 +121,3 @@ TEST(Filter, AugleLPF)
     ASSERT_LT(std::abs(lpf_angle.get() - (zero + 0.5)), 1e-2);
   }
 }
-
-int main(int argc, char ** argv)
-{
-  testing::InitGoogleTest(&argc, argv);
-
-  return RUN_ALL_TESTS();
-}

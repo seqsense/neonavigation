@@ -5,11 +5,17 @@ if(NOT "$ENV{ROS_DISTRO}" STREQUAL "noetic")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-reorder")
 endif()
 
+# main() (with ros::Time::init) comes from sq_ros1_rclcpp_compat_gtest_main,
+# exported via ${catkin_LIBRARIES}. These pure unit tests reference no ROS
+# symbols directly, so --no-as-needed is required to keep librostime on the
+# link line (roscpp is a direct dependency ordered ahead of the compat, so its
+# librostime would otherwise be dropped before the gtest_main archive that needs
+# ros::Time::init() is processed).
 catkin_add_gtest(test_${PROJECT_NAME}_filter src/test_filter.cpp)
-target_link_libraries(test_${PROJECT_NAME}_filter ${catkin_LIBRARIES})
+target_link_libraries(test_${PROJECT_NAME}_filter -Wl,--no-as-needed ${catkin_LIBRARIES})
 
 catkin_add_gtest(test_${PROJECT_NAME}_path2d src/test_path2d.cpp)
-target_link_libraries(test_${PROJECT_NAME}_path2d ${catkin_LIBRARIES})
+target_link_libraries(test_${PROJECT_NAME}_path2d -Wl,--no-as-needed ${catkin_LIBRARIES})
 
 add_rostest_gtest(test_trajectory_recorder test/trajectory_recorder_rostest.test
     src/test_trajectory_recorder.cpp)

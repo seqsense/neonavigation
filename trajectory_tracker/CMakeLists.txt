@@ -139,6 +139,68 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
     # so the copyright linter is excluded. Existing license text is kept as-is.
     list(APPEND AMENT_LINT_AUTO_EXCLUDE ament_cmake_copyright)
     ament_lint_auto_find_test_dependencies()
+
+    find_package(ament_cmake_gtest REQUIRED)
+    find_package(GTest REQUIRED)
+    find_package(launch_testing_ament_cmake REQUIRED)
+
+    include_directories(include ${EIGEN3_INCLUDE_DIRS})
+
+    # -- ROS-independent unit tests (pure gtest, shared with the ROS 1 build) --
+    ament_add_gtest(test_${PROJECT_NAME}_filter test/src/test_filter.cpp)
+    ament_target_dependencies(test_${PROJECT_NAME}_filter rclcpp)
+
+    ament_add_gtest(test_${PROJECT_NAME}_path2d test/src/test_path2d.cpp)
+    ament_target_dependencies(test_${PROJECT_NAME}_path2d
+      rclcpp geometry_msgs nav_msgs tf2 tf2_geometry_msgs trajectory_tracker_msgs)
+
+    # -- Integration tests (launch_testing driving the trajectory_tracker node) --
+    # The gtest binaries below own their main() (they call rclcpp::init before
+    # RUN_ALL_TESTS), so they are built as plain executables linked against
+    # GTest (not gtest_main) and launched from the launch_testing descriptions.
+    include_directories(test/include)
+
+    ament_auto_add_executable(ros2_time_source test/src/ros2_time_source.cpp)
+
+    ament_auto_add_executable(ros2_test_trajectory_tracker
+      test/src/ros2_test_trajectory_tracker.cpp)
+    target_link_libraries(ros2_test_trajectory_tracker ${GTEST_LIBRARIES})
+
+    ament_auto_add_executable(ros2_test_trajectory_tracker_with_odom
+      test/src/ros2_test_trajectory_tracker_with_odom.cpp)
+    target_link_libraries(ros2_test_trajectory_tracker_with_odom ${GTEST_LIBRARIES})
+
+    ament_auto_add_executable(ros2_test_trajectory_tracker_overshoot
+      test/src/ros2_test_trajectory_tracker_overshoot.cpp)
+    target_link_libraries(ros2_test_trajectory_tracker_overshoot ${GTEST_LIBRARIES})
+
+    install(DIRECTORY test/configs
+      DESTINATION share/${PROJECT_NAME}/test/)
+
+    # Main tracker tests: use_sim_time with an accelerated /clock from
+    # ros2_time_source. Three variants mirror the ROS 1 rostest matrix.
+    add_launch_test(test/test/test_trajectory_tracker_launch.py
+      TARGET test_trajectory_tracker
+      ARGS "use_sim_time:=true"
+      TIMEOUT 120)
+    add_launch_test(test/test/test_trajectory_tracker_launch.py
+      TARGET test_trajectory_tracker_with_odom_delay
+      ARGS "use_sim_time:=true" "odom_delay:=0.04" "use_odom:=true" "use_time_optimal_control:=true"
+      TIMEOUT 120)
+    add_launch_test(test/test/test_trajectory_tracker_launch.py
+      TARGET test_trajectory_tracker_without_time_optimal_control
+      ARGS "use_sim_time:=true" "odom_delay:=0.04" "use_odom:=true" "use_time_optimal_control:=false"
+      TIMEOUT 120)
+
+    # Overshoot and with_odom tests run in wall-clock time (no /clock source).
+    add_launch_test(test/test/test_trajectory_tracker_realtime_launch.py
+      TARGET test_trajectory_tracker_overshoot
+      ARGS "test_executable:=ros2_test_trajectory_tracker_overshoot"
+      TIMEOUT 120)
+    add_launch_test(test/test/test_trajectory_tracker_realtime_launch.py
+      TARGET test_trajectory_tracker_with_odom
+      ARGS "test_executable:=ros2_test_trajectory_tracker_with_odom"
+      TIMEOUT 120)
   endif()
 
   ament_auto_package()

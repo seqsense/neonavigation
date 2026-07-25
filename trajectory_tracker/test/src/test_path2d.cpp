@@ -28,16 +28,17 @@
  */
 
 #include <gtest/gtest.h>
-#include <nav_msgs/Path.h>
 #include <trajectory_tracker/eigen_line.h>
 #include <trajectory_tracker/path2d.h>
-#include <trajectory_tracker_msgs/PathWithVelocity.h>
 
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <limits>
+#include <nav_msgs/msg/path.hpp>
+#include <rclcpp/rclcpp.hpp>
 #include <string>
+#include <trajectory_tracker_msgs/msg/path_with_velocity.hpp>
 #include <vector>
 
 namespace
@@ -241,7 +242,7 @@ TEST(Path2D, FindNearestWithDistance)
 
 TEST(Path2D, Conversions)
 {
-  nav_msgs::Path path_msg_org;
+  nav_msgs::msg::Path path_msg_org;
   path_msg_org.poses.resize(8);
   path_msg_org.poses[0].pose.position.x = 0.0;
   path_msg_org.poses[0].pose.position.y = 0.0;
@@ -290,9 +291,9 @@ TEST(Path2D, Conversions)
     EXPECT_TRUE(std::isnan(path[i].velocity_));
   }
 
-  nav_msgs::Path path_msg;
+  nav_msgs::msg::Path path_msg;
   path_msg.header.frame_id = "map";
-  path_msg.header.stamp = ros::Time(123.456);
+  path_msg.header.stamp = rclcpp::Time(123, 456000000, RCL_ROS_TIME);
   path.toMsg(path_msg);
   ASSERT_EQ(path_msg.poses.size(), 6);
   for (size_t i = 0; i < path.size(); ++i) {
@@ -304,7 +305,7 @@ TEST(Path2D, Conversions)
     EXPECT_EQ(path_msg.poses[i].header.stamp, path_msg.header.stamp);
   }
 
-  trajectory_tracker_msgs::PathWithVelocity path_with_vel_msg_org;
+  trajectory_tracker_msgs::msg::PathWithVelocity path_with_vel_msg_org;
   path_with_vel_msg_org.poses.resize(path_msg_org.poses.size());
   for (size_t i = 0; i < path_msg_org.poses.size(); ++i) {
     path_with_vel_msg_org.poses[i].pose = path_msg_org.poses[i].pose;
@@ -329,9 +330,9 @@ TEST(Path2D, Conversions)
       << "i: " << i << " org: " << org_index;
   }
 
-  trajectory_tracker_msgs::PathWithVelocity path_with_vel_msg;
+  trajectory_tracker_msgs::msg::PathWithVelocity path_with_vel_msg;
   path_with_vel_msg.header.frame_id = "map";
-  path_with_vel_msg.header.stamp = ros::Time(123.456);
+  path_with_vel_msg.header.stamp = rclcpp::Time(123, 456000000, RCL_ROS_TIME);
   path_with_vel.toMsg(path_with_vel_msg);
   ASSERT_EQ(path_with_vel_msg.poses.size(), 6);
   for (size_t i = 0; i < path_with_vel.size(); ++i) {
@@ -377,11 +378,4 @@ TEST(Path2D, EstimatedTimeOfArrivals)
   for (size_t p = 4; p < etas.size(); ++p) {
     EXPECT_NEAR(etas[p], expected_eta + (p - 3) * turn_dist / linear_speed, 1.0e-6);
   }
-}
-
-int main(int argc, char ** argv)
-{
-  testing::InitGoogleTest(&argc, argv);
-
-  return RUN_ALL_TESTS();
 }
