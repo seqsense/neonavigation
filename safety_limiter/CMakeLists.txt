@@ -28,6 +28,8 @@ generate_dynamic_reconfigure_options(
 )
 
 catkin_package(
+  INCLUDE_DIRS include
+  LIBRARIES safety_limiter_core
   CATKIN_DEPENDS ${CATKIN_DEPENDS}
 )
 
@@ -35,7 +37,7 @@ catkin_package(
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-include_directories(${catkin_INCLUDE_DIRS} ${PCL_INCLUDE_DIRS} ${Eigen_INCLUDE_DIRS})
+include_directories(include ${catkin_INCLUDE_DIRS} ${PCL_INCLUDE_DIRS} ${Eigen_INCLUDE_DIRS})
 add_definitions(${PCL_DEFINITIONS})
 
 
@@ -58,8 +60,12 @@ remove_definitions(-DDISABLE_LIBUSB-1.0)
 add_definitions(-DPCL_NO_PRECOMPILE)
 
 
-add_executable(safety_limiter src/safety_limiter.cpp)
-target_link_libraries(safety_limiter ${catkin_LIBRARIES} ${PCL_LIBRARIES})
+add_library(safety_limiter_core src/safety_limiter.cpp)
+target_link_libraries(safety_limiter_core ${catkin_LIBRARIES} ${PCL_LIBRARIES})
+add_dependencies(safety_limiter_core ${catkin_EXPORTED_TARGETS})
+
+add_executable(safety_limiter src/safety_limiter_node.cpp)
+target_link_libraries(safety_limiter safety_limiter_core ${catkin_LIBRARIES} ${PCL_LIBRARIES})
 add_dependencies(safety_limiter ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg)
 
 if(CATKIN_ENABLE_TESTING)
@@ -76,7 +82,12 @@ endif()
 
 install(TARGETS
     safety_limiter
+    safety_limiter_core
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+
+install(DIRECTORY include/${PROJECT_NAME}/
+  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
 )
