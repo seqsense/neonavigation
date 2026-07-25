@@ -107,6 +107,31 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
     # excluded. The existing license text is kept as-is.
     list(APPEND AMENT_LINT_AUTO_EXCLUDE ament_cmake_copyright)
     ament_lint_auto_find_test_dependencies()
+
+    find_package(ament_cmake_gtest REQUIRED)
+    find_package(launch_testing_ament_cmake REQUIRED)
+
+    # The ROS 1 rostest sources live under test/ (AMENT_IGNORE'd); the ROS 2
+    # port lives under test_ros2/ so it is picked up by ament lint while the
+    # untouched ROS 1 test definitions stay excluded.
+
+    # The sample OBJ consumed by the integration test is installed into the
+    # package share so the launch description can locate it via
+    # get_package_share_directory.
+    install(FILES test/data/sample.obj
+      DESTINATION share/${PROJECT_NAME}/test/data)
+
+    # Integration test gtest binary driven by launch_testing (mirrors the ROS 1
+    # obj_to_pointcloud_rostest.test). It owns its main() / rclcpp::init, so it
+    # is built as a plain executable and started as a node by the launch
+    # harness, which checks its exit code after shutdown.
+    ament_add_gtest_executable(ros2_test_obj_to_pointcloud
+      test_ros2/src/ros2_test_obj_to_pointcloud.cpp)
+    ament_target_dependencies(ros2_test_obj_to_pointcloud rclcpp sensor_msgs)
+    install(TARGETS ros2_test_obj_to_pointcloud DESTINATION lib/${PROJECT_NAME})
+
+    add_launch_test(test_ros2/test/test_obj_to_pointcloud_launch.py
+      TIMEOUT 120)
   endif()
 
   ament_auto_package()
