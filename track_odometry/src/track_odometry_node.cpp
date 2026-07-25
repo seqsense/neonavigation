@@ -46,6 +46,9 @@
 
 #include <track_odometry/track_odometry.h>
 
+#include <sq_ros1_compat/logger.hpp>
+#include <sq_ros1_compat/msg_ptr.hpp>
+
 #include <neonavigation_common/compatibility.h>
 
 class TrackOdometryNode
@@ -91,11 +94,12 @@ private:
   }
   void cbImu(const sensor_msgs::Imu::ConstPtr& msg)
   {
-    track_odometry_.processImu(msg);
+    track_odometry_.processImu(sq_ros1_compat::to_std(msg));
   }
   void cbOdom(const nav_msgs::Odometry::ConstPtr& msg)
   {
-    const track_odometry::TrackOdometry::OdomResult result = track_odometry_.processOdom(msg);
+    const track_odometry::TrackOdometry::OdomResult result =
+        track_odometry_.processOdom(sq_ros1_compat::to_std(msg));
     if (result.valid)
     {
       pub_odom_.publish(result.odom);
@@ -109,7 +113,7 @@ public:
     : nh_()
     , pnh_("~")
     , tf_listener_(tf_buffer_)
-    , track_odometry_(tf_buffer_)
+    , track_odometry_(tf_buffer_, sq_ros1_compat::get_logger("track_odometry"))
   {
     neonavigation_common::compat::checkCompatMode();
 

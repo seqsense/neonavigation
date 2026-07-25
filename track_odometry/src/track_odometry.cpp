@@ -29,46 +29,46 @@
 
 #include <cmath>
 #include <limits>
+#include <memory>
 
-#include <Eigen/Core>
-#include <Eigen/Geometry>
+#include "Eigen/Core"
+#include "Eigen/Geometry"
 
-#include <ros/ros.h>
+#include "geometry_msgs/msg/point.hpp"
+#include "geometry_msgs/msg/quaternion.hpp"
+#include "geometry_msgs/msg/quaternion_stamped.hpp"
+#include "geometry_msgs/msg/transform_stamped.hpp"
+#include "geometry_msgs/msg/vector3.hpp"
+#include "geometry_msgs/msg/vector3_stamped.hpp"
 
-#include <geometry_msgs/Point.h>
-#include <geometry_msgs/Quaternion.h>
-#include <geometry_msgs/QuaternionStamped.h>
-#include <geometry_msgs/TransformStamped.h>
-#include <geometry_msgs/Vector3.h>
-#include <geometry_msgs/Vector3Stamped.h>
+#include "rclcpp/rclcpp.hpp"
+#include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 
-#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-
-#include <track_odometry/track_odometry.h>
+#include "track_odometry/track_odometry.h"
 
 namespace track_odometry
 {
 namespace
 {
-Eigen::Vector3d toEigen(const geometry_msgs::Point& a)
+Eigen::Vector3d toEigen(const geometry_msgs::msg::Point& a)
 {
   return Eigen::Vector3d(a.x, a.y, a.z);
 }
-Eigen::Quaterniond toEigen(const geometry_msgs::Quaternion& a)
+Eigen::Quaterniond toEigen(const geometry_msgs::msg::Quaternion& a)
 {
   return Eigen::Quaterniond(a.w, a.x, a.y, a.z);
 }
-geometry_msgs::Point toPoint(const Eigen::Vector3d& a)
+geometry_msgs::msg::Point toPoint(const Eigen::Vector3d& a)
 {
-  geometry_msgs::Point b;
+  geometry_msgs::msg::Point b;
   b.x = a.x();
   b.y = a.y();
   b.z = a.z();
   return b;
 }
-geometry_msgs::Vector3 toVector3(const Eigen::Vector3d& a)
+geometry_msgs::msg::Vector3 toVector3(const Eigen::Vector3d& a)
 {
-  geometry_msgs::Vector3 b;
+  geometry_msgs::msg::Vector3 b;
   b.x = a.x();
   b.y = a.y();
   b.z = a.z();
@@ -76,8 +76,9 @@ geometry_msgs::Vector3 toVector3(const Eigen::Vector3d& a)
 }
 }  // namespace
 
-TrackOdometry::TrackOdometry(tf2_ros::Buffer& tf_buffer)
+TrackOdometry::TrackOdometry(tf2_ros::Buffer& tf_buffer, const rclcpp::Logger& logger)
   : tf_buffer_(tf_buffer)
+  , logger_(logger)
   , z_filter_timeconst_(-1.0)
   , dist_(0.0)
   , has_imu_(false)
@@ -103,45 +104,46 @@ void TrackOdometry::resetZ(const double z)
   odom_prev_.pose.pose.position.z = z;
 }
 
-void TrackOdometry::processImu(const sensor_msgs::Imu::ConstPtr& msg)
+void TrackOdometry::processImu(const std::shared_ptr<const sensor_msgs::msg::Imu>& msg)
 {
   if (base_link_id_.size() == 0)
   {
-    ROS_ERROR("base_link id is not specified.");
+    RCLCPP_ERROR(logger_, "base_link id is not specified.");
     return;
   }
 
   imu_.header = msg->header;
   try
   {
-    geometry_msgs::TransformStamped trans = tf_buffer_.lookupTransform(
-        base_link_id_, msg->header.frame_id, ros::Time(0), ros::Duration(0.1));
+    geometry_msgs::msg::TransformStamped trans = tf_buffer_.lookupTransform(
+        base_link_id_, msg->header.frame_id, rclcpp::Time(0, 0, RCL_ROS_TIME),
+        rclcpp::Duration::from_seconds(0.1));
 
-    geometry_msgs::Vector3Stamped vin, vout;
+    geometry_msgs::msg::Vector3Stamped vin, vout;
     vin.header = imu_.header;
-    vin.header.stamp = ros::Time(0);
+    vin.header.stamp = rclcpp::Time(0, 0, RCL_ROS_TIME);
     vin.vector = msg->linear_acceleration;
     tf2::doTransform(vin, vout, trans);
     imu_.linear_acceleration = vout.vector;
 
     vin.header = imu_.header;
-    vin.header.stamp = ros::Time(0);
+    vin.header.stamp = rclcpp::Time(0, 0, RCL_ROS_TIME);
     vin.vector = msg->angular_velocity;
     tf2::doTransform(vin, vout, trans);
     imu_.angular_velocity = vout.vector;
 
     tf2::Stamped<tf2::Quaternion> qin, qout;
-    geometry_msgs::QuaternionStamped qmin, qmout;
+    geometry_msgs::msg::QuaternionStamped qmin, qmout;
     qmin.header = imu_.header;
     qmin.quaternion = msg->orientation;
     tf2::fromMsg(qmin, qin);
 
     auto axis = qin.getAxis();
     auto angle = qin.getAngle();
-    geometry_msgs::Vector3Stamped axis2;
-    geometry_msgs::Vector3Stamped axis1;
+    geometry_msgs::msg::Vector3Stamped axis2;
+    geometry_msgs::msg::Vector3Stamped axis1;
     axis1.vector = tf2::toMsg(axis);
-    axis1.header.stamp = ros::Time(0);
+    axis1.header.stamp = rclcpp::Time(0, 0, RCL_ROS_TIME);
     axis1.header.frame_id = qin.frame_id_;
     tf2::doTransform(axis1, axis2, trans);
 
@@ -160,19 +162,20 @@ void TrackOdometry::processImu(const sensor_msgs::Imu::ConstPtr& msg)
   }
   catch (tf2::TransformException& e)
   {
-    ROS_ERROR("%s", e.what());
+    RCLCPP_ERROR(logger_, "%s", e.what());
     has_imu_ = false;
     return;
   }
 }
 
-TrackOdometry::OdomResult TrackOdometry::processOdom(const nav_msgs::Odometry::ConstPtr& msg)
+TrackOdometry::OdomResult TrackOdometry::processOdom(const std::shared_ptr<const nav_msgs::msg::Odometry>& msg)
 {
   OdomResult result;
-  nav_msgs::Odometry odom = *msg;
+  nav_msgs::msg::Odometry odom = *msg;
   if (has_odom_)
   {
-    const double dt = (odom.header.stamp - odomraw_prev_.header.stamp).toSec();
+    const double dt =
+        (rclcpp::Time(odom.header.stamp) - rclcpp::Time(odomraw_prev_.header.stamp)).seconds();
     if (params_.base_link_id_overwrite.size() == 0)
     {
       base_link_id_ = odom.child_frame_id;
@@ -180,12 +183,13 @@ TrackOdometry::OdomResult TrackOdometry::processOdom(const nav_msgs::Odometry::C
 
     if (!has_imu_)
     {
-      ROS_ERROR_THROTTLE(1.0, "IMU data not received");
+      rclcpp::Clock clock(RCL_ROS_TIME);
+      RCLCPP_ERROR_THROTTLE(logger_, clock, 1000, "IMU data not received");
       return result;
     }
 
     double slip_ratio = 1.0;
-    odom.header.stamp += ros::Duration(params_.tf_tolerance);
+    odom.header.stamp = rclcpp::Time(odom.header.stamp) + rclcpp::Duration::from_seconds(params_.tf_tolerance);
     odom.twist.twist.angular = imu_.angular_velocity;
     odom.pose.pose.orientation = imu_.orientation;
 
@@ -240,7 +244,7 @@ TrackOdometry::OdomResult TrackOdometry::processOdom(const nav_msgs::Odometry::C
 
     odom.child_frame_id = base_link_id_;
 
-    geometry_msgs::TransformStamped odom_trans;
+    geometry_msgs::msg::TransformStamped odom_trans;
     odom_trans.header = odom.header;
     odom_trans.child_frame_id = base_link_id_;
     odom_trans.transform.translation = toVector3(toEigen(odom.pose.pose.position));

@@ -30,15 +30,17 @@
 #ifndef TRACK_ODOMETRY_TRACK_ODOMETRY_H
 #define TRACK_ODOMETRY_TRACK_ODOMETRY_H
 
+#include <memory>
 #include <string>
 
-#include <geometry_msgs/TransformStamped.h>
-#include <nav_msgs/Odometry.h>
-#include <sensor_msgs/Imu.h>
+#include "geometry_msgs/msg/transform_stamped.hpp"
+#include "nav_msgs/msg/odometry.hpp"
+#include "sensor_msgs/msg/imu.hpp"
 
-#include <tf2_ros/buffer.h>
+#include "rclcpp/rclcpp.hpp"
+#include "tf2_ros/buffer.h"
 
-#include <track_odometry/kalman_filter1.h>
+#include "track_odometry/kalman_filter1.h"
 
 namespace track_odometry
 {
@@ -66,7 +68,8 @@ struct TrackOdometryParams
 };
 
 // IMU/odometry Kalman fusion logic separated from the ROS interface.
-// Message types, ros::Time and ROS_* logging are used in ROS1 style on purpose;
+// Message types, time and logging use the ROS 2 (rclcpp) surface, which on
+// ROS 1 is provided by sq_ros1_rclcpp_compat so the same source builds on both;
 // node handles, publishers, subscribers, message_filters and parameter access
 // stay in the interface layer.
 class TrackOdometry
@@ -77,35 +80,36 @@ public:
   struct OdomResult
   {
     bool valid = false;
-    nav_msgs::Odometry odom;
-    geometry_msgs::TransformStamped transform;
+    nav_msgs::msg::Odometry odom;
+    geometry_msgs::msg::TransformStamped transform;
   };
 
-  explicit TrackOdometry(tf2_ros::Buffer& tf_buffer);
+  TrackOdometry(tf2_ros::Buffer& tf_buffer, const rclcpp::Logger& logger);
 
   void setParameters(const TrackOdometryParams& params);
 
   // Transform the incoming IMU into the base_link frame and cache it.
-  void processImu(const sensor_msgs::Imu::ConstPtr& msg);
+  void processImu(const std::shared_ptr<const sensor_msgs::msg::Imu>& msg);
 
   // Fuse the cached IMU with the incoming odometry and return the corrected
   // odometry together with the corresponding transform.
-  OdomResult processOdom(const nav_msgs::Odometry::ConstPtr& msg);
+  OdomResult processOdom(const std::shared_ptr<const nav_msgs::msg::Odometry>& msg);
 
   // Override the z component of the previous odometry pose (reset_z topic).
   void resetZ(const double z);
 
 private:
   tf2_ros::Buffer& tf_buffer_;
+  rclcpp::Logger logger_;
 
   TrackOdometryParams params_;
   double z_filter_timeconst_;
 
   std::string base_link_id_;
 
-  nav_msgs::Odometry odom_prev_;
-  nav_msgs::Odometry odomraw_prev_;
-  sensor_msgs::Imu imu_;
+  nav_msgs::msg::Odometry odom_prev_;
+  nav_msgs::msg::Odometry odomraw_prev_;
+  sensor_msgs::msg::Imu imu_;
 
   KalmanFilter1 slip_;
   double dist_;
