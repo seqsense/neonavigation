@@ -20,6 +20,8 @@ set(CATKIN_DEPENDS
 find_package(catkin REQUIRED COMPONENTS ${CATKIN_DEPENDS})
 find_package(Eigen3 REQUIRED)
 catkin_package(
+  INCLUDE_DIRS include
+  LIBRARIES track_odometry
   CATKIN_DEPENDS ${CATKIN_DEPENDS}
 )
 
@@ -30,9 +32,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include_directories(include ${catkin_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIR})
 
 
-add_executable(track_odometry src/track_odometry.cpp)
+add_library(track_odometry src/track_odometry.cpp)
 target_link_libraries(track_odometry ${catkin_LIBRARIES})
 add_dependencies(track_odometry ${catkin_EXPORTED_TARGETS})
+
+add_executable(track_odometry_node src/track_odometry_node.cpp)
+set_target_properties(track_odometry_node PROPERTIES OUTPUT_NAME track_odometry)
+target_link_libraries(track_odometry_node track_odometry ${catkin_LIBRARIES})
+add_dependencies(track_odometry_node ${catkin_EXPORTED_TARGETS})
 
 add_executable(tf_projection src/tf_projection_node.cpp src/tf_projection.cpp)
 target_link_libraries(tf_projection ${catkin_LIBRARIES})
@@ -52,7 +59,12 @@ endif()
 install(TARGETS
     tf_projection
     track_odometry
+    track_odometry_node
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+
+install(DIRECTORY include/${PROJECT_NAME}/
+  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
 )
