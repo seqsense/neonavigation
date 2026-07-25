@@ -27,6 +27,8 @@ if(NEW_YAMLCPP_FOUND)
 endif()
 
 catkin_package(
+  INCLUDE_DIRS include
+  LIBRARIES pointcloud_to_maps_core
   CATKIN_DEPENDS ${CATKIN_DEPENDS}
 )
 
@@ -34,7 +36,7 @@ catkin_package(
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-include_directories(${catkin_INCLUDE_DIRS} ${PCL_INCLUDE_DIRS} ${Eigen3_INCLUDE_DIRS})
+include_directories(include ${catkin_INCLUDE_DIRS} ${PCL_INCLUDE_DIRS} ${Eigen3_INCLUDE_DIRS})
 add_definitions(${PCL_DEFINITIONS})
 
 
@@ -57,8 +59,12 @@ remove_definitions(-DDISABLE_LIBUSB-1.0)
 add_definitions(-DPCL_NO_PRECOMPILE)
 
 
-add_executable(pointcloud_to_maps src/pointcloud_to_maps.cpp)
-target_link_libraries(pointcloud_to_maps ${catkin_LIBRARIES} ${PCL_LIBRARIES})
+add_library(pointcloud_to_maps_core src/pointcloud_to_maps.cpp)
+target_link_libraries(pointcloud_to_maps_core ${catkin_LIBRARIES} ${PCL_LIBRARIES})
+add_dependencies(pointcloud_to_maps_core ${catkin_EXPORTED_TARGETS})
+
+add_executable(pointcloud_to_maps src/pointcloud_to_maps_node.cpp)
+target_link_libraries(pointcloud_to_maps pointcloud_to_maps_core ${catkin_LIBRARIES} ${PCL_LIBRARIES})
 add_dependencies(pointcloud_to_maps ${catkin_EXPORTED_TARGETS})
 
 add_executable(tie_maps src/tie_maps.cpp)
@@ -90,6 +96,7 @@ endif()
 
 install(TARGETS
     pointcloud_to_maps
+    pointcloud_to_maps_core
     pose_transform
     save_maps
     select_map
@@ -97,4 +104,8 @@ install(TARGETS
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+
+install(DIRECTORY include/${PROJECT_NAME}/
+  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
 )
