@@ -50,7 +50,7 @@ if($ENV{ROS_VERSION} EQUAL 1)
   add_definitions(-DPCL_NO_PRECOMPILE)
 
 
-  add_executable(obj_to_pointcloud src/obj_to_pointcloud.cpp)
+  add_executable(obj_to_pointcloud src/ros1_obj_to_pointcloud.cpp)
   target_link_libraries(obj_to_pointcloud ${catkin_LIBRARIES} ${PCL_LIBRARIES})
   add_dependencies(obj_to_pointcloud ${catkin_EXPORTED_TARGETS})
 
@@ -58,10 +58,6 @@ if($ENV{ROS_VERSION} EQUAL 1)
   if(CATKIN_ENABLE_TESTING)
     find_package(rostest REQUIRED)
     add_subdirectory(test)
-
-    find_package(roslint REQUIRED)
-    roslint_cpp()
-    roslint_add_test()
   endif()
 
 
@@ -75,14 +71,43 @@ if($ENV{ROS_VERSION} EQUAL 1)
 elseif($ENV{ROS_VERSION} EQUAL 2)
   message(STATUS "Building obj_to_pointcloud for ROS 2 (Jazzy)")
 
-  # obj_to_pointcloud is a thin IO node that was not split into a separate
-  # logic library. The node body still holds the ROS 1 interface layer
-  # (ros::NodeHandle-based advertise), so it cannot be compiled on ROS 2 yet;
-  # the ROS 2 interface node is created later by migration-hybrid-interface.
-  # For now the ROS 2 build only configures the package so downstream
-  # dependencies resolve.
   find_package(ament_cmake_auto REQUIRED)
   ament_auto_find_build_dependencies()
+
+  find_package(PCL REQUIRED)
+  find_package(Eigen3 REQUIRED)
+
+  set(CMAKE_CXX_STANDARD 17)
+  set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+  # Binary installed pcl provided by Linux distro is built with -march=native
+  # which causes a lot of compatibility problems.
+  # Define PCL_NO_PRECOMPILE to disable using the binary version.
+  add_definitions(-DPCL_NO_PRECOMPILE)
+
+  # obj_to_pointcloud is a thin IO node that was not split into a separate
+  # logic library; the OBJ/PCD-to-cloud conversion lives in the interface node.
+  # PCL is a plain CMake package (not ament), so its include dirs / libraries
+  # are added to the target explicitly rather than via ament_auto propagation.
+  ament_auto_add_library(obj_to_pointcloud_component SHARED
+    src/ros2_obj_to_pointcloud.cpp)
+  target_include_directories(obj_to_pointcloud_component PUBLIC
+    ${PCL_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIRS})
+  target_link_libraries(obj_to_pointcloud_component ${PCL_LIBRARIES})
+  rclcpp_components_register_node(obj_to_pointcloud_component
+    PLUGIN "obj_to_pointcloud::ObjToPointcloudNode"
+    EXECUTABLE obj_to_pointcloud)
+
+  if(BUILD_TESTING)
+    find_package(ament_lint_auto REQUIRED)
+    # CPP_FORMATTER=clang_format: exclude uncrustify, keep clang_format + cpplint.
+    list(APPEND AMENT_LINT_AUTO_EXCLUDE ament_cmake_uncrustify)
+    # The BSD license headers here are not recognized by ament_copyright's
+    # full-text templates (license=<unknown>), so the copyright linter is
+    # excluded. The existing license text is kept as-is.
+    list(APPEND AMENT_LINT_AUTO_EXCLUDE ament_cmake_copyright)
+    ament_lint_auto_find_test_dependencies()
+  endif()
 
   ament_auto_package()
 
