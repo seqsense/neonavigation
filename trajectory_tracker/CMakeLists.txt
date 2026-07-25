@@ -27,6 +27,7 @@ generate_dynamic_reconfigure_options(
 
 catkin_package(
   INCLUDE_DIRS include
+  LIBRARIES trajectory_tracker_controller
   CATKIN_DEPENDS ${CATKIN_DEPENDS}
 )
 
@@ -37,8 +38,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include_directories(include ${catkin_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS})
 
 
+add_library(trajectory_tracker_controller src/tracker_controller.cpp)
+target_link_libraries(trajectory_tracker_controller ${catkin_LIBRARIES})
+add_dependencies(trajectory_tracker_controller ${catkin_EXPORTED_TARGETS})
+
 add_executable(trajectory_tracker src/trajectory_tracker.cpp)
-target_link_libraries(trajectory_tracker ${catkin_LIBRARIES})
+target_link_libraries(trajectory_tracker trajectory_tracker_controller ${catkin_LIBRARIES})
 add_dependencies(trajectory_tracker ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg)
 
 add_executable(trajectory_recorder src/trajectory_recorder.cpp)
@@ -69,6 +74,7 @@ install(TARGETS
     trajectory_saver
     trajectory_server
     trajectory_tracker
+    trajectory_tracker_controller
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
