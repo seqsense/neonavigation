@@ -30,12 +30,14 @@
 #ifndef MAP_ORGANIZER_POINTCLOUD_TO_MAPS_H
 #define MAP_ORGANIZER_POINTCLOUD_TO_MAPS_H
 
-#include <nav_msgs/OccupancyGrid.h>
-#include <std_msgs/Header.h>
-#include <map_organizer_msgs/OccupancyGridArray.h>
+#include "map_organizer_msgs/msg/occupancy_grid_array.hpp"
+#include "nav_msgs/msg/occupancy_grid.hpp"
+#include "std_msgs/msg/header.hpp"
 
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
+#include "pcl/point_cloud.h"
+#include "pcl/point_types.h"
+
+#include "rclcpp/rclcpp.hpp"
 
 namespace map_organizer
 {
@@ -60,9 +62,13 @@ public:
     double floor_area_thresh_rate = 0.8;  // ratio of the largest runnable area
   };
 
-  PointcloudToMaps() = default;
-  explicit PointcloudToMaps(const Config& config)
+  explicit PointcloudToMaps(const rclcpp::Logger& logger)
+    : logger_(logger)
+  {
+  }
+  PointcloudToMaps(const Config& config, const rclcpp::Logger& logger)
     : config_(config)
+    , logger_(logger)
   {
   }
 
@@ -78,12 +84,13 @@ public:
   // Generate the layered occupancy grids from a point cloud. The header is
   // copied into every produced map. The returned array contains one map per
   // accepted floor, in ascending height order.
-  map_organizer_msgs::OccupancyGridArray generateMaps(
+  map_organizer_msgs::msg::OccupancyGridArray generateMaps(
       const pcl::PointCloud<pcl::PointXYZ>& pc,
-      const std_msgs::Header& header) const;
+      const std_msgs::msg::Header& header) const;
 
 private:
   Config config_;
+  rclcpp::Logger logger_;
 };
 }  // namespace map_organizer
 

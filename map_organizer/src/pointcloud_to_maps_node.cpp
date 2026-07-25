@@ -42,6 +42,8 @@
 
 #include <neonavigation_common/compatibility.h>
 
+#include <sq_ros1_compat/logger.hpp>
+
 #include <map_organizer/pointcloud_to_maps.h>
 
 class PointcloudToMapsNode
@@ -78,7 +80,7 @@ public:
     pnh_.param("min_floor_area", config.min_floor_area, 100.0);
     pnh_.param("floor_area_thresh_rate", config.floor_area_thresh_rate, 0.8);
 
-    map_organizer::PointcloudToMaps p2m(config);
+    map_organizer::PointcloudToMaps p2m(config, sq_ros1_compat::get_logger("pointcloud_to_maps"));
     const map_organizer_msgs::OccupancyGridArray map_array =
         p2m.generateMaps(*pc, msg->header);
 

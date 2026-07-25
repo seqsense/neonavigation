@@ -35,22 +35,23 @@
 #include <utility>
 #include <vector>
 
-#include <ros/console.h>
+#include "map_organizer_msgs/msg/occupancy_grid_array.hpp"
+#include "nav_msgs/msg/map_meta_data.hpp"
+#include "nav_msgs/msg/occupancy_grid.hpp"
+#include "std_msgs/msg/header.hpp"
 
-#include <nav_msgs/OccupancyGrid.h>
-#include <std_msgs/Header.h>
-#include <map_organizer_msgs/OccupancyGridArray.h>
+#include "pcl/point_cloud.h"
+#include "pcl/point_types.h"
 
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
+#include "rclcpp/rclcpp.hpp"
 
-#include <map_organizer/pointcloud_to_maps.h>
+#include "map_organizer/pointcloud_to_maps.h"
 
 namespace map_organizer
 {
-map_organizer_msgs::OccupancyGridArray PointcloudToMaps::generateMaps(
+map_organizer_msgs::msg::OccupancyGridArray PointcloudToMaps::generateMaps(
     const pcl::PointCloud<pcl::PointXYZ>& pc,
-    const std_msgs::Header& header) const
+    const std_msgs::msg::Header& header) const
 {
   const double grid = config_.grid;
   const double points_thresh_rate = config_.points_thresh_rate;
@@ -94,15 +95,15 @@ map_organizer_msgs::OccupancyGridArray PointcloudToMaps::generateMaps(
   for (int i = min_height; i <= max_height; i++)
     floor_area[i] = 0;
 
-  nav_msgs::MapMetaData mmd;
+  nav_msgs::msg::MapMetaData mmd;
   mmd.resolution = grid;
   mmd.origin.position.x = x_min * grid;
   mmd.origin.position.y = y_min * grid;
   mmd.origin.orientation.w = 1.0;
   mmd.width = x_max - x_min + 1;
   mmd.height = y_max - y_min + 1;
-  ROS_INFO("width %d, height %d", mmd.width, mmd.height);
-  std::vector<nav_msgs::OccupancyGrid> maps;
+  RCLCPP_INFO(logger_, "width %d, height %d", mmd.width, mmd.height);
+  std::vector<nav_msgs::msg::OccupancyGrid> maps;
 
   int hist_max = std::numeric_limits<int>::lowest();
   for (const auto& h : hist)
@@ -166,7 +167,7 @@ map_organizer_msgs::OccupancyGridArray PointcloudToMaps::generateMaps(
     {
       if (floor_runnable_area[i] > floor_area_filter)
       {
-        nav_msgs::OccupancyGrid map;
+        nav_msgs::msg::OccupancyGrid map;
         map.info = mmd;
         map.info.origin.position.z = i * grid;
         map.header = header;
@@ -189,7 +190,7 @@ map_organizer_msgs::OccupancyGridArray PointcloudToMaps::generateMaps(
       }
     }
   }
-  ROS_INFO("Floor candidates: %d", map_num);
+  RCLCPP_INFO(logger_, "Floor candidates: %d", map_num);
   auto it_prev = maps.rbegin();
   for (auto it = maps.rbegin() + 1; it != maps.rend() && it_prev != maps.rend(); it++)
   {
@@ -225,30 +226,35 @@ map_organizer_msgs::OccupancyGridArray PointcloudToMaps::generateMaps(
   }
   for (int i = max_height; i >= min_height; i--)
   {
-    printf(" %6.2f ", i * grid);
+    char buf[128];
+    std::string line;
+    std::snprintf(buf, sizeof(buf), " %6.2f ", i * grid);
+    line += buf;
     for (int j = 0; j <= 16; j++)
     {
       if (j <= hist[i] * 16 / hist_max)
-        printf("#");
+        line += "#";
       else
-        printf(" ");
+        line += " ";
     }
     if (floor_runnable_area[i] == 0.0)
-      printf("  (%7d points)\n", hist[i]);
+      std::snprintf(buf, sizeof(buf), "  (%7d points)", hist[i]);
     else
-      printf("  (%7d points, %5.2f m^2 of floor)\n", hist[i], floor_runnable_area[i]);
+      std::snprintf(buf, sizeof(buf), "  (%7d points, %5.2f m^2 of floor)", hist[i], floor_runnable_area[i]);
+    line += buf;
+    RCLCPP_INFO(logger_, "%s", line.c_str());
   }
   int num = -1;
   int floor_num = 0;
-  map_organizer_msgs::OccupancyGridArray map_array;
+  map_organizer_msgs::msg::OccupancyGridArray map_array;
   for (auto& map : maps)
   {
     num++;
     int h = map.info.origin.position.z / grid;
     if (floor_runnable_area[h] < min_floor_area)
     {
-      ROS_WARN("floor %d (%5.2fm^2), h = %0.2fm skipped",
-               floor_num, floor_runnable_area[num], map.info.origin.position.z);
+      RCLCPP_WARN(logger_, "floor %d (%5.2fm^2), h = %0.2fm skipped",
+                  floor_num, floor_runnable_area[num], map.info.origin.position.z);
       continue;
     }
 
@@ -302,8 +308,8 @@ map_organizer_msgs::OccupancyGridArray PointcloudToMaps::generateMaps(
     }
 
     map_array.maps.push_back(map);
-    ROS_WARN("floor %d (%5.2fm^2), h = %0.2fm",
-             floor_num, floor_runnable_area[h], map.info.origin.position.z);
+    RCLCPP_WARN(logger_, "floor %d (%5.2fm^2), h = %0.2fm",
+                floor_num, floor_runnable_area[h], map.info.origin.position.z);
     floor_num++;
   }
   return map_array;
