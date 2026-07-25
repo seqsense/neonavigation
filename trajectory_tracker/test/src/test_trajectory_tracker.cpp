@@ -27,108 +27,89 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <trajectory_tracker_test.h>
+
 #include <algorithm>
 #include <string>
 #include <vector>
-
-#include <trajectory_tracker_test.h>
 
 TEST_F(TrajectoryTrackerTest, StraightStop)
 {
   initState(Eigen::Vector2d(0, 0), 0);
 
   std::vector<Eigen::Vector3d> poses;
-  for (double x = 0.0; x < 0.5; x += 0.01)
-    poses.push_back(Eigen::Vector3d(x, 0.0, 0.0));
+  for (double x = 0.0; x < 0.5; x += 0.01) poses.push_back(Eigen::Vector3d(x, 0.0, 0.0));
   poses.push_back(Eigen::Vector3d(0.5, 0.0, 0.0));
   waitUntilStart(std::bind(&TrajectoryTrackerTest::publishPath, this, poses));
 
   ros::Rate rate(50);
   const ros::Time start = ros::Time::now();
-  while (ros::ok())
-  {
-    if (ros::Time::now() > start + ros::Duration(10.0))
-    {
-      FAIL()
-          << "Timeout" << std::endl
-          << "Pos " << getPos() << std::endl
-          << "Yaw " << getYaw() << std::endl
-          << "Status " << std::endl
-          << status_ << std::endl;
+  while (ros::ok()) {
+    if (ros::Time::now() > start + ros::Duration(10.0)) {
+      FAIL() << "Timeout" << std::endl
+             << "Pos " << getPos() << std::endl
+             << "Yaw " << getYaw() << std::endl
+             << "Status " << std::endl
+             << status_ << std::endl;
     }
 
     publishTransform();
     rate.sleep();
     ros::spinOnce();
-    if (status_->status == trajectory_tracker_msgs::TrajectoryTrackerStatus::GOAL)
-      break;
+    if (status_->status == trajectory_tracker_msgs::TrajectoryTrackerStatus::GOAL) break;
   }
-  for (int j = 0; j < 5; ++j)
-  {
-    for (int i = 0; i < 5; ++i)
-    {
+  for (int j = 0; j < 5; ++j) {
+    for (int i = 0; i < 5; ++i) {
       publishTransform();
       rate.sleep();
       ros::spinOnce();
     }
 
     // Check multiple times to assert overshoot.
-    ASSERT_NEAR(getYaw(), 0.0, error_ang_)
-        << "[overshoot after goal (" << j << ")] ";
-    ASSERT_NEAR(getPos()[0], 0.5, error_lin_)
-        << "[overshoot after goal (" << j << ")] ";
-    ASSERT_NEAR(getPos()[1], 0.0, error_lin_)
-        << "[overshoot after goal (" << j << ")] ";
+    ASSERT_NEAR(getYaw(), 0.0, error_ang_) << "[overshoot after goal (" << j << ")] ";
+    ASSERT_NEAR(getPos()[0], 0.5, error_lin_) << "[overshoot after goal (" << j << ")] ";
+    ASSERT_NEAR(getPos()[1], 0.0, error_lin_) << "[overshoot after goal (" << j << ")] ";
   }
   ASSERT_EQ(last_path_header_.stamp, status_->path_header.stamp);
 }
 
 TEST_F(TrajectoryTrackerTest, StraightStopOvershoot)
 {
-  const double resolutions[] =
-      {
-          0.1,
-          0.001,  // default epsilon
-          0.0001,
-      };
-  for (const double resolution : resolutions)
-  {
+  const double resolutions[] = {
+    0.1,
+    0.001,  // default epsilon
+    0.0001,
+  };
+  for (const double resolution : resolutions) {
     const std::string info_message = "resolution: " + std::to_string(resolution);
 
     initState(Eigen::Vector2d(1, 0), 0);
 
     std::vector<Eigen::Vector3d> poses;
-    for (double x = 0.0; x < 0.5 - resolution; x += 0.1)
-      poses.push_back(Eigen::Vector3d(x, 0, 0));
+    for (double x = 0.0; x < 0.5 - resolution; x += 0.1) poses.push_back(Eigen::Vector3d(x, 0, 0));
     poses.push_back(Eigen::Vector3d(0.5 - resolution, 0, 0));
     poses.push_back(Eigen::Vector3d(0.5, 0, 0));
     waitUntilStart(std::bind(&TrajectoryTrackerTest::publishPath, this, poses));
 
     ros::Rate rate(50);
     const ros::Time start = ros::Time::now();
-    while (ros::ok())
-    {
-      if (ros::Time::now() > start + ros::Duration(10.0))
-      {
-        FAIL()
-            << "Timeout" << std::endl
-            << "Pos " << getPos() << std::endl
-            << "Yaw " << getYaw() << std::endl
-            << "Status " << std::endl
-            << status_ << std::endl
-            << info_message;
+    while (ros::ok()) {
+      if (ros::Time::now() > start + ros::Duration(10.0)) {
+        FAIL() << "Timeout" << std::endl
+               << "Pos " << getPos() << std::endl
+               << "Yaw " << getYaw() << std::endl
+               << "Status " << std::endl
+               << status_ << std::endl
+               << info_message;
       }
 
       publishTransform();
       rate.sleep();
       ros::spinOnce();
-      if (status_->status == trajectory_tracker_msgs::TrajectoryTrackerStatus::GOAL)
-        break;
+      if (status_->status == trajectory_tracker_msgs::TrajectoryTrackerStatus::GOAL) break;
     }
-    for (int j = 0; j < 5; ++j)
-    {
-      for (int i = 0; i < 5; ++i)
-      {
+    for (int j = 0; j < 5; ++j) {
+      for (int i = 0; i < 5; ++i) {
         publishTransform();
         rate.sleep();
         ros::spinOnce();
@@ -136,14 +117,11 @@ TEST_F(TrajectoryTrackerTest, StraightStopOvershoot)
 
       // Check multiple times to assert overshoot.
       ASSERT_NEAR(getYaw(), 0.0, error_ang_)
-          << "[overshoot after goal (" << j << ")] "
-          << info_message;
+        << "[overshoot after goal (" << j << ")] " << info_message;
       EXPECT_NEAR(getPos()[0], 0.5, error_lin_)
-          << "[overshoot after goal (" << j << ")] "
-          << info_message;
+        << "[overshoot after goal (" << j << ")] " << info_message;
       ASSERT_NEAR(getPos()[1], 0.0, error_lin_)
-          << "[overshoot after goal (" << j << ")] "
-          << info_message;
+        << "[overshoot after goal (" << j << ")] " << info_message;
     }
     ASSERT_EQ(last_path_header_.stamp, status_->path_header.stamp) << info_message;
   }
@@ -153,8 +131,7 @@ TEST_F(TrajectoryTrackerTest, StraightStopConvergence)
 {
   const double vels[] = {0.02, 0.05, 0.1, 0.2, 0.5, 1.0};
   const double path_length = 2.0;
-  for (const double vel : vels)
-  {
+  for (const double vel : vels) {
     const std::string info_message = "linear vel: " + std::to_string(vel);
 
     initState(Eigen::Vector2d(0, 0.01), 0);
@@ -167,29 +144,23 @@ TEST_F(TrajectoryTrackerTest, StraightStopConvergence)
 
     ros::Rate rate(50);
     const ros::Time start = ros::Time::now();
-    while (ros::ok())
-    {
-      if (ros::Time::now() > start + ros::Duration(5.0 + path_length / vel))
-      {
-        FAIL()
-            << "Timeout" << std::endl
-            << "Pos " << getPos() << std::endl
-            << "Yaw " << getYaw() << std::endl
-            << "Status " << std::endl
-            << status_ << std::endl
-            << info_message;
+    while (ros::ok()) {
+      if (ros::Time::now() > start + ros::Duration(5.0 + path_length / vel)) {
+        FAIL() << "Timeout" << std::endl
+               << "Pos " << getPos() << std::endl
+               << "Yaw " << getYaw() << std::endl
+               << "Status " << std::endl
+               << status_ << std::endl
+               << info_message;
       }
 
       publishTransform();
       rate.sleep();
       ros::spinOnce();
-      if (status_->status == trajectory_tracker_msgs::TrajectoryTrackerStatus::GOAL)
-        break;
+      if (status_->status == trajectory_tracker_msgs::TrajectoryTrackerStatus::GOAL) break;
     }
-    for (int j = 0; j < 5; ++j)
-    {
-      for (int i = 0; i < 5; ++i)
-      {
+    for (int j = 0; j < 5; ++j) {
+      for (int i = 0; i < 5; ++i) {
         publishTransform();
         rate.sleep();
         ros::spinOnce();
@@ -197,14 +168,11 @@ TEST_F(TrajectoryTrackerTest, StraightStopConvergence)
 
       // Check multiple times to assert overshoot.
       EXPECT_NEAR(getYaw(), 0.0, error_ang_)
-          << "[overshoot after goal (" << j << ")] "
-          << info_message;
+        << "[overshoot after goal (" << j << ")] " << info_message;
       EXPECT_NEAR(getPos()[0], path_length, error_lin_)
-          << "[overshoot after goal (" << j << ")] "
-          << info_message;
+        << "[overshoot after goal (" << j << ")] " << info_message;
       EXPECT_NEAR(getPos()[1], 0.0, error_lin_)
-          << "[overshoot after goal (" << j << ")] "
-          << info_message;
+        << "[overshoot after goal (" << j << ")] " << info_message;
     }
     ASSERT_EQ(last_path_header_.stamp, status_->path_header.stamp);
   }
@@ -215,59 +183,45 @@ TEST_F(TrajectoryTrackerTest, StraightVelocityChange)
   initState(Eigen::Vector2d(0, 0), 0);
 
   std::vector<Eigen::Vector4d> poses;
-  for (double x = 0.0; x < 0.6; x += 0.01)
-    poses.push_back(Eigen::Vector4d(x, 0.0, 0.0, 0.3));
-  for (double x = 0.6; x < 1.5; x += 0.01)
-    poses.push_back(Eigen::Vector4d(x, 0.0, 0.0, 0.5));
+  for (double x = 0.0; x < 0.6; x += 0.01) poses.push_back(Eigen::Vector4d(x, 0.0, 0.0, 0.3));
+  for (double x = 0.6; x < 1.5; x += 0.01) poses.push_back(Eigen::Vector4d(x, 0.0, 0.0, 0.5));
   poses.push_back(Eigen::Vector4d(1.5, 0.0, 0.0, 0.5));
   waitUntilStart(std::bind(&TrajectoryTrackerTest::publishPathVelocity, this, poses));
 
   ros::Rate rate(50);
   const ros::Time start = ros::Time::now();
-  while (ros::ok())
-  {
-    if (ros::Time::now() > start + ros::Duration(10.0))
-    {
-      FAIL()
-          << "Timeout" << std::endl
-          << "Pos " << getPos() << std::endl
-          << "Yaw " << getYaw() << std::endl
-          << "Status " << std::endl
-          << status_ << std::endl;
+  while (ros::ok()) {
+    if (ros::Time::now() > start + ros::Duration(10.0)) {
+      FAIL() << "Timeout" << std::endl
+             << "Pos " << getPos() << std::endl
+             << "Yaw " << getYaw() << std::endl
+             << "Status " << std::endl
+             << status_ << std::endl;
     }
 
     publishTransform();
     rate.sleep();
     ros::spinOnce();
 
-    if (0.3 < getPos()[0] && getPos()[0] < 0.35)
-    {
+    if (0.3 < getPos()[0] && getPos()[0] < 0.35) {
       ASSERT_NEAR(cmd_vel_->linear.x, 0.3, error_lin_);
-    }
-    else if (0.95 < getPos()[0] && getPos()[0] < 1.0)
-    {
+    } else if (0.95 < getPos()[0] && getPos()[0] < 1.0) {
       ASSERT_NEAR(cmd_vel_->linear.x, 0.5, error_lin_);
     }
 
-    if (status_->status == trajectory_tracker_msgs::TrajectoryTrackerStatus::GOAL)
-      break;
+    if (status_->status == trajectory_tracker_msgs::TrajectoryTrackerStatus::GOAL) break;
   }
-  for (int j = 0; j < 5; ++j)
-  {
-    for (int i = 0; i < 5; ++i)
-    {
+  for (int j = 0; j < 5; ++j) {
+    for (int i = 0; i < 5; ++i) {
       publishTransform();
       rate.sleep();
       ros::spinOnce();
     }
 
     // Check multiple times to assert overshoot.
-    ASSERT_NEAR(getYaw(), 0.0, error_ang_)
-        << "[overshoot after goal (" << j << ")] ";
-    ASSERT_NEAR(getPos()[0], 1.5, error_lin_)
-        << "[overshoot after goal (" << j << ")] ";
-    ASSERT_NEAR(getPos()[1], 0.0, error_lin_)
-        << "[overshoot after goal (" << j << ")] ";
+    ASSERT_NEAR(getYaw(), 0.0, error_ang_) << "[overshoot after goal (" << j << ")] ";
+    ASSERT_NEAR(getPos()[0], 1.5, error_lin_) << "[overshoot after goal (" << j << ")] ";
+    ASSERT_NEAR(getPos()[1], 0.0, error_lin_) << "[overshoot after goal (" << j << ")] ";
   }
   ASSERT_EQ(last_path_header_.stamp, status_->path_header.stamp);
 }
@@ -278,13 +232,11 @@ TEST_F(TrajectoryTrackerTest, CurveFollow)
 
   std::vector<Eigen::Vector3d> poses;
   Eigen::Vector3d p(0.0, 0.0, 0.0);
-  for (double t = 0.0; t < 1.0; t += 0.01)
-  {
+  for (double t = 0.0; t < 1.0; t += 0.01) {
     p += Eigen::Vector3d(std::cos(p[2]) * 0.05, std::sin(p[2]) * 0.05, 0.005);
     poses.push_back(p);
   }
-  for (double t = 0.0; t < 1.0; t += 0.01)
-  {
+  for (double t = 0.0; t < 1.0; t += 0.01) {
     p += Eigen::Vector3d(std::cos(p[2]) * 0.05, std::sin(p[2]) * 0.05, 0.0);
     poses.push_back(p);
   }
@@ -292,40 +244,31 @@ TEST_F(TrajectoryTrackerTest, CurveFollow)
 
   ros::Rate rate(50);
   const ros::Time start = ros::Time::now();
-  while (ros::ok())
-  {
-    if (ros::Time::now() > start + ros::Duration(20.0))
-    {
-      FAIL()
-          << "Timeout" << std::endl
-          << "Pos " << getPos() << std::endl
-          << "Yaw " << getYaw() << std::endl
-          << "Status " << std::endl
-          << status_ << std::endl;
+  while (ros::ok()) {
+    if (ros::Time::now() > start + ros::Duration(20.0)) {
+      FAIL() << "Timeout" << std::endl
+             << "Pos " << getPos() << std::endl
+             << "Yaw " << getYaw() << std::endl
+             << "Status " << std::endl
+             << status_ << std::endl;
     }
 
     publishTransform();
     rate.sleep();
     ros::spinOnce();
-    if (status_->status == trajectory_tracker_msgs::TrajectoryTrackerStatus::GOAL)
-      break;
+    if (status_->status == trajectory_tracker_msgs::TrajectoryTrackerStatus::GOAL) break;
   }
-  for (int j = 0; j < 5; ++j)
-  {
-    for (int i = 0; i < 5; ++i)
-    {
+  for (int j = 0; j < 5; ++j) {
+    for (int i = 0; i < 5; ++i) {
       publishTransform();
       rate.sleep();
       ros::spinOnce();
     }
 
     // Check multiple times to assert overshoot.
-    ASSERT_NEAR(getYaw(), p[2], error_ang_)
-        << "[overshoot after goal (" << j << ")] ";
-    ASSERT_NEAR(getPos()[0], p[0], error_large_lin_)
-        << "[overshoot after goal (" << j << ")] ";
-    ASSERT_NEAR(getPos()[1], p[1], error_large_lin_)
-        << "[overshoot after goal (" << j << ")] ";
+    ASSERT_NEAR(getYaw(), p[2], error_ang_) << "[overshoot after goal (" << j << ")] ";
+    ASSERT_NEAR(getPos()[0], p[0], error_large_lin_) << "[overshoot after goal (" << j << ")] ";
+    ASSERT_NEAR(getPos()[1], p[1], error_large_lin_) << "[overshoot after goal (" << j << ")] ";
   }
   ASSERT_EQ(last_path_header_.stamp, status_->path_header.stamp);
 }
@@ -333,78 +276,60 @@ TEST_F(TrajectoryTrackerTest, CurveFollow)
 TEST_F(TrajectoryTrackerTest, InPlaceTurn)
 {
   const float init_yaw_array[] = {0.0, 3.0};
-  for (const float init_yaw : init_yaw_array)
-  {
-    const std::vector<float> target_angle_array[] =
-        {
-            {0.5},
-            {-0.5},
-            {0.1, 0.2, 0.3, 0.4, 0.5},
-            {-0.1, -0.2, -0.3, -0.4, -0.5},
-        };
-    for (const auto& angles : target_angle_array)
-    {
-      for (const bool& has_short_path : {false, true})
-      {
+  for (const float init_yaw : init_yaw_array) {
+    const std::vector<float> target_angle_array[] = {
+      {0.5},
+      {-0.5},
+      {0.1, 0.2, 0.3, 0.4, 0.5},
+      {-0.1, -0.2, -0.3, -0.4, -0.5},
+    };
+    for (const auto & angles : target_angle_array) {
+      for (const bool & has_short_path : {false, true}) {
         std::stringstream condition_name;
-        condition_name
-            << "init_yaw: " << init_yaw
-            << ", angles: " << angles.front() << "-" << angles.back()
-            << ", has_short_path: " << has_short_path;
+        condition_name << "init_yaw: " << init_yaw << ", angles: " << angles.front() << "-"
+                       << angles.back() << ", has_short_path: " << has_short_path;
 
         initState(Eigen::Vector2d(0, 0), init_yaw);
 
         std::vector<Eigen::Vector3d> poses;
-        if (has_short_path)
-        {
-          poses.push_back(Eigen::Vector3d(-std::cos(init_yaw) * 0.01, std::sin(init_yaw) * 0.01, init_yaw));
+        if (has_short_path) {
+          poses.push_back(
+            Eigen::Vector3d(-std::cos(init_yaw) * 0.01, std::sin(init_yaw) * 0.01, init_yaw));
         }
-        for (float ang : angles)
-        {
+        for (float ang : angles) {
           poses.push_back(Eigen::Vector3d(0.0, 0.0, init_yaw + ang));
         }
         waitUntilStart(std::bind(&TrajectoryTrackerTest::publishPath, this, poses));
 
         ros::Rate rate(50);
         const ros::Time start = ros::Time::now();
-        for (int i = 0; ros::ok(); ++i)
-        {
-          if (ros::Time::now() > start + ros::Duration(10.0))
-          {
-            FAIL()
-                << condition_name.str()
-                << "Timeout" << std::endl
-                << "Pos " << getPos() << std::endl
-                << "Yaw " << getYaw() << std::endl
-                << "Status " << std::endl
-                << status_ << std::endl;
+        for (int i = 0; ros::ok(); ++i) {
+          if (ros::Time::now() > start + ros::Duration(10.0)) {
+            FAIL() << condition_name.str() << "Timeout" << std::endl
+                   << "Pos " << getPos() << std::endl
+                   << "Yaw " << getYaw() << std::endl
+                   << "Status " << std::endl
+                   << status_ << std::endl;
           }
 
           publishTransform();
           rate.sleep();
           ros::spinOnce();
 
-          if (cmd_vel_ && i > 5)
-          {
+          if (cmd_vel_ && i > 5) {
             ASSERT_GT(cmd_vel_->angular.z * std::copysign(1.0, angles.back()), -error_ang_)
-                << "[overshoot detected] "
-                << condition_name.str();
+              << "[overshoot detected] " << condition_name.str();
           }
-          if (status_ && i > 5)
-          {
+          if (status_ && i > 5) {
             ASSERT_LT(status_->angle_remains * std::copysign(1.0, angles.back()), error_ang_)
-                << "[overshoot detected] "
-                << condition_name.str();
+              << "[overshoot detected] " << condition_name.str();
           }
 
-          if (status_->status == trajectory_tracker_msgs::TrajectoryTrackerStatus::GOAL)
-            break;
+          if (status_->status == trajectory_tracker_msgs::TrajectoryTrackerStatus::GOAL) break;
         }
         ASSERT_TRUE(static_cast<bool>(cmd_vel_)) << condition_name.str();
-        for (int j = 0; j < 5; ++j)
-        {
-          for (int i = 0; i < 5; ++i)
-          {
+        for (int j = 0; j < 5; ++j) {
+          for (int i = 0; i < 5; ++i) {
             publishTransform();
             rate.sleep();
             ros::spinOnce();
@@ -412,10 +337,9 @@ TEST_F(TrajectoryTrackerTest, InPlaceTurn)
 
           // Check multiple times to assert overshoot.
           const double angle_diff = pose_.getRotation().angleShortestPath(
-              tf2::Quaternion(tf2::Vector3(0, 0, 1), init_yaw + angles.back()));
+            tf2::Quaternion(tf2::Vector3(0, 0, 1), init_yaw + angles.back()));
           ASSERT_LT(angle_diff, error_ang_)
-              << "[overshoot after goal (" << j << ")] "
-              << condition_name.str();
+            << "[overshoot after goal (" << j << ")] " << condition_name.str();
         }
         ASSERT_EQ(last_path_header_.stamp, status_->path_header.stamp);
       }
@@ -429,13 +353,11 @@ TEST_F(TrajectoryTrackerTest, SwitchBack)
 
   std::vector<Eigen::Vector3d> poses;
   Eigen::Vector3d p(0.0, 0.0, 0.0);
-  for (double t = 0.0; t < 0.5; t += 0.01)
-  {
+  for (double t = 0.0; t < 0.5; t += 0.01) {
     p -= Eigen::Vector3d(std::cos(p[2]) * 0.05, std::sin(p[2]) * 0.05, -0.01);
     poses.push_back(p);
   }
-  for (double t = 0.0; t < 0.5; t += 0.01)
-  {
+  for (double t = 0.0; t < 0.5; t += 0.01) {
     p += Eigen::Vector3d(std::cos(p[2]) * 0.05, std::sin(p[2]) * 0.05, 0.01);
     poses.push_back(p);
   }
@@ -443,40 +365,31 @@ TEST_F(TrajectoryTrackerTest, SwitchBack)
 
   ros::Rate rate(50);
   const ros::Time start = ros::Time::now();
-  while (ros::ok())
-  {
-    if (ros::Time::now() > start + ros::Duration(10.0))
-    {
-      FAIL()
-          << "Timeout" << std::endl
-          << "Pos " << getPos() << std::endl
-          << "Yaw " << getYaw() << std::endl
-          << "Status " << std::endl
-          << status_ << std::endl;
+  while (ros::ok()) {
+    if (ros::Time::now() > start + ros::Duration(10.0)) {
+      FAIL() << "Timeout" << std::endl
+             << "Pos " << getPos() << std::endl
+             << "Yaw " << getYaw() << std::endl
+             << "Status " << std::endl
+             << status_ << std::endl;
     }
 
     publishTransform();
     rate.sleep();
     ros::spinOnce();
-    if (status_->status == trajectory_tracker_msgs::TrajectoryTrackerStatus::GOAL)
-      break;
+    if (status_->status == trajectory_tracker_msgs::TrajectoryTrackerStatus::GOAL) break;
   }
-  for (int j = 0; j < 5; ++j)
-  {
-    for (int i = 0; i < 5; ++i)
-    {
+  for (int j = 0; j < 5; ++j) {
+    for (int i = 0; i < 5; ++i) {
       publishTransform();
       rate.sleep();
       ros::spinOnce();
     }
 
     // Check multiple times to assert overshoot.
-    ASSERT_NEAR(getYaw(), p[2], error_ang_)
-        << "[overshoot after goal (" << j << ")] ";
-    ASSERT_NEAR(getPos()[0], p[0], error_large_lin_)
-        << "[overshoot after goal (" << j << ")] ";
-    ASSERT_NEAR(getPos()[1], p[1], error_large_lin_)
-        << "[overshoot after goal (" << j << ")] ";
+    ASSERT_NEAR(getYaw(), p[2], error_ang_) << "[overshoot after goal (" << j << ")] ";
+    ASSERT_NEAR(getPos()[0], p[0], error_large_lin_) << "[overshoot after goal (" << j << ")] ";
+    ASSERT_NEAR(getPos()[1], p[1], error_large_lin_) << "[overshoot after goal (" << j << ")] ";
   }
   ASSERT_EQ(last_path_header_.stamp, status_->path_header.stamp);
 }
@@ -488,14 +401,12 @@ TEST_F(TrajectoryTrackerTest, SwitchBackWithPathUpdate)
   std::vector<Eigen::Vector3d> poses;
   std::vector<Eigen::Vector3d> poses_second_half;
   Eigen::Vector3d p(0.0, 0.0, 0.0);
-  for (double t = 0.0; t < 0.5; t += 0.01)
-  {
+  for (double t = 0.0; t < 0.5; t += 0.01) {
     p -= Eigen::Vector3d(std::cos(p[2]) * 0.05, std::sin(p[2]) * 0.05, -0.01);
     poses.push_back(p);
   }
   const Eigen::Vector2d pos_local_goal = p.head<2>();
-  for (double t = 0.0; t < 1.0; t += 0.01)
-  {
+  for (double t = 0.0; t < 1.0; t += 0.01) {
     p += Eigen::Vector3d(std::cos(p[2]) * 0.05, std::sin(p[2]) * 0.05, 0.01);
     poses.push_back(p);
     poses_second_half.push_back(p);
@@ -505,58 +416,43 @@ TEST_F(TrajectoryTrackerTest, SwitchBackWithPathUpdate)
   int cnt_arrive_local_goal(0);
   ros::Rate rate(50);
   const ros::Time start = ros::Time::now();
-  for (int i = 0; ros::ok(); i++)
-  {
-    if (ros::Time::now() > start + ros::Duration(15.0))
-    {
-      FAIL()
-          << "Timeout" << std::endl
-          << "Pos " << getPos() << std::endl
-          << "Yaw " << getYaw() << std::endl
-          << "Status " << std::endl
-          << status_ << std::endl;
+  for (int i = 0; ros::ok(); i++) {
+    if (ros::Time::now() > start + ros::Duration(15.0)) {
+      FAIL() << "Timeout" << std::endl
+             << "Pos " << getPos() << std::endl
+             << "Yaw " << getYaw() << std::endl
+             << "Status " << std::endl
+             << status_ << std::endl;
     }
 
     publishTransform();
     rate.sleep();
     ros::spinOnce();
-    if (status_->status == trajectory_tracker_msgs::TrajectoryTrackerStatus::GOAL)
-      break;
+    if (status_->status == trajectory_tracker_msgs::TrajectoryTrackerStatus::GOAL) break;
 
-    if ((pos_local_goal - getPos()).norm() < 0.1)
-      cnt_arrive_local_goal++;
+    if ((pos_local_goal - getPos()).norm() < 0.1) cnt_arrive_local_goal++;
 
-    if (i % 5)
-    {
+    if (i % 5) {
       // Republish path in 10Hz
-      if (cnt_arrive_local_goal > 25)
-      {
+      if (cnt_arrive_local_goal > 25) {
         publishPath(poses_second_half);
-      }
-      else
-      {
+      } else {
         publishPath(poses);
       }
     }
   }
-  ASSERT_GT(cnt_arrive_local_goal, 25)
-      << "failed to update path";
-  for (int j = 0; j < 5; ++j)
-  {
-    for (int i = 0; i < 5; ++i)
-    {
+  ASSERT_GT(cnt_arrive_local_goal, 25) << "failed to update path";
+  for (int j = 0; j < 5; ++j) {
+    for (int i = 0; i < 5; ++i) {
       publishTransform();
       rate.sleep();
       ros::spinOnce();
     }
 
     // Check multiple times to assert overshoot.
-    ASSERT_NEAR(getYaw(), p[2], error_ang_)
-        << "[overshoot after goal (" << j << ")] ";
-    ASSERT_NEAR(getPos()[0], p[0], error_large_lin_)
-        << "[overshoot after goal (" << j << ")] ";
-    ASSERT_NEAR(getPos()[1], p[1], error_large_lin_)
-        << "[overshoot after goal (" << j << ")] ";
+    ASSERT_NEAR(getYaw(), p[2], error_ang_) << "[overshoot after goal (" << j << ")] ";
+    ASSERT_NEAR(getPos()[0], p[0], error_large_lin_) << "[overshoot after goal (" << j << ")] ";
+    ASSERT_NEAR(getPos()[1], p[1], error_large_lin_) << "[overshoot after goal (" << j << ")] ";
   }
   ASSERT_EQ(last_path_header_.stamp, status_->path_header.stamp);
 }
@@ -565,49 +461,40 @@ TEST_F(TrajectoryTrackerTest, FarAray)
 {
   const double y_pos = 500.0;
 
-  initState(tf2::Transform(tf2::Quaternion(tf2::Vector3(1.0, 0.0, 0.0), 0.1), tf2::Vector3(0.0, y_pos, 0.0)));
+  initState(tf2::Transform(
+    tf2::Quaternion(tf2::Vector3(1.0, 0.0, 0.0), 0.1), tf2::Vector3(0.0, y_pos, 0.0)));
   std::vector<Eigen::Vector3d> poses;
-  for (double x = 0.0; x < 0.5; x += 0.01)
-    poses.push_back(Eigen::Vector3d(x, y_pos, 0.0));
+  for (double x = 0.0; x < 0.5; x += 0.01) poses.push_back(Eigen::Vector3d(x, y_pos, 0.0));
   poses.push_back(Eigen::Vector3d(0.5, y_pos, 0.0));
   waitUntilStart(std::bind(&TrajectoryTrackerTest::publishPath, this, poses));
 
   ros::Rate rate(50);
   const ros::Time start = ros::Time::now();
-  while (ros::ok())
-  {
-    if (ros::Time::now() > start + ros::Duration(10.0))
-    {
-      FAIL()
-          << "Timeout" << std::endl
-          << "Pos " << getPos() << std::endl
-          << "Yaw " << getYaw() << std::endl
-          << "Status " << std::endl
-          << status_ << std::endl;
+  while (ros::ok()) {
+    if (ros::Time::now() > start + ros::Duration(10.0)) {
+      FAIL() << "Timeout" << std::endl
+             << "Pos " << getPos() << std::endl
+             << "Yaw " << getYaw() << std::endl
+             << "Status " << std::endl
+             << status_ << std::endl;
     }
 
     publishTransform();
     rate.sleep();
     ros::spinOnce();
-    if (status_->status == trajectory_tracker_msgs::TrajectoryTrackerStatus::GOAL)
-      break;
+    if (status_->status == trajectory_tracker_msgs::TrajectoryTrackerStatus::GOAL) break;
   }
-  for (int j = 0; j < 5; ++j)
-  {
-    for (int i = 0; i < 5; ++i)
-    {
+  for (int j = 0; j < 5; ++j) {
+    for (int i = 0; i < 5; ++i) {
       publishTransform();
       rate.sleep();
       ros::spinOnce();
     }
 
     // Check multiple times to assert overshoot.
-    ASSERT_NEAR(getYaw(), 0.0, error_ang_)
-        << "[overshoot after goal (" << j << ")] ";
-    ASSERT_NEAR(getPos()[0], 0.5, error_lin_)
-        << "[overshoot after goal (" << j << ")] ";
-    ASSERT_NEAR(getPos()[1], y_pos, error_lin_)
-        << "[overshoot after goal (" << j << ")] ";
+    ASSERT_NEAR(getYaw(), 0.0, error_ang_) << "[overshoot after goal (" << j << ")] ";
+    ASSERT_NEAR(getPos()[0], 0.5, error_lin_) << "[overshoot after goal (" << j << ")] ";
+    ASSERT_NEAR(getPos()[1], y_pos, error_lin_) << "[overshoot after goal (" << j << ")] ";
   }
   ASSERT_EQ(last_path_header_.stamp, status_->path_header.stamp);
 }
@@ -617,15 +504,13 @@ void timeSource()
   ros::NodeHandle nh("/");
   bool use_sim_time;
   nh.param("/use_sim_time", use_sim_time, false);
-  if (!use_sim_time)
-    return;
+  if (!use_sim_time) return;
 
   ros::Publisher pub = nh.advertise<rosgraph_msgs::Clock>("clock", 1);
 
   ros::WallRate rate(400.0);  // 400% speed
   ros::WallTime time = ros::WallTime::now();
-  while (ros::ok())
-  {
+  while (ros::ok()) {
     rosgraph_msgs::Clock clock;
     clock.clock.fromNSec(time.toNSec());
     pub.publish(clock);
@@ -634,7 +519,7 @@ void timeSource()
   }
 }
 
-int main(int argc, char** argv)
+int main(int argc, char ** argv)
 {
   testing::InitGoogleTest(&argc, argv);
   ros::init(argc, argv, "test_trajectory_tracker");

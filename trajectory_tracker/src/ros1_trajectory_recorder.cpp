@@ -35,18 +35,16 @@
    This software was implemented to accomplish the above research.
  */
 
-#include <cmath>
-#include <string>
-
-#include <ros/ros.h>
-
 #include <geometry_msgs/Twist.h>
 #include <nav_msgs/Path.h>
+#include <neonavigation_common/compatibility.h>
+#include <ros/ros.h>
+#include <std_srvs/Empty.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <tf2_ros/transform_listener.h>
-#include <std_srvs/Empty.h>
 
-#include <neonavigation_common/compatibility.h>
+#include <cmath>
+#include <string>
 
 class RecorderNode
 {
@@ -56,8 +54,7 @@ public:
   void spin();
 
 private:
-  bool clearPath(std_srvs::Empty::Request& req,
-                 std_srvs::Empty::Response& res);
+  bool clearPath(std_srvs::Empty::Request & req, std_srvs::Empty::Response & res);
 
   std::string topic_path_;
   std::string frame_robot_;
@@ -76,10 +73,7 @@ private:
   nav_msgs::Path path_;
 };
 
-RecorderNode::RecorderNode()
-  : nh_()
-  , pnh_("~")
-  , tfl_(tfbuf_)
+RecorderNode::RecorderNode() : nh_(), pnh_("~"), tfl_(tfbuf_)
 {
   neonavigation_common::compat::checkCompatMode();
   pnh_.param("frame_robot", frame_robot_, std::string("base_link"));
@@ -90,22 +84,19 @@ RecorderNode::RecorderNode()
   pnh_.param("store_time", store_time_, false);
 
   pub_path_ = neonavigation_common::compat::advertise<nav_msgs::Path>(
-      nh_, "path",
-      pnh_, topic_path_, 10, true);
+    nh_, "path", pnh_, topic_path_, 10, true);
   srs_clear_path_ = pnh_.advertiseService("clear_path", &RecorderNode::clearPath, this);
 }
 
-RecorderNode::~RecorderNode()
-{
-}
+RecorderNode::~RecorderNode() {}
 
-float dist2d(geometry_msgs::Point& a, geometry_msgs::Point& b)
+float dist2d(geometry_msgs::Point & a, geometry_msgs::Point & b)
 {
   return std::sqrt(std::pow(a.x - b.x, 2) + std::pow(a.y - b.y, 2));
 }
 
-bool RecorderNode::clearPath(std_srvs::Empty::Request& /* req */,
-                             std_srvs::Empty::Response& /* res */)
+bool RecorderNode::clearPath(
+  std_srvs::Empty::Request & /* req */, std_srvs::Empty::Response & /* res */)
 {
   path_.poses.clear();
   return true;
@@ -117,19 +108,14 @@ void RecorderNode::spin()
   path_.header.frame_id = frame_global_;
   path_.header.seq = 0;
 
-  while (ros::ok())
-  {
+  while (ros::ok()) {
     ros::Time now = ros::Time(0);
-    if (store_time_)
-      now = ros::Time::now();
+    if (store_time_) now = ros::Time::now();
     tf2::Stamped<tf2::Transform> transform;
-    try
-    {
+    try {
       tf2::fromMsg(
-          tfbuf_.lookupTransform(frame_global_, frame_robot_, now, ros::Duration(0.2)), transform);
-    }
-    catch (tf2::TransformException& e)
-    {
+        tfbuf_.lookupTransform(frame_global_, frame_robot_, now, ros::Duration(0.2)), transform);
+    } catch (tf2::TransformException & e) {
       ROS_WARN("TF exception: %s", e.what());
       continue;
     }
@@ -148,13 +134,10 @@ void RecorderNode::spin()
     path_.header.seq++;
     path_.header.stamp = now;
 
-    if (path_.poses.size() == 0)
-    {
+    if (path_.poses.size() == 0) {
       path_.poses.push_back(pose);
       pub_path_.publish(path_);
-    }
-    else if (dist2d(path_.poses.back().pose.position, pose.pose.position) > dist_interval_)
-    {
+    } else if (dist2d(path_.poses.back().pose.position, pose.pose.position) > dist_interval_) {
       path_.poses.push_back(pose);
       pub_path_.publish(path_);
     }
@@ -164,7 +147,7 @@ void RecorderNode::spin()
   }
 }
 
-int main(int argc, char** argv)
+int main(int argc, char ** argv)
 {
   ros::init(argc, argv, "trajectory_recorder");
 

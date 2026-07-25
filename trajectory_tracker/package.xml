@@ -16,16 +16,17 @@
   <depend condition="$ROS_VERSION == 1">roscpp</depend>
   <depend condition="$ROS_VERSION == 1">dynamic_reconfigure</depend>
   <depend condition="$ROS_VERSION == 1">interactive_markers</depend>
-  <depend condition="$ROS_VERSION == 1">std_srvs</depend>
   <!-- Provides the rclcpp-style shim used by the hybrid logic library on ROS 1. -->
   <depend condition="$ROS_VERSION == 1">sq_ros1_rclcpp_compat</depend>
 
-  <!-- ROS 2 logic library uses the real rclcpp. -->
+  <!-- ROS 2 interface layer uses the real rclcpp and component registration. -->
   <depend condition="$ROS_VERSION == 2">rclcpp</depend>
+  <depend condition="$ROS_VERSION == 2">rclcpp_components</depend>
 
   <depend>geometry_msgs</depend>
   <depend>nav_msgs</depend>
   <depend>std_msgs</depend>
+  <depend>std_srvs</depend>
   <depend>tf2</depend>
   <depend>tf2_geometry_msgs</depend>
   <depend>tf2_ros</depend>
@@ -35,8 +36,10 @@
   <depend>neonavigation_common</depend>
   <depend version_gte="0.8.0">trajectory_tracker_msgs</depend>
 
-  <test_depend condition="$ROS_VERSION == 1">roslint</test_depend>
   <test_depend condition="$ROS_VERSION == 1">rostest</test_depend>
+  <test_depend condition="$ROS_VERSION == 2">ament_lint_auto</test_depend>
+  <test_depend condition="$ROS_VERSION == 2">ament_lint_common</test_depend>
+  <test_depend condition="$ROS_VERSION == 2">ament_cmake_clang_format</test_depend>
 
   <export>
     <build_type condition="$ROS_VERSION == 1">catkin</build_type>

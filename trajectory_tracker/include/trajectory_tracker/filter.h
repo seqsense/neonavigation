@@ -27,8 +27,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TRAJECTORY_TRACKER_FILTER_H
-#define TRAJECTORY_TRACKER_FILTER_H
+#ifndef TRAJECTORY_TRACKER__FILTER_H_
+#define TRAJECTORY_TRACKER__FILTER_H_
 
 #include <cassert>
 #include <cmath>
@@ -58,8 +58,7 @@ public:
     angle_ = angle;
     time_const_ = tc;
     type_ = type;
-    switch (type_)
-    {
+    switch (type_) {
       case FILTER_LPF:
         k_[3] = -1 / (1.0 + 2 * time_const_);
         k_[2] = -k_[3];
@@ -77,18 +76,17 @@ public:
     }
     out_ = out0;
   }
-  void set(const float& out0)
+  void set(const float & out0)
   {
     x_ = (1 - k_[2]) * out0 / k_[3];
     out_ = out0;
   }
-  float in(const float& i)
+  float in(const float & i)
   {
     float in = i;
     assert(std::isfinite(in));
 
-    if (angle_)
-    {
+    if (angle_) {
       in = out_ + remainder(in - out_, M_PI * 2.0);
     }
     x_ = k_[0] * in + k_[1] * x_;
@@ -97,11 +95,8 @@ public:
     assert(std::isfinite(out_));
     return out_;
   }
-  float get()
-  {
-    return out_;
-  }
+  float get() { return out_; }
 };
 }  // namespace trajectory_tracker
 
-#endif  // TRAJECTORY_TRACKER_FILTER_H
+#endif  // TRAJECTORY_TRACKER__FILTER_H_

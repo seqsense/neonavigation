@@ -40,34 +40,28 @@
    1991, pp. 212-217.
  */
 
-#include <algorithm>
-#include <cmath>
-#include <string>
-
-#include <Eigen/Core>
-#include <Eigen/Geometry>
-
-#include <ros/ros.h>
-
 #include <dynamic_reconfigure/server.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/Twist.h>
 #include <nav_msgs/Odometry.h>
 #include <nav_msgs/Path.h>
+#include <neonavigation_common/compatibility.h>
+#include <ros/ros.h>
 #include <std_msgs/Float32.h>
-
 #include <tf2/utils.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <tf2_ros/transform_listener.h>
-
-#include <neonavigation_common/compatibility.h>
+#include <trajectory_tracker/TrajectoryTrackerConfig.h>
+#include <trajectory_tracker/tracker_controller.h>
 #include <trajectory_tracker_msgs/PathWithVelocity.h>
 #include <trajectory_tracker_msgs/TrajectoryTrackerStatus.h>
 
+#include <Eigen/Core>
+#include <Eigen/Geometry>
+#include <algorithm>
+#include <cmath>
 #include <sq_ros1_compat/logger.hpp>
-
-#include <trajectory_tracker/TrajectoryTrackerConfig.h>
-#include <trajectory_tracker/tracker_controller.h>
+#include <string>
 
 namespace trajectory_tracker
 {
@@ -108,19 +102,19 @@ private:
   ros::Time prev_odom_stamp_;
 
   template <typename MSG_TYPE>
-  void cbPath(const typename MSG_TYPE::ConstPtr&);
-  void cbSpeed(const std_msgs::Float32::ConstPtr&);
-  void cbOdometry(const nav_msgs::Odometry::ConstPtr&);
-  void cbTimer(const ros::TimerEvent&);
-  void cbOdomTimeout(const ros::TimerEvent&);
-  void cbParameter(const TrajectoryTrackerConfig& config, const uint32_t /* level */);
+  void cbPath(const typename MSG_TYPE::ConstPtr &);
+  void cbSpeed(const std_msgs::Float32::ConstPtr &);
+  void cbOdometry(const nav_msgs::Odometry::ConstPtr &);
+  void cbTimer(const ros::TimerEvent &);
+  void cbOdomTimeout(const ros::TimerEvent &);
+  void cbParameter(const TrajectoryTrackerConfig & config, const uint32_t /* level */);
 };
 
 TrackerNode::TrackerNode()
-  : nh_()
-  , pnh_("~")
-  , tfl_(tfbuf_)
-  , controller_(tfbuf_, sq_ros1_compat::get_logger("trajectory_tracker"))
+: nh_(),
+  pnh_("~"),
+  tfl_(tfbuf_),
+  controller_(tfbuf_, sq_ros1_compat::get_logger("trajectory_tracker"))
 {
   neonavigation_common::compat::checkCompatMode();
   std::string frame_robot;
@@ -129,7 +123,8 @@ TrackerNode::TrackerNode()
   pnh_.param("frame_odom", frame_odom, std::string("odom"));
   controller_.setFrames(frame_robot, frame_odom);
   neonavigation_common::compat::deprecatedParam(pnh_, "path", topic_path_, std::string("path"));
-  neonavigation_common::compat::deprecatedParam(pnh_, "cmd_vel", topic_cmd_vel_, std::string("cmd_vel"));
+  neonavigation_common::compat::deprecatedParam(
+    pnh_, "cmd_vel", topic_cmd_vel_, std::string("cmd_vel"));
   pnh_.param("hz", hz_, 50.0);
   pnh_.param("use_odom", use_odom_, false);
   pnh_.param("predict_odom", predict_odom_, true);
@@ -137,31 +132,28 @@ TrackerNode::TrackerNode()
   pnh_.param("odom_timeout_sec", odom_timeout_sec_, 0.1);
 
   sub_path_ = neonavigation_common::compat::subscribe<nav_msgs::Path>(
-      nh_, "path",
-      pnh_, topic_path_, 2,
-      boost::bind(&TrackerNode::cbPath<nav_msgs::Path>, this, _1));
+    nh_, "path", pnh_, topic_path_, 2, boost::bind(&TrackerNode::cbPath<nav_msgs::Path>, this, _1));
   sub_path_velocity_ = nh_.subscribe<trajectory_tracker_msgs::PathWithVelocity>(
-      "path_velocity", 2,
-      boost::bind(&TrackerNode::cbPath<trajectory_tracker_msgs::PathWithVelocity>, this, _1));
+    "path_velocity", 2,
+    boost::bind(&TrackerNode::cbPath<trajectory_tracker_msgs::PathWithVelocity>, this, _1));
   sub_vel_ = neonavigation_common::compat::subscribe(
-      nh_, "speed",
-      pnh_, "speed", 20, &TrackerNode::cbSpeed, this);
+    nh_, "speed", pnh_, "speed", 20, &TrackerNode::cbSpeed, this);
   pub_vel_ = neonavigation_common::compat::advertise<geometry_msgs::Twist>(
-      nh_, "cmd_vel",
-      pnh_, topic_cmd_vel_, 10);
-  pub_status_ = pnh_.advertise<trajectory_tracker_msgs::TrajectoryTrackerStatus>("status", 10, true);
+    nh_, "cmd_vel", pnh_, topic_cmd_vel_, 10);
+  pub_status_ =
+    pnh_.advertise<trajectory_tracker_msgs::TrajectoryTrackerStatus>("status", 10, true);
   pub_tracking_ = pnh_.advertise<geometry_msgs::PoseStamped>("tracking", 10, true);
-  if (use_odom_)
-  {
-    sub_odom_ = nh_.subscribe<nav_msgs::Odometry>("odom", 10, &TrackerNode::cbOdometry, this,
-                                                  ros::TransportHints().reliable().tcpNoDelay(true));
+  if (use_odom_) {
+    sub_odom_ = nh_.subscribe<nav_msgs::Odometry>(
+      "odom", 10, &TrackerNode::cbOdometry, this,
+      ros::TransportHints().reliable().tcpNoDelay(true));
   }
 
   boost::recursive_mutex::scoped_lock lock(parameter_server_mutex_);
   parameter_server_.setCallback(boost::bind(&TrackerNode::cbParameter, this, _1, _2));
 }
 
-void TrackerNode::cbParameter(const TrajectoryTrackerConfig& config, const uint32_t /* level */)
+void TrackerNode::cbParameter(const TrajectoryTrackerConfig & config, const uint32_t /* level */)
 {
   boost::recursive_mutex::scoped_lock lock(parameter_server_mutex_);
   trajectory_tracker::TrackerController::Parameters params;
@@ -208,54 +200,50 @@ TrackerNode::~TrackerNode()
   pub_vel_.publish(cmd_vel);
 }
 
-void TrackerNode::cbSpeed(const std_msgs::Float32::ConstPtr& msg)
+void TrackerNode::cbSpeed(const std_msgs::Float32::ConstPtr & msg)
 {
   controller_.setSpeed(msg->data);
 }
 
 template <typename MSG_TYPE>
-void TrackerNode::cbPath(const typename MSG_TYPE::ConstPtr& msg)
+void TrackerNode::cbPath(const typename MSG_TYPE::ConstPtr & msg)
 {
   controller_.setPath(*msg);
 }
 
-void TrackerNode::cbOdometry(const nav_msgs::Odometry::ConstPtr& odom)
+void TrackerNode::cbOdometry(const nav_msgs::Odometry::ConstPtr & odom)
 {
-  if (odom->header.frame_id != controller_.frameOdom())
-  {
-    ROS_WARN("frame_odom is invalid. Update from \"%s\" to \"%s\"",
-             controller_.frameOdom().c_str(), odom->header.frame_id.c_str());
+  if (odom->header.frame_id != controller_.frameOdom()) {
+    ROS_WARN(
+      "frame_odom is invalid. Update from \"%s\" to \"%s\"", controller_.frameOdom().c_str(),
+      odom->header.frame_id.c_str());
     controller_.setFrameOdom(odom->header.frame_id);
   }
-  if (odom->child_frame_id != controller_.frameRobot())
-  {
-    ROS_WARN("frame_robot is invalid. Update from \"%s\" to \"%s\"",
-             controller_.frameRobot().c_str(), odom->child_frame_id.c_str());
+  if (odom->child_frame_id != controller_.frameRobot()) {
+    ROS_WARN(
+      "frame_robot is invalid. Update from \"%s\" to \"%s\"", controller_.frameRobot().c_str(),
+      odom->child_frame_id.c_str());
     controller_.setFrameRobot(odom->child_frame_id);
   }
-  if (odom_timeout_sec_ != 0.0)
-  {
-    if (odom_timeout_timer_.isValid())
-    {
+  if (odom_timeout_sec_ != 0.0) {
+    if (odom_timeout_timer_.isValid()) {
       odom_timeout_timer_.setPeriod(ros::Duration(odom_timeout_sec_), true);
-    }
-    else
-    {
-      odom_timeout_timer_ =
-          nh_.createTimer(ros::Duration(odom_timeout_sec_), &TrackerNode::cbOdomTimeout, this, true, true);
+    } else {
+      odom_timeout_timer_ = nh_.createTimer(
+        ros::Duration(odom_timeout_sec_), &TrackerNode::cbOdomTimeout, this, true, true);
     }
   }
 
-  if (prev_odom_stamp_ != ros::Time())
-  {
+  if (prev_odom_stamp_ != ros::Time()) {
     const double dt = std::min(max_dt_, (odom->header.stamp - prev_odom_stamp_).toSec());
     nav_msgs::Odometry odom_compensated = *odom;
     Eigen::Vector3d prediction_offset(0, 0, 0);
-    if (predict_odom_)
-    {
-      const double predict_dt = std::max(0.0, std::min(max_dt_, (ros::Time::now() - odom->header.stamp).toSec()));
+    if (predict_odom_) {
+      const double predict_dt =
+        std::max(0.0, std::min(max_dt_, (ros::Time::now() - odom->header.stamp).toSec()));
       tf2::Transform trans;
-      const tf2::Quaternion rotation(tf2::Vector3(0, 0, 1), odom->twist.twist.angular.z * predict_dt);
+      const tf2::Quaternion rotation(
+        tf2::Vector3(0, 0, 1), odom->twist.twist.angular.z * predict_dt);
       const tf2::Vector3 translation(odom->twist.twist.linear.x * predict_dt, 0, 0);
 
       prediction_offset[0] = odom->twist.twist.linear.x * predict_dt;
@@ -269,29 +257,29 @@ void TrackerNode::cbOdometry(const nav_msgs::Odometry::ConstPtr& odom)
 
     tf2::Transform odom_to_robot;
     tf2::fromMsg(odom_compensated.pose.pose, odom_to_robot);
-    const tf2::Stamped<tf2::Transform> odom_to_robot_stamped(odom_to_robot, odom->header.stamp, odom->header.frame_id);
+    const tf2::Stamped<tf2::Transform> odom_to_robot_stamped(
+      odom_to_robot, odom->header.stamp, odom->header.frame_id);
     const trajectory_tracker::TrackerController::ControlOutput output = controller_.control(
-        odom_to_robot_stamped, prediction_offset, odom->twist.twist.linear.x, odom->twist.twist.angular.z, dt);
+      odom_to_robot_stamped, prediction_offset, odom->twist.twist.linear.x,
+      odom->twist.twist.angular.z, dt);
     pub_vel_.publish(output.cmd_vel);
     pub_status_.publish(output.status);
   }
   prev_odom_stamp_ = odom->header.stamp;
 }
 
-void TrackerNode::cbTimer(const ros::TimerEvent& /* event */)
+void TrackerNode::cbTimer(const ros::TimerEvent & /* event */)
 {
-  try
-  {
+  try {
     tf2::Stamped<tf2::Transform> transform;
     tf2::fromMsg(
-        tfbuf_.lookupTransform(controller_.frameOdom(), controller_.frameRobot(), ros::Time(0)), transform);
+      tfbuf_.lookupTransform(controller_.frameOdom(), controller_.frameRobot(), ros::Time(0)),
+      transform);
     const trajectory_tracker::TrackerController::ControlOutput output =
-        controller_.control(transform, Eigen::Vector3d(0, 0, 0), 0, 0, 1.0 / hz_);
+      controller_.control(transform, Eigen::Vector3d(0, 0, 0), 0, 0, 1.0 / hz_);
     pub_vel_.publish(output.cmd_vel);
     pub_status_.publish(output.status);
-  }
-  catch (tf2::TransformException& e)
-  {
+  } catch (tf2::TransformException & e) {
     ROS_WARN_THROTTLE(1, "TF exception: %s", e.what());
     trajectory_tracker_msgs::TrajectoryTrackerStatus status;
     status.header.stamp = ros::Time::now();
@@ -304,7 +292,7 @@ void TrackerNode::cbTimer(const ros::TimerEvent& /* event */)
   }
 }
 
-void TrackerNode::cbOdomTimeout(const ros::TimerEvent& /* event */)
+void TrackerNode::cbOdomTimeout(const ros::TimerEvent & /* event */)
 {
   ROS_WARN_STREAM("Odometry timeout. Last odometry stamp: " << prev_odom_stamp_);
   controller_.resetLimiters();
@@ -325,15 +313,14 @@ void TrackerNode::cbOdomTimeout(const ros::TimerEvent& /* event */)
 void TrackerNode::spin()
 {
   ros::Timer timer;
-  if (!use_odom_)
-  {
+  if (!use_odom_) {
     timer = nh_.createTimer(ros::Duration(1.0 / hz_), &TrackerNode::cbTimer, this);
   }
   ros::spin();
 }
 }  // namespace trajectory_tracker
 
-int main(int argc, char** argv)
+int main(int argc, char ** argv)
 {
   ros::init(argc, argv, "trajectory_tracker");
   trajectory_tracker::TrackerNode track;

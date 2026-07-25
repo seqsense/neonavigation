@@ -27,8 +27,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TRAJECTORY_TRACKER_TRACKER_CONTROLLER_H
-#define TRAJECTORY_TRACKER_TRACKER_CONTROLLER_H
+#ifndef TRAJECTORY_TRACKER__TRACKER_CONTROLLER_H_
+#define TRAJECTORY_TRACKER__TRACKER_CONTROLLER_H_
 
 #include <cmath>
 #include <limits>
@@ -36,20 +36,15 @@
 
 #include "Eigen/Core"
 #include "Eigen/Geometry"
-
-#include "rclcpp/rclcpp.hpp"
-
 #include "geometry_msgs/msg/twist.hpp"
+#include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/header.hpp"
-
 #include "tf2/utils.h"
 #include "tf2_ros/buffer.h"
-
-#include "trajectory_tracker_msgs/msg/trajectory_tracker_status.hpp"
-
 #include "trajectory_tracker/basic_control.h"
 #include "trajectory_tracker/eigen_line.h"
 #include "trajectory_tracker/path2d.h"
+#include "trajectory_tracker_msgs/msg/trajectory_tracker_status.hpp"
 
 namespace trajectory_tracker
 {
@@ -101,46 +96,29 @@ public:
     trajectory_tracker_msgs::msg::TrajectoryTrackerStatus status;
   };
 
-  TrackerController(tf2_ros::Buffer& tfbuf, const rclcpp::Logger& logger);
+  TrackerController(tf2_ros::Buffer & tfbuf, const rclcpp::Logger & logger);
 
-  void setParameters(const Parameters& params);
+  void setParameters(const Parameters & params);
 
-  void setFrames(const std::string& frame_robot, const std::string& frame_odom);
-  const std::string& frameRobot() const
-  {
-    return frame_robot_;
-  }
-  const std::string& frameOdom() const
-  {
-    return frame_odom_;
-  }
-  void setFrameRobot(const std::string& frame_robot)
-  {
-    frame_robot_ = frame_robot;
-  }
-  void setFrameOdom(const std::string& frame_odom)
-  {
-    frame_odom_ = frame_odom;
-  }
+  void setFrames(const std::string & frame_robot, const std::string & frame_odom);
+  const std::string & frameRobot() const { return frame_robot_; }
+  const std::string & frameOdom() const { return frame_odom_; }
+  void setFrameRobot(const std::string & frame_robot) { frame_robot_ = frame_robot; }
+  void setFrameOdom(const std::string & frame_odom) { frame_odom_ = frame_odom; }
 
-  const std_msgs::msg::Header& pathHeader() const
-  {
-    return path_header_;
-  }
+  const std_msgs::msg::Header & pathHeader() const { return path_header_; }
 
   // Update the internal path from a nav_msgs::msg::Path or
   // trajectory_tracker_msgs::msg::PathWithVelocity message.
   template <typename MSG_TYPE>
-  void setPath(const MSG_TYPE& msg)
+  void setPath(const MSG_TYPE & msg)
   {
     path_header_ = msg.header;
     is_path_updated_ = true;
     path_step_done_ = 0;
     path_.fromMsg(msg, epsilon_);
-    for (const auto& path_pose : path_)
-    {
-      if (std::isfinite(path_pose.velocity_) && path_pose.velocity_ < -0.0)
-      {
+    for (const auto & path_pose : path_) {
+      if (std::isfinite(path_pose.velocity_) && path_pose.velocity_ < -0.0) {
         rclcpp::Clock clock(RCL_ROS_TIME);
         RCLCPP_ERROR_THROTTLE(logger_, clock, 1000, "path_velocity.velocity.x must be positive");
         path_.clear();
@@ -150,10 +128,7 @@ public:
   }
 
   // Override the reference linear velocity (speed topic).
-  void setSpeed(const double speed)
-  {
-    vel_[0] = speed;
-  }
+  void setSpeed(const double speed) { vel_[0] = speed; }
 
   // Reset the velocity/acceleration limiters.
   void resetLimiters()
@@ -164,11 +139,8 @@ public:
 
   // Run one control step and return the command velocity and status.
   ControlOutput control(
-      const tf2::Stamped<tf2::Transform>& odom_to_robot,
-      const Eigen::Vector3d& prediction_offset,
-      const double odom_linear_vel,
-      const double odom_angular_vel,
-      const double dt);
+    const tf2::Stamped<tf2::Transform> & odom_to_robot, const Eigen::Vector3d & prediction_offset,
+    const double odom_linear_vel, const double odom_angular_vel, const double dt);
 
 private:
   std::string frame_robot_;
@@ -204,7 +176,7 @@ private:
   double goal_tolerance_lin_vel_;
   double goal_tolerance_ang_vel_;
 
-  tf2_ros::Buffer& tfbuf_;
+  tf2_ros::Buffer & tfbuf_;
   rclcpp::Logger logger_;
 
   trajectory_tracker::Path2D path_;
@@ -214,19 +186,19 @@ private:
   struct TrackingResult
   {
     explicit TrackingResult(const int s)
-      : status(s)
-      , distance_remains(0.0)
-      , angle_remains(0.0)
-      , distance_remains_raw(0.0)
-      , angle_remains_raw(0.0)
-      , turning_in_place(false)
-      , signed_local_distance(0.0)
-      , distance_from_target(0.0)
-      , target_linear_vel(0.0)
-      , tracking_point_x(0.0)
-      , tracking_point_y(0.0)
-      , tracking_point_curv(0.0)
-      , path_step_done(0)
+    : status(s),
+      distance_remains(0.0),
+      angle_remains(0.0),
+      distance_remains_raw(0.0),
+      angle_remains_raw(0.0),
+      turning_in_place(false),
+      signed_local_distance(0.0),
+      distance_from_target(0.0),
+      target_linear_vel(0.0),
+      tracking_point_x(0.0),
+      tracking_point_y(0.0),
+      tracking_point_curv(0.0),
+      path_step_done(0)
     {
     }
 
@@ -246,8 +218,9 @@ private:
   };
 
   TrackingResult getTrackingResult(
-      const tf2::Stamped<tf2::Transform>&, const Eigen::Vector3d&, const double, const double) const;
+    const tf2::Stamped<tf2::Transform> &, const Eigen::Vector3d &, const double,
+    const double) const;
 };
 }  // namespace trajectory_tracker
 
-#endif  // TRAJECTORY_TRACKER_TRACKER_CONTROLLER_H
+#endif  // TRAJECTORY_TRACKER__TRACKER_CONTROLLER_H_

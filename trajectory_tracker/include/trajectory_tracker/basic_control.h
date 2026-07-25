@@ -28,8 +28,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TRAJECTORY_TRACKER_BASIC_CONTROL_H
-#define TRAJECTORY_TRACKER_BASIC_CONTROL_H
+#ifndef TRAJECTORY_TRACKER__BASIC_CONTROL_H_
+#define TRAJECTORY_TRACKER__BASIC_CONTROL_H_
 
 #include <cmath>
 
@@ -52,10 +52,8 @@ inline float clip(const float v, const float max)
 
 inline float angleNormalized(float ang)
 {
-  while (ang < -M_PI)
-    ang += 2.0 * M_PI;
-  while (ang > M_PI)
-    ang -= 2.0 * M_PI;
+  while (ang < -M_PI) ang += 2.0 * M_PI;
+  while (ang > M_PI) ang -= 2.0 * M_PI;
   return ang;
 }
 
@@ -65,17 +63,12 @@ private:
   float val_prev_;
 
 public:
-  inline VelAccLimitter()
-    : val_prev_(0)
-  {
-  }
-  inline float increment(
-      const float v, const float vel, const float acc, const float dt)
+  inline VelAccLimitter() : val_prev_(0) {}
+  inline float increment(const float v, const float vel, const float acc, const float dt)
   {
     return set(val_prev_ + v, vel, acc, dt);
   }
-  inline float set(
-      float v, const float vel, const float acc, const float dt)
+  inline float set(float v, const float vel, const float acc, const float dt)
   {
     v = clip(v, vel);
 
@@ -84,21 +77,14 @@ public:
     else if (v < val_prev_ - dt * acc)
       v = val_prev_ - dt * acc;
 
-    if (!std::isfinite(v))
-      v = 0;
+    if (!std::isfinite(v)) v = 0;
 
     val_prev_ = v;
     return v;
   }
-  inline float get() const
-  {
-    return val_prev_;
-  }
-  inline void clear()
-  {
-    val_prev_ = 0;
-  }
+  inline float get() const { return val_prev_; }
+  inline void clear() { val_prev_ = 0; }
 };
 }  // namespace trajectory_tracker
 
-#endif  // TRAJECTORY_TRACKER_BASIC_CONTROL_H
+#endif  // TRAJECTORY_TRACKER__BASIC_CONTROL_H_

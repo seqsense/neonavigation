@@ -60,19 +60,19 @@ if($ENV{ROS_VERSION} EQUAL 1)
   target_link_libraries(trajectory_tracker_controller ${catkin_LIBRARIES})
   add_dependencies(trajectory_tracker_controller ${catkin_EXPORTED_TARGETS})
 
-  add_executable(trajectory_tracker src/trajectory_tracker.cpp)
+  add_executable(trajectory_tracker src/ros1_trajectory_tracker.cpp)
   target_link_libraries(trajectory_tracker trajectory_tracker_controller ${catkin_LIBRARIES})
   add_dependencies(trajectory_tracker ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg)
 
-  add_executable(trajectory_recorder src/trajectory_recorder.cpp)
+  add_executable(trajectory_recorder src/ros1_trajectory_recorder.cpp)
   target_link_libraries(trajectory_recorder ${catkin_LIBRARIES})
   add_dependencies(trajectory_recorder ${catkin_EXPORTED_TARGETS})
 
-  add_executable(trajectory_saver src/trajectory_saver.cpp)
+  add_executable(trajectory_saver src/ros1_trajectory_saver.cpp)
   target_link_libraries(trajectory_saver ${catkin_LIBRARIES})
   add_dependencies(trajectory_saver ${catkin_EXPORTED_TARGETS})
 
-  add_executable(trajectory_server src/trajectory_server.cpp)
+  add_executable(trajectory_server src/ros1_trajectory_server.cpp)
   target_link_libraries(trajectory_server ${catkin_LIBRARIES})
   add_dependencies(trajectory_server ${catkin_EXPORTED_TARGETS})
 
@@ -80,10 +80,6 @@ if($ENV{ROS_VERSION} EQUAL 1)
   if(CATKIN_ENABLE_TESTING)
     find_package(rostest REQUIRED)
     add_subdirectory(test)
-
-    find_package(roslint REQUIRED)
-    roslint_cpp()
-    roslint_add_test()
   endif()
 
 
@@ -113,12 +109,37 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
   set(CMAKE_CXX_STANDARD 17)
   set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-  # Logic library only. The ROS 2 interface node is added later by
-  # migration-hybrid-interface.
+  # Hybridized ROS-independent control logic.
   ament_auto_add_library(trajectory_tracker_controller SHARED
     src/tracker_controller.cpp)
   target_include_directories(trajectory_tracker_controller PUBLIC
     ${EIGEN3_INCLUDE_DIRS})
+
+  # ROS 2 interface node (component + standalone executable trajectory_tracker).
+  ament_auto_add_library(trajectory_tracker_component SHARED
+    src/ros2_trajectory_tracker.cpp)
+  target_link_libraries(trajectory_tracker_component trajectory_tracker_controller)
+  target_include_directories(trajectory_tracker_component PUBLIC
+    ${EIGEN3_INCLUDE_DIRS})
+  rclcpp_components_register_node(trajectory_tracker_component
+    PLUGIN "trajectory_tracker::TrackerNode"
+    EXECUTABLE trajectory_tracker)
+
+  # Standalone helper nodes.
+  ament_auto_add_executable(trajectory_recorder src/ros2_trajectory_recorder.cpp)
+  ament_auto_add_executable(trajectory_saver src/ros2_trajectory_saver.cpp)
+  ament_auto_add_executable(trajectory_server src/ros2_trajectory_server.cpp)
+
+  if(BUILD_TESTING)
+    find_package(ament_lint_auto REQUIRED)
+    # CPP_FORMATTER=clang_format: exclude uncrustify, keep clang_format + cpplint.
+    list(APPEND AMENT_LINT_AUTO_EXCLUDE ament_cmake_uncrustify)
+    # The BSD headers here (with the ATR / research-grant preamble) are not
+    # recognized by ament_copyright's full-text templates (license=<unknown>),
+    # so the copyright linter is excluded. Existing license text is kept as-is.
+    list(APPEND AMENT_LINT_AUTO_EXCLUDE ament_cmake_copyright)
+    ament_lint_auto_find_test_dependencies()
+  endif()
 
   ament_auto_package()
 

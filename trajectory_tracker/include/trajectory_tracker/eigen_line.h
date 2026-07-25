@@ -28,37 +28,31 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TRAJECTORY_TRACKER_EIGEN_LINE_H
-#define TRAJECTORY_TRACKER_EIGEN_LINE_H
+#ifndef TRAJECTORY_TRACKER__EIGEN_LINE_H_
+#define TRAJECTORY_TRACKER__EIGEN_LINE_H_
 
 #include <cmath>
 
-#include <Eigen/Core>
+#include "Eigen/Core"
 
 namespace trajectory_tracker
 {
-inline float curv3p(
-    const Eigen::Vector2d& a,
-    const Eigen::Vector2d& b,
-    const Eigen::Vector2d& c)
+inline float curv3p(const Eigen::Vector2d & a, const Eigen::Vector2d & b, const Eigen::Vector2d & c)
 {
   float ret;
-  ret = 2 * (a[0] * b[1] + b[0] * c[1] + c[0] * a[1] -
-             a[0] * c[1] - b[0] * a[1] - c[0] * b[1]);
+  ret = 2 * (a[0] * b[1] + b[0] * c[1] + c[0] * a[1] - a[0] * c[1] - b[0] * a[1] - c[0] * b[1]);
   ret /= std::sqrt((b - a).squaredNorm() * (b - c).squaredNorm() * (c - a).squaredNorm());
 
   return ret;
 }
 
-inline float cross2(const Eigen::Vector2d& a, const Eigen::Vector2d& b)
+inline float cross2(const Eigen::Vector2d & a, const Eigen::Vector2d & b)
 {
   return a[0] * b[1] - a[1] * b[0];
 }
 
 inline float lineDistance(
-    const Eigen::Vector2d& a,
-    const Eigen::Vector2d& b,
-    const Eigen::Vector2d& c)
+  const Eigen::Vector2d & a, const Eigen::Vector2d & b, const Eigen::Vector2d & c)
 {
   return cross2((b - a), (c - a)) / (b - a).norm();
 }
@@ -67,33 +61,25 @@ inline float lineDistance(
 // If c is behind a, negative value will be returned. [ (c)  (a)---(b) ]
 // Otherwise, positive value will be returned. [ (a)---(b)  (c) ] [ (a)--(c)--(b) ]
 inline float lineStripDistanceSigned(
-    const Eigen::Vector2d& a,
-    const Eigen::Vector2d& b,
-    const Eigen::Vector2d& c)
+  const Eigen::Vector2d & a, const Eigen::Vector2d & b, const Eigen::Vector2d & c)
 {
-  if ((b - a).dot(c - a) <= 0)
-    return -(c - a).norm();
-  if ((a - b).dot(c - b) <= 0)
-    return (c - b).norm();
+  if ((b - a).dot(c - a) <= 0) return -(c - a).norm();
+  if ((a - b).dot(c - b) <= 0) return (c - b).norm();
   return std::abs(lineDistance(a, b, c));
 }
 
 inline float lineStripDistance(
-    const Eigen::Vector2d& a,
-    const Eigen::Vector2d& b,
-    const Eigen::Vector2d& c)
+  const Eigen::Vector2d & a, const Eigen::Vector2d & b, const Eigen::Vector2d & c)
 {
   return std::abs(lineStripDistanceSigned(a, b, c));
 }
 
 inline Eigen::Vector2d projection2d(
-    const Eigen::Vector2d& a,
-    const Eigen::Vector2d& b,
-    const Eigen::Vector2d& c)
+  const Eigen::Vector2d & a, const Eigen::Vector2d & b, const Eigen::Vector2d & c)
 {
   const float r = (b - a).dot(c - a) / (b - a).squaredNorm();
   return b * r + a * (1.0 - r);
 }
 }  // namespace trajectory_tracker
 
-#endif  // TRAJECTORY_TRACKER_EIGEN_LINE_H
+#endif  // TRAJECTORY_TRACKER__EIGEN_LINE_H_

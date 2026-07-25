@@ -35,23 +35,20 @@
    This software was implemented to accomplish the above research.
  */
 
-#include <cmath>
-#include <fstream>
-#include <string>
-
-#include <ros/ros.h>
-
 #include <geometry_msgs/Twist.h>
 #include <interactive_markers/interactive_marker_server.h>
 #include <nav_msgs/Path.h>
+#include <neonavigation_common/compatibility.h>
+#include <ros/ros.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <trajectory_tracker/filter.h>
 #include <trajectory_tracker_msgs/ChangePath.h>
 #include <trajectory_tracker_msgs/TrajectoryServerStatus.h>
 #include <visualization_msgs/InteractiveMarkerUpdate.h>
 
-#include <trajectory_tracker/filter.h>
-
-#include <neonavigation_common/compatibility.h>
+#include <cmath>
+#include <fstream>
+#include <string>
 
 class ServerNode
 {
@@ -75,14 +72,14 @@ private:
   boost::shared_array<uint8_t> buffer_;
   int serial_size_;
   double filter_step_;
-  trajectory_tracker::Filter* lpf_[2];
+  trajectory_tracker::Filter * lpf_[2];
 
   bool loadFile();
   void loadPath();
-  bool change(trajectory_tracker_msgs::ChangePath::Request& req,
-              trajectory_tracker_msgs::ChangePath::Response& res);
-  void processFeedback(
-      const visualization_msgs::InteractiveMarkerFeedbackConstPtr& feedback);
+  bool change(
+    trajectory_tracker_msgs::ChangePath::Request & req,
+    trajectory_tracker_msgs::ChangePath::Response & res);
+  void processFeedback(const visualization_msgs::InteractiveMarkerFeedbackConstPtr & feedback);
   void updateIM();
   enum
   {
@@ -94,10 +91,7 @@ private:
 };
 
 ServerNode::ServerNode()
-  : nh_()
-  , pnh_("~")
-  , srv_im_fb_("trajectory_server")
-  , buffer_(new uint8_t[1024])
+: nh_(), pnh_("~"), srv_im_fb_("trajectory_server"), buffer_(new uint8_t[1024])
 {
   neonavigation_common::compat::checkCompatMode();
   neonavigation_common::compat::deprecatedParam(pnh_, "path", topic_path_, std::string("path"));
@@ -106,29 +100,24 @@ ServerNode::ServerNode()
   pnh_.param("filter_step", filter_step_, 0.0);
 
   pub_path_ = neonavigation_common::compat::advertise<nav_msgs::Path>(
-      nh_, "path",
-      pnh_, topic_path_, 2, true);
+    nh_, "path", pnh_, topic_path_, 2, true);
   pub_status_ = pnh_.advertise<trajectory_tracker_msgs::TrajectoryServerStatus>("status", 2);
   srv_change_path_ = neonavigation_common::compat::advertiseService(
-      nh_, "change_path",
-      pnh_, "ChangePath", &ServerNode::change, this);
+    nh_, "change_path", pnh_, "ChangePath", &ServerNode::change, this);
   update_num_ = 0;
   max_markers_ = 0;
 }
-ServerNode::~ServerNode()
-{
-}
+ServerNode::~ServerNode() {}
 
 bool ServerNode::loadFile()
 {
   std::ifstream ifs(req_path_.filename.c_str());
-  if (ifs.good())
-  {
+  if (ifs.good()) {
     ifs.seekg(0, ifs.end);
     serial_size_ = ifs.tellg();
     ifs.seekg(0, ifs.beg);
     buffer_.reset(new uint8_t[serial_size_]);
-    ifs.read(reinterpret_cast<char*>(buffer_.get()), serial_size_);
+    ifs.read(reinterpret_cast<char *>(buffer_.get()), serial_size_);
 
     return true;
   }
@@ -136,11 +125,10 @@ bool ServerNode::loadFile()
 }
 
 void ServerNode::processFeedback(
-    const visualization_msgs::InteractiveMarkerFeedbackConstPtr& feedback)
+  const visualization_msgs::InteractiveMarkerFeedbackConstPtr & feedback)
 {
   int id = std::atoi(feedback->marker_name.c_str());
-  switch (feedback->event_type)
-  {
+  switch (feedback->event_type) {
     case visualization_msgs::InteractiveMarkerFeedback::POSE_UPDATE:
       path_.poses[id].pose = feedback->pose;
       break;
@@ -149,8 +137,7 @@ void ServerNode::processFeedback(
       pub_path_.publish(path_);
       break;
     case visualization_msgs::InteractiveMarkerFeedback::MENU_SELECT:
-      switch (feedback->menu_entry_id)
-      {
+      switch (feedback->menu_entry_id) {
         case MENU_DELETE:
           path_.poses.erase(path_.poses.begin() + id);
           break;
@@ -172,8 +159,7 @@ void ServerNode::updateIM()
   viz.server_id = "Path";
   srv_im_fb_.clear();
   int i = 0;
-  for (auto& p : path_.poses)
-  {
+  for (auto & p : path_.poses) {
     visualization_msgs::InteractiveMarker mark;
     visualization_msgs::Marker marker;
     visualization_msgs::InteractiveMarkerControl ctl;
@@ -232,28 +218,26 @@ void ServerNode::updateIM()
   srv_im_fb_.applyChanges();
 }
 
-bool ServerNode::change(trajectory_tracker_msgs::ChangePath::Request& req,
-                        trajectory_tracker_msgs::ChangePath::Response& res)
+bool ServerNode::change(
+  trajectory_tracker_msgs::ChangePath::Request & req,
+  trajectory_tracker_msgs::ChangePath::Response & res)
 {
   req_path_ = req;
   res.success = false;
 
-  if (loadFile())
-  {
+  if (loadFile()) {
     res.success = true;
     ros::serialization::IStream stream(buffer_.get(), serial_size_);
     ros::serialization::deserialize(stream, path_);
     path_.header.stamp = ros::Time::now();
-    if (filter_step_ > 0)
-    {
+    if (filter_step_ > 0) {
       std::cout << filter_step_ << std::endl;
       lpf_[0] = new trajectory_tracker::Filter(
-          trajectory_tracker::Filter::FILTER_LPF, filter_step_, path_.poses[0].pose.position.x);
+        trajectory_tracker::Filter::FILTER_LPF, filter_step_, path_.poses[0].pose.position.x);
       lpf_[1] = new trajectory_tracker::Filter(
-          trajectory_tracker::Filter::FILTER_LPF, filter_step_, path_.poses[0].pose.position.y);
+        trajectory_tracker::Filter::FILTER_LPF, filter_step_, path_.poses[0].pose.position.y);
 
-      for (size_t i = 0; i < path_.poses.size(); i++)
-      {
+      for (size_t i = 0; i < path_.poses.size(); i++) {
         path_.poses[i].pose.position.x = lpf_[0]->in(path_.poses[i].pose.position.x);
         path_.poses[i].pose.position.y = lpf_[1]->in(path_.poses[i].pose.position.y);
       }
@@ -264,9 +248,7 @@ bool ServerNode::change(trajectory_tracker_msgs::ChangePath::Request& req,
 
     pub_path_.publish(path_);
     updateIM();
-  }
-  else
-  {
+  } else {
     serial_size_ = 0;
     req_path_.filename = "";
     path_.poses.clear();
@@ -280,8 +262,7 @@ void ServerNode::spin()
   ros::Rate loop_rate(hz_);
   trajectory_tracker_msgs::TrajectoryServerStatus status;
 
-  while (ros::ok())
-  {
+  while (ros::ok()) {
     status.header = path_.header;
     status.filename = req_path_.filename;
     status.id = req_path_.id;
@@ -291,7 +272,7 @@ void ServerNode::spin()
   }
 }
 
-int main(int argc, char** argv)
+int main(int argc, char ** argv)
 {
   ros::init(argc, argv, "trajectory_server");
 

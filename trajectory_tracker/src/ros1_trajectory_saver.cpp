@@ -35,16 +35,14 @@
    This software was implemented to accomplish the above research.
  */
 
+#include <geometry_msgs/Twist.h>
+#include <nav_msgs/Path.h>
+#include <neonavigation_common/compatibility.h>
+#include <ros/ros.h>
+
 #include <cmath>
 #include <fstream>
 #include <string>
-
-#include <ros/ros.h>
-
-#include <geometry_msgs/Twist.h>
-#include <nav_msgs/Path.h>
-
-#include <neonavigation_common/compatibility.h>
 
 class SaverNode
 {
@@ -61,34 +59,26 @@ private:
   std::string topic_path_;
   std::string filename_;
   bool saved_;
-  void cbPath(const nav_msgs::Path::ConstPtr& msg);
+  void cbPath(const nav_msgs::Path::ConstPtr & msg);
 };
 
-SaverNode::SaverNode()
-  : nh_()
-  , pnh_("~")
-  , saved_(false)
+SaverNode::SaverNode() : nh_(), pnh_("~"), saved_(false)
 {
   neonavigation_common::compat::checkCompatMode();
   neonavigation_common::compat::deprecatedParam(pnh_, "path", topic_path_, std::string("recpath"));
   pnh_.param("file", filename_, std::string("a.path"));
 
   sub_path_ = neonavigation_common::compat::subscribe(
-      nh_, "path",
-      pnh_, topic_path_, 10, &SaverNode::cbPath, this);
+    nh_, "path", pnh_, topic_path_, 10, &SaverNode::cbPath, this);
 }
-SaverNode::~SaverNode()
-{
-}
+SaverNode::~SaverNode() {}
 
-void SaverNode::cbPath(const nav_msgs::Path::ConstPtr& msg)
+void SaverNode::cbPath(const nav_msgs::Path::ConstPtr & msg)
 {
-  if (saved_)
-    return;
+  if (saved_) return;
   std::ofstream ofs(filename_.c_str());
 
-  if (!ofs)
-  {
+  if (!ofs) {
     ROS_ERROR("Failed to open %s", filename_.c_str());
     return;
   }
@@ -100,7 +90,7 @@ void SaverNode::cbPath(const nav_msgs::Path::ConstPtr& msg)
   ros::serialization::OStream stream(buffer.get(), serial_size);
   ros::serialization::serialize(stream, *msg);
 
-  ofs.write(reinterpret_cast<char*>(buffer.get()), serial_size);
+  ofs.write(reinterpret_cast<char *>(buffer.get()), serial_size);
 
   saved_ = true;
 }
@@ -110,17 +100,15 @@ void SaverNode::save()
   ros::Rate loop_rate(5);
   ROS_INFO("Waiting for the path");
 
-  while (ros::ok())
-  {
+  while (ros::ok()) {
     ros::spinOnce();
     loop_rate.sleep();
-    if (saved_)
-      break;
+    if (saved_) break;
   }
   ROS_INFO("Path saved");
 }
 
-int main(int argc, char** argv)
+int main(int argc, char ** argv)
 {
   ros::init(argc, argv, "trajectory_saver");
 
