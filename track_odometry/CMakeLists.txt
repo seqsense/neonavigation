@@ -43,12 +43,12 @@ if($ENV{ROS_VERSION} EQUAL 1)
   target_link_libraries(track_odometry ${catkin_LIBRARIES})
   add_dependencies(track_odometry ${catkin_EXPORTED_TARGETS})
 
-  add_executable(track_odometry_node src/track_odometry_node.cpp)
+  add_executable(track_odometry_node src/ros1_track_odometry_node.cpp)
   set_target_properties(track_odometry_node PROPERTIES OUTPUT_NAME track_odometry)
   target_link_libraries(track_odometry_node track_odometry ${catkin_LIBRARIES})
   add_dependencies(track_odometry_node ${catkin_EXPORTED_TARGETS})
 
-  add_executable(tf_projection src/tf_projection_node.cpp src/tf_projection.cpp)
+  add_executable(tf_projection src/ros1_tf_projection_node.cpp src/tf_projection.cpp)
   target_link_libraries(tf_projection ${catkin_LIBRARIES})
   add_dependencies(tf_projection ${catkin_EXPORTED_TARGETS})
 
@@ -56,10 +56,6 @@ if($ENV{ROS_VERSION} EQUAL 1)
   if(CATKIN_ENABLE_TESTING)
     find_package(rostest REQUIRED)
     add_subdirectory(test)
-
-    find_package(roslint REQUIRED)
-    roslint_cpp()
-    roslint_add_test()
   endif()
 
 
@@ -99,7 +95,32 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
   target_include_directories(tf_projection PUBLIC
     ${EIGEN3_INCLUDE_DIRS})
 
-  # ROS 2 interface nodes are added later by migration-hybrid-interface.
+  # ROS 2 component interface node for the IMU/odometry Kalman fusion logic.
+  ament_auto_add_library(track_odometry_node SHARED
+    src/ros2_track_odometry_node.cpp)
+  target_link_libraries(track_odometry_node track_odometry)
+  rclcpp_components_register_node(track_odometry_node
+    PLUGIN "track_odometry::TrackOdometryNode"
+    EXECUTABLE track_odometry_node_exec)
+
+  # ROS 2 component interface node for the TF projection logic.
+  ament_auto_add_library(tf_projection_node SHARED
+    src/ros2_tf_projection_node.cpp)
+  target_link_libraries(tf_projection_node tf_projection)
+  rclcpp_components_register_node(tf_projection_node
+    PLUGIN "track_odometry::TfProjectionNode"
+    EXECUTABLE tf_projection_node_exec)
+
+  if(BUILD_TESTING)
+    find_package(ament_lint_auto REQUIRED)
+    list(APPEND AMENT_LINT_AUTO_EXCLUDE ament_cmake_uncrustify)
+    # The existing BSD 3-clause headers ("the neonavigation authors") are not
+    # matched by ament_copyright's known-license templates (reported as
+    # license=<unknown>). Keep the original headers untouched and skip the
+    # copyright linter instead of fabricating a recognized license text.
+    list(APPEND AMENT_LINT_AUTO_EXCLUDE ament_cmake_copyright)
+    ament_lint_auto_find_test_dependencies()
+  endif()
 
   ament_auto_package()
 

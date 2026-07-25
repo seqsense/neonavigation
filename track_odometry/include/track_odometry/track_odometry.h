@@ -27,19 +27,17 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TRACK_ODOMETRY_TRACK_ODOMETRY_H
-#define TRACK_ODOMETRY_TRACK_ODOMETRY_H
+#ifndef TRACK_ODOMETRY__TRACK_ODOMETRY_H_
+#define TRACK_ODOMETRY__TRACK_ODOMETRY_H_
 
 #include <memory>
 #include <string>
 
 #include "geometry_msgs/msg/transform_stamped.hpp"
 #include "nav_msgs/msg/odometry.hpp"
-#include "sensor_msgs/msg/imu.hpp"
-
 #include "rclcpp/rclcpp.hpp"
+#include "sensor_msgs/msg/imu.hpp"
 #include "tf2_ros/buffer.h"
-
 #include "track_odometry/kalman_filter1.h"
 
 namespace track_odometry
@@ -84,22 +82,22 @@ public:
     geometry_msgs::msg::TransformStamped transform;
   };
 
-  TrackOdometry(tf2_ros::Buffer& tf_buffer, const rclcpp::Logger& logger);
+  TrackOdometry(tf2_ros::Buffer & tf_buffer, const rclcpp::Logger & logger);
 
-  void setParameters(const TrackOdometryParams& params);
+  void setParameters(const TrackOdometryParams & params);
 
   // Transform the incoming IMU into the base_link frame and cache it.
-  void processImu(const std::shared_ptr<const sensor_msgs::msg::Imu>& msg);
+  void processImu(const std::shared_ptr<const sensor_msgs::msg::Imu> & msg);
 
   // Fuse the cached IMU with the incoming odometry and return the corrected
   // odometry together with the corresponding transform.
-  OdomResult processOdom(const std::shared_ptr<const nav_msgs::msg::Odometry>& msg);
+  OdomResult processOdom(const std::shared_ptr<const nav_msgs::msg::Odometry> & msg);
 
   // Override the z component of the previous odometry pose (reset_z topic).
   void resetZ(const double z);
 
 private:
-  tf2_ros::Buffer& tf_buffer_;
+  tf2_ros::Buffer & tf_buffer_;
   rclcpp::Logger logger_;
 
   TrackOdometryParams params_;
@@ -119,4 +117,4 @@ private:
 };
 }  // namespace track_odometry
 
-#endif  // TRACK_ODOMETRY_TRACK_ODOMETRY_H
+#endif  // TRACK_ODOMETRY__TRACK_ODOMETRY_H_

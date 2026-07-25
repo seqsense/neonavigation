@@ -27,38 +27,36 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "track_odometry/track_odometry.h"
+
 #include <cmath>
 #include <limits>
 #include <memory>
 
 #include "Eigen/Core"
 #include "Eigen/Geometry"
-
 #include "geometry_msgs/msg/point.hpp"
 #include "geometry_msgs/msg/quaternion.hpp"
 #include "geometry_msgs/msg/quaternion_stamped.hpp"
 #include "geometry_msgs/msg/transform_stamped.hpp"
 #include "geometry_msgs/msg/vector3.hpp"
 #include "geometry_msgs/msg/vector3_stamped.hpp"
-
 #include "rclcpp/rclcpp.hpp"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
-
-#include "track_odometry/track_odometry.h"
 
 namespace track_odometry
 {
 namespace
 {
-Eigen::Vector3d toEigen(const geometry_msgs::msg::Point& a)
+Eigen::Vector3d toEigen(const geometry_msgs::msg::Point & a)
 {
   return Eigen::Vector3d(a.x, a.y, a.z);
 }
-Eigen::Quaterniond toEigen(const geometry_msgs::msg::Quaternion& a)
+Eigen::Quaterniond toEigen(const geometry_msgs::msg::Quaternion & a)
 {
   return Eigen::Quaterniond(a.w, a.x, a.y, a.z);
 }
-geometry_msgs::msg::Point toPoint(const Eigen::Vector3d& a)
+geometry_msgs::msg::Point toPoint(const Eigen::Vector3d & a)
 {
   geometry_msgs::msg::Point b;
   b.x = a.x();
@@ -66,7 +64,7 @@ geometry_msgs::msg::Point toPoint(const Eigen::Vector3d& a)
   b.z = a.z();
   return b;
 }
-geometry_msgs::msg::Vector3 toVector3(const Eigen::Vector3d& a)
+geometry_msgs::msg::Vector3 toVector3(const Eigen::Vector3d & a)
 {
   geometry_msgs::msg::Vector3 b;
   b.x = a.x();
@@ -76,48 +74,42 @@ geometry_msgs::msg::Vector3 toVector3(const Eigen::Vector3d& a)
 }
 }  // namespace
 
-TrackOdometry::TrackOdometry(tf2_ros::Buffer& tf_buffer, const rclcpp::Logger& logger)
-  : tf_buffer_(tf_buffer)
-  , logger_(logger)
-  , z_filter_timeconst_(-1.0)
-  , dist_(0.0)
-  , has_imu_(false)
-  , has_odom_(false)
+TrackOdometry::TrackOdometry(tf2_ros::Buffer & tf_buffer, const rclcpp::Logger & logger)
+: tf_buffer_(tf_buffer),
+  logger_(logger),
+  z_filter_timeconst_(-1.0),
+  dist_(0.0),
+  has_imu_(false),
+  has_odom_(false)
 {
   slip_.set(0.0, 0.1);
 }
 
-void TrackOdometry::setParameters(const TrackOdometryParams& params)
+void TrackOdometry::setParameters(const TrackOdometryParams & params)
 {
   params_ = params;
   z_filter_timeconst_ = params.z_filter_timeconst;
 
   base_link_id_ = params.base_link_id;
-  if (params.base_link_id_overwrite.size() > 0)
-  {
+  if (params.base_link_id_overwrite.size() > 0) {
     base_link_id_ = params.base_link_id_overwrite;
   }
 }
 
-void TrackOdometry::resetZ(const double z)
-{
-  odom_prev_.pose.pose.position.z = z;
-}
+void TrackOdometry::resetZ(const double z) { odom_prev_.pose.pose.position.z = z; }
 
-void TrackOdometry::processImu(const std::shared_ptr<const sensor_msgs::msg::Imu>& msg)
+void TrackOdometry::processImu(const std::shared_ptr<const sensor_msgs::msg::Imu> & msg)
 {
-  if (base_link_id_.size() == 0)
-  {
+  if (base_link_id_.size() == 0) {
     RCLCPP_ERROR(logger_, "base_link id is not specified.");
     return;
   }
 
   imu_.header = msg->header;
-  try
-  {
+  try {
     geometry_msgs::msg::TransformStamped trans = tf_buffer_.lookupTransform(
-        base_link_id_, msg->header.frame_id, rclcpp::Time(0, 0, RCL_ROS_TIME),
-        rclcpp::Duration::from_seconds(0.1));
+      base_link_id_, msg->header.frame_id, rclcpp::Time(0, 0, RCL_ROS_TIME),
+      rclcpp::Duration::from_seconds(0.1));
 
     geometry_msgs::msg::Vector3Stamped vin, vout;
     vin.header = imu_.header;
@@ -159,58 +151,54 @@ void TrackOdometry::processImu(const std::shared_ptr<const sensor_msgs::msg::Imu
     //   tf2::getYaw(qmout.quaternion), qmout.header.frame_id.c_str());
 
     has_imu_ = true;
-  }
-  catch (tf2::TransformException& e)
-  {
+  } catch (tf2::TransformException & e) {
     RCLCPP_ERROR(logger_, "%s", e.what());
     has_imu_ = false;
     return;
   }
 }
 
-TrackOdometry::OdomResult TrackOdometry::processOdom(const std::shared_ptr<const nav_msgs::msg::Odometry>& msg)
+TrackOdometry::OdomResult TrackOdometry::processOdom(
+  const std::shared_ptr<const nav_msgs::msg::Odometry> & msg)
 {
   OdomResult result;
   nav_msgs::msg::Odometry odom = *msg;
-  if (has_odom_)
-  {
+  if (has_odom_) {
     const double dt =
-        (rclcpp::Time(odom.header.stamp) - rclcpp::Time(odomraw_prev_.header.stamp)).seconds();
-    if (params_.base_link_id_overwrite.size() == 0)
-    {
+      (rclcpp::Time(odom.header.stamp) - rclcpp::Time(odomraw_prev_.header.stamp)).seconds();
+    if (params_.base_link_id_overwrite.size() == 0) {
       base_link_id_ = odom.child_frame_id;
     }
 
-    if (!has_imu_)
-    {
+    if (!has_imu_) {
       rclcpp::Clock clock(RCL_ROS_TIME);
       RCLCPP_ERROR_THROTTLE(logger_, clock, 1000, "IMU data not received");
       return result;
     }
 
     double slip_ratio = 1.0;
-    odom.header.stamp = rclcpp::Time(odom.header.stamp) + rclcpp::Duration::from_seconds(params_.tf_tolerance);
+    odom.header.stamp =
+      rclcpp::Time(odom.header.stamp) + rclcpp::Duration::from_seconds(params_.tf_tolerance);
     odom.twist.twist.angular = imu_.angular_velocity;
     odom.pose.pose.orientation = imu_.orientation;
 
     double w_imu = imu_.angular_velocity.z;
     const double w_odom = msg->twist.twist.angular.z;
 
-    if (w_imu * w_odom < 0 && !params_.negative_slip)
-      w_imu = w_odom;
+    if (w_imu * w_odom < 0 && !params_.negative_slip) w_imu = w_odom;
 
     slip_.predict(-slip_.x_ * dt * params_.predict_filter_tc, dt * params_.sigma_predict);
-    if (std::abs(w_odom) > params_.sigma_odom * 3)
-    {
+    if (std::abs(w_odom) > params_.sigma_odom * 3) {
       // non-kf mode: calculate slip_ratio if angular vel < 3*sigma
       slip_ratio = w_imu / w_odom;
     }
 
-    const double slip_ratio_per_angvel =
-        (w_odom - w_imu) / (w_odom * std::abs(w_odom));
+    const double slip_ratio_per_angvel = (w_odom - w_imu) / (w_odom * std::abs(w_odom));
     double slip_ratio_per_angvel_sigma =
-        params_.sigma_odom * std::abs(2.0 * w_odom * params_.sigma_odom /
-                                      std::pow(w_odom * w_odom - params_.sigma_odom * params_.sigma_odom, 2));
+      params_.sigma_odom *
+      std::abs(
+        2.0 * w_odom * params_.sigma_odom /
+        std::pow(w_odom * w_odom - params_.sigma_odom * params_.sigma_odom, 2));
     if (std::abs(w_odom) < params_.sigma_odom)
       slip_ratio_per_angvel_sigma = std::numeric_limits<double>::infinity();
 
@@ -219,28 +207,25 @@ TrackOdometry::OdomResult TrackOdometry::processOdom(const std::shared_ptr<const
     //   slip_ratio_per_angvel, slip_ratio_sigma, slip_ratio_per_angvel_sigma,
     //   slip_.x_, slip_.sigma_, msg->twist.twist.angular.z);
 
-    if (params_.debug)
-    {
-      printf("%0.3f %0.3f  %0.3f  %0.3f %0.3f  %0.3f  %0.3f\n",
-             imu_.angular_velocity.z,
-             msg->twist.twist.angular.z,
-             slip_ratio,
-             slip_.x_, slip_.sigma_,
-             odom.twist.twist.linear.x, dist_);
+    if (params_.debug) {
+      printf(
+        "%0.3f %0.3f  %0.3f  %0.3f %0.3f  %0.3f  %0.3f\n", imu_.angular_velocity.z,
+        msg->twist.twist.angular.z, slip_ratio, slip_.x_, slip_.sigma_, odom.twist.twist.linear.x,
+        dist_);
     }
     dist_ += odom.twist.twist.linear.x * dt;
 
-    const Eigen::Vector3d diff = toEigen(msg->pose.pose.position) - toEigen(odomraw_prev_.pose.pose.position);
+    const Eigen::Vector3d diff =
+      toEigen(msg->pose.pose.position) - toEigen(odomraw_prev_.pose.pose.position);
     Eigen::Vector3d v =
-        toEigen(odom.pose.pose.orientation) * toEigen(msg->pose.pose.orientation).inverse() * diff;
+      toEigen(odom.pose.pose.orientation) * toEigen(msg->pose.pose.orientation).inverse() * diff;
     if (params_.use_kf)
       v *= 1.0 - slip_.x_;
     else
       v *= slip_ratio;
 
     odom.pose.pose.position = toPoint(toEigen(odom_prev_.pose.pose.position) + v);
-    if (z_filter_timeconst_ > 0)
-      odom.pose.pose.position.z *= 1.0 - (dt / z_filter_timeconst_);
+    if (z_filter_timeconst_ > 0) odom.pose.pose.position.z *= 1.0 - (dt / z_filter_timeconst_);
 
     odom.child_frame_id = base_link_id_;
 
