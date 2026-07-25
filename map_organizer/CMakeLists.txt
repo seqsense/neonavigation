@@ -82,23 +82,23 @@ if($ENV{ROS_VERSION} EQUAL 1)
   target_link_libraries(pointcloud_to_maps_core ${catkin_LIBRARIES} ${PCL_LIBRARIES})
   add_dependencies(pointcloud_to_maps_core ${catkin_EXPORTED_TARGETS})
 
-  add_executable(pointcloud_to_maps src/pointcloud_to_maps_node.cpp)
+  add_executable(pointcloud_to_maps src/ros1_pointcloud_to_maps_node.cpp)
   target_link_libraries(pointcloud_to_maps pointcloud_to_maps_core ${catkin_LIBRARIES} ${PCL_LIBRARIES})
   add_dependencies(pointcloud_to_maps ${catkin_EXPORTED_TARGETS})
 
-  add_executable(tie_maps src/tie_maps.cpp)
+  add_executable(tie_maps src/ros1_tie_maps.cpp)
   target_link_libraries(tie_maps yaml-cpp ${catkin_LIBRARIES} ${PCL_LIBRARIES})
   add_dependencies(tie_maps ${catkin_EXPORTED_TARGETS})
 
-  add_executable(save_maps src/save_maps.cpp)
+  add_executable(save_maps src/ros1_save_maps.cpp)
   target_link_libraries(save_maps ${catkin_LIBRARIES} ${PCL_LIBRARIES})
   add_dependencies(save_maps ${catkin_EXPORTED_TARGETS})
 
-  add_executable(select_map src/select_map.cpp)
+  add_executable(select_map src/ros1_select_map.cpp)
   target_link_libraries(select_map ${catkin_LIBRARIES} ${PCL_LIBRARIES})
   add_dependencies(select_map ${catkin_EXPORTED_TARGETS})
 
-  add_executable(pose_transform src/pose_transform.cpp)
+  add_executable(pose_transform src/ros1_pose_transform.cpp)
   target_link_libraries(pose_transform ${catkin_LIBRARIES} ${PCL_LIBRARIES})
   add_dependencies(pose_transform ${catkin_EXPORTED_TARGETS})
 
@@ -106,10 +106,6 @@ if($ENV{ROS_VERSION} EQUAL 1)
   if(CATKIN_ENABLE_TESTING)
     find_package(rostest REQUIRED)
     add_subdirectory(test)
-
-    find_package(roslint REQUIRED)
-    roslint_cpp()
-    roslint_add_test()
   endif()
 
 
@@ -137,6 +133,7 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
 
   find_package(PCL REQUIRED)
   find_package(Eigen3 REQUIRED)
+  find_package(yaml-cpp REQUIRED)
 
   set(CMAKE_CXX_STANDARD 17)
   set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -152,7 +149,38 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
     ${PCL_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIRS})
   target_link_libraries(pointcloud_to_maps_core ${PCL_LIBRARIES})
 
-  # ROS 2 interface nodes are added by the migration-hybrid-interface stage.
+  # ROS 2 interface node (component + standalone executable pointcloud_to_maps).
+  ament_auto_add_library(pointcloud_to_maps_component SHARED
+    src/ros2_pointcloud_to_maps_node.cpp)
+  target_link_libraries(pointcloud_to_maps_component pointcloud_to_maps_core ${PCL_LIBRARIES})
+  target_include_directories(pointcloud_to_maps_component PUBLIC
+    ${PCL_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIRS})
+  rclcpp_components_register_node(pointcloud_to_maps_component
+    PLUGIN "map_organizer::PointcloudToMapsNode"
+    EXECUTABLE pointcloud_to_maps)
+
+  # Standalone helper nodes. tie_maps loads maps from disk via nav2_map_server
+  # (the ROS 2 successor of map_server).
+  ament_auto_add_executable(tie_maps src/ros2_tie_maps.cpp)
+  target_link_libraries(tie_maps ${YAML_CPP_LIBRARIES})
+  target_include_directories(tie_maps PUBLIC ${YAML_CPP_INCLUDE_DIR})
+
+  ament_auto_add_executable(save_maps src/ros2_save_maps.cpp)
+
+  ament_auto_add_executable(select_map src/ros2_select_map.cpp)
+
+  ament_auto_add_executable(pose_transform src/ros2_pose_transform.cpp)
+
+  if(BUILD_TESTING)
+    find_package(ament_lint_auto REQUIRED)
+    # CPP_FORMATTER=clang_format: exclude uncrustify, keep clang_format + cpplint.
+    list(APPEND AMENT_LINT_AUTO_EXCLUDE ament_cmake_uncrustify)
+    # The BSD license headers here are not recognized by ament_copyright's
+    # full-text templates (license=<unknown>), so the copyright linter is
+    # excluded. The existing license text is kept as-is.
+    list(APPEND AMENT_LINT_AUTO_EXCLUDE ament_cmake_copyright)
+    ament_lint_auto_find_test_dependencies()
+  endif()
 
   ament_auto_package()
 

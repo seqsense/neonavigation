@@ -27,24 +27,19 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <map>
-#include <string>
-
-#include <ros/ros.h>
-
-#include <sensor_msgs/PointCloud2.h>
-#include <nav_msgs/OccupancyGrid.h>
+#include <map_organizer/pointcloud_to_maps.h>
 #include <map_organizer_msgs/OccupancyGridArray.h>
-
+#include <nav_msgs/OccupancyGrid.h>
+#include <neonavigation_common/compatibility.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
+#include <ros/ros.h>
+#include <sensor_msgs/PointCloud2.h>
 
-#include <neonavigation_common/compatibility.h>
-
+#include <map>
 #include <sq_ros1_compat/logger.hpp>
-
-#include <map_organizer/pointcloud_to_maps.h>
+#include <string>
 
 class PointcloudToMapsNode
 {
@@ -56,17 +51,14 @@ private:
   ros::Subscriber sub_points_;
 
 public:
-  PointcloudToMapsNode()
-    : pnh_("~")
-    , nh_()
+  PointcloudToMapsNode() : pnh_("~"), nh_()
   {
     neonavigation_common::compat::checkCompatMode();
     sub_points_ = neonavigation_common::compat::subscribe(
-        nh_, "mapcloud",
-        pnh_, "map_cloud", 1, &PointcloudToMapsNode::cbPoints, this);
+      nh_, "mapcloud", pnh_, "map_cloud", 1, &PointcloudToMapsNode::cbPoints, this);
     pub_map_array_ = nh_.advertise<map_organizer_msgs::OccupancyGridArray>("maps", 1, true);
   }
-  void cbPoints(const sensor_msgs::PointCloud2::Ptr& msg)
+  void cbPoints(const sensor_msgs::PointCloud2::Ptr & msg)
   {
     pcl::PointCloud<pcl::PointXYZ>::Ptr pc(new pcl::PointCloud<pcl::PointXYZ>());
     pcl::fromROSMsg(*msg, *pc);
@@ -81,11 +73,9 @@ public:
     pnh_.param("floor_area_thresh_rate", config.floor_area_thresh_rate, 0.8);
 
     map_organizer::PointcloudToMaps p2m(config, sq_ros1_compat::get_logger("pointcloud_to_maps"));
-    const map_organizer_msgs::OccupancyGridArray map_array =
-        p2m.generateMaps(*pc, msg->header);
+    const map_organizer_msgs::OccupancyGridArray map_array = p2m.generateMaps(*pc, msg->header);
 
-    for (size_t i = 0; i < map_array.maps.size(); ++i)
-    {
+    for (size_t i = 0; i < map_array.maps.size(); ++i) {
       const std::string name = "map" + std::to_string(i);
       pub_maps_[name] = pnh_.advertise<nav_msgs::OccupancyGrid>(name, 1, true);
       pub_maps_[name].publish(map_array.maps[i]);
@@ -94,7 +84,7 @@ public:
   }
 };
 
-int main(int argc, char** argv)
+int main(int argc, char ** argv)
 {
   ros::init(argc, argv, "pointcloud_to_maps");
 

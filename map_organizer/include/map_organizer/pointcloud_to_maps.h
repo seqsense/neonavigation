@@ -27,17 +27,15 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef MAP_ORGANIZER_POINTCLOUD_TO_MAPS_H
-#define MAP_ORGANIZER_POINTCLOUD_TO_MAPS_H
+#ifndef MAP_ORGANIZER__POINTCLOUD_TO_MAPS_H_
+#define MAP_ORGANIZER__POINTCLOUD_TO_MAPS_H_
 
 #include "map_organizer_msgs/msg/occupancy_grid_array.hpp"
 #include "nav_msgs/msg/occupancy_grid.hpp"
-#include "std_msgs/msg/header.hpp"
-
 #include "pcl/point_cloud.h"
 #include "pcl/point_types.h"
-
 #include "rclcpp/rclcpp.hpp"
+#include "std_msgs/msg/header.hpp"
 
 namespace map_organizer
 {
@@ -62,31 +60,20 @@ public:
     double floor_area_thresh_rate = 0.8;  // ratio of the largest runnable area
   };
 
-  explicit PointcloudToMaps(const rclcpp::Logger& logger)
-    : logger_(logger)
-  {
-  }
-  PointcloudToMaps(const Config& config, const rclcpp::Logger& logger)
-    : config_(config)
-    , logger_(logger)
+  explicit PointcloudToMaps(const rclcpp::Logger & logger) : logger_(logger) {}
+  PointcloudToMaps(const Config & config, const rclcpp::Logger & logger)
+  : config_(config), logger_(logger)
   {
   }
 
-  void setConfig(const Config& config)
-  {
-    config_ = config;
-  }
-  const Config& config() const
-  {
-    return config_;
-  }
+  void setConfig(const Config & config) { config_ = config; }
+  const Config & config() const { return config_; }
 
   // Generate the layered occupancy grids from a point cloud. The header is
   // copied into every produced map. The returned array contains one map per
   // accepted floor, in ascending height order.
   map_organizer_msgs::msg::OccupancyGridArray generateMaps(
-      const pcl::PointCloud<pcl::PointXYZ>& pc,
-      const std_msgs::msg::Header& header) const;
+    const pcl::PointCloud<pcl::PointXYZ> & pc, const std_msgs::msg::Header & header) const;
 
 private:
   Config config_;
@@ -94,4 +81,4 @@ private:
 };
 }  // namespace map_organizer
 
-#endif  // MAP_ORGANIZER_POINTCLOUD_TO_MAPS_H
+#endif  // MAP_ORGANIZER__POINTCLOUD_TO_MAPS_H_

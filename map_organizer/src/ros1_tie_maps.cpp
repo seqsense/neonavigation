@@ -27,26 +27,25 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <ros/ros.h>
-#include <nav_msgs/OccupancyGrid.h>
+#include <libgen.h>
 #include <map_organizer_msgs/OccupancyGridArray.h>
-
+#include <map_server/image_loader.h>
+#include <nav_msgs/OccupancyGrid.h>
+#include <ros/ros.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <libgen.h>
+#include <yaml-cpp/yaml.h>
+
 #include <fstream>
 #include <sstream>
 #include <string>
 #include <vector>
 
-#include <map_server/image_loader.h>
-#include <yaml-cpp/yaml.h>
-
 #ifdef HAVE_NEW_YAMLCPP
 // The >> operator disappeared in yaml-cpp 0.5, so this function is
 // added to provide support for code written under the yaml-cpp 0.3 API.
 template <typename T>
-void operator>>(const YAML::Node& node, T& i)
+void operator>>(const YAML::Node & node, T & i)
 {
   i = node.as<T>();
 }
@@ -61,9 +60,7 @@ private:
   std::vector<ros::Publisher> pub_map_;
 
 public:
-  TieMapNode()
-    : pnh_("~")
-    , nh_()
+  TieMapNode() : pnh_("~"), nh_()
   {
     pub_map_array_ = nh_.advertise<map_organizer_msgs::OccupancyGridArray>("maps", 1, true);
 
@@ -83,11 +80,9 @@ public:
     int i = 0;
     std::string file;
     std::stringstream ss(files_str);
-    while (std::getline(ss, file, ','))
-    {
+    while (std::getline(ss, file, ',')) {
       std::ifstream fin(file);
-      if (fin.fail())
-      {
+      if (fin.fail()) {
         ROS_ERROR("Map_server could not open %s.", file.c_str());
         ros::shutdown();
         return;
@@ -100,48 +95,35 @@ public:
       YAML::Node doc;
       parser.GetNextDocument(doc);
 #endif
-      try
-      {
+      try {
         doc["resolution"] >> res;
-      }
-      catch (YAML::InvalidScalar& e)
-      {
+      } catch (YAML::InvalidScalar & e) {
         ROS_ERROR("The map does not contain a resolution tag or it is invalid: %s", e.what());
         ros::shutdown();
         return;
       }
-      try
-      {
+      try {
         doc["negate"] >> negate;
-      }
-      catch (YAML::InvalidScalar& e)
-      {
+      } catch (YAML::InvalidScalar & e) {
         ROS_ERROR("The map does not contain a negate tag or it is invalid: %s", e.what());
         ros::shutdown();
         return;
       }
-      try
-      {
+      try {
         doc["occupied_thresh"] >> occ_th;
-      }
-      catch (YAML::InvalidScalar& e)
-      {
+      } catch (YAML::InvalidScalar & e) {
         ROS_ERROR("The map does not contain an occupied_thresh tag or it is invalid: %s", e.what());
         ros::shutdown();
         return;
       }
-      try
-      {
+      try {
         doc["free_thresh"] >> free_th;
-      }
-      catch (YAML::InvalidScalar& e)
-      {
+      } catch (YAML::InvalidScalar & e) {
         ROS_ERROR("The map does not contain a free_thresh tag or it is invalid: %s", e.what());
         ros::shutdown();
         return;
       }
-      try
-      {
+      try {
         std::string modeS = "";
         doc["mode"] >> modeS;
 
@@ -151,57 +133,44 @@ public:
           mode = SCALE;
         else if (modeS == "raw")
           mode = RAW;
-        else
-        {
+        else {
           ROS_ERROR("Invalid mode tag \"%s\".", modeS.c_str());
           exit(-1);
         }
-      }
-      catch (YAML::Exception& e)
-      {
-        ROS_DEBUG("The map does not contain a mode tag or it is invalid... assuming trinary: %s", e.what());
+      } catch (YAML::Exception & e) {
+        ROS_DEBUG(
+          "The map does not contain a mode tag or it is invalid... assuming trinary: %s", e.what());
         mode = TRINARY;
       }
-      try
-      {
+      try {
         doc["origin"][0] >> origin[0];
         doc["origin"][1] >> origin[1];
         doc["origin"][2] >> origin[2];
-      }
-      catch (YAML::InvalidScalar& e)
-      {
+      } catch (YAML::InvalidScalar & e) {
         ROS_ERROR("The map does not contain an origin tag or it is invalid: %s", e.what());
         ros::shutdown();
         return;
       }
-      try
-      {
+      try {
         doc["height"] >> height;
-      }
-      catch (YAML::Exception& e)
-      {
+      } catch (YAML::Exception & e) {
         height = 0;
       }
-      try
-      {
+      try {
         doc["image"] >> mapfname;
         // TODO(at-wat): make this path-handling more robust
-        if (mapfname.size() == 0)
-        {
+        if (mapfname.size() == 0) {
           ROS_ERROR("The image tag cannot be an empty string.");
           ros::shutdown();
           return;
         }
-        if (mapfname[0] != '/')
-        {
+        if (mapfname[0] != '/') {
           // dirname can modify what you pass it
-          char* fname_copy = strdup(file.c_str());
+          char * fname_copy = strdup(file.c_str());
           mapfname = std::string(dirname(fname_copy)) + '/' + mapfname;
           free(fname_copy);
         }
-      }
-      catch (YAML::InvalidScalar& e)
-      {
+      } catch (YAML::InvalidScalar & e) {
         ROS_ERROR("The map does not contain an image tag or it is invalid: e.what()");
         ros::shutdown();
         return;
@@ -210,19 +179,18 @@ public:
       ROS_INFO("Loading map from image \"%s\"", mapfname.c_str());
 
       nav_msgs::GetMap::Response map_resp;
-      map_server::loadMapFromFile(&map_resp,
-                                  mapfname.c_str(), res, negate, occ_th, free_th, origin, mode);
+      map_server::loadMapFromFile(
+        &map_resp, mapfname.c_str(), res, negate, occ_th, free_th, origin, mode);
       map_resp.map.info.origin.position.z = height;
       map_resp.map.info.map_load_time = ros::Time::now();
       map_resp.map.header.frame_id = frame_id;
       map_resp.map.header.stamp = ros::Time::now();
-      ROS_INFO("Read a %d X %d map @ %.3lf m/cell",
-               map_resp.map.info.width,
-               map_resp.map.info.height,
-               map_resp.map.info.resolution);
+      ROS_INFO(
+        "Read a %d X %d map @ %.3lf m/cell", map_resp.map.info.width, map_resp.map.info.height,
+        map_resp.map.info.resolution);
       maps.maps.push_back(map_resp.map);
-      pub_map_.push_back(nh_.advertise<nav_msgs::OccupancyGrid>(
-          "map" + std::to_string(i), 1, true));
+      pub_map_.push_back(
+        nh_.advertise<nav_msgs::OccupancyGrid>("map" + std::to_string(i), 1, true));
       pub_map_.back().publish(map_resp.map);
       i++;
     }
@@ -230,7 +198,7 @@ public:
   }
 };
 
-int main(int argc, char** argv)
+int main(int argc, char ** argv)
 {
   ros::init(argc, argv, "tie_maps");
 

@@ -27,53 +27,42 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <ros/ros.h>
-
 #include <map_organizer_msgs/OccupancyGridArray.h>
+#include <neonavigation_common/compatibility.h>
+#include <ros/ros.h>
 #include <std_msgs/Int32.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <tf2_ros/transform_broadcaster.h>
 
 #include <vector>
 
-#include <neonavigation_common/compatibility.h>
-
 map_organizer_msgs::OccupancyGridArray maps;
 std::vector<nav_msgs::MapMetaData> orig_mapinfos;
 int floor_cur = 0;
 
-void cbMaps(const map_organizer_msgs::OccupancyGridArray::Ptr& msg)
+void cbMaps(const map_organizer_msgs::OccupancyGridArray::Ptr & msg)
 {
   ROS_INFO("Map array received");
   maps = *msg;
   orig_mapinfos.clear();
-  for (auto& map : maps.maps)
-  {
+  for (auto & map : maps.maps) {
     orig_mapinfos.push_back(map.info);
     map.info.origin.position.z = 0.0;
   }
 }
-void cbFloor(const std_msgs::Int32::Ptr& msg)
-{
-  floor_cur = msg->data;
-}
+void cbFloor(const std_msgs::Int32::Ptr & msg) { floor_cur = msg->data; }
 
-int main(int argc, char** argv)
+int main(int argc, char ** argv)
 {
   ros::init(argc, argv, "select_map");
   ros::NodeHandle pnh("~");
   ros::NodeHandle nh("");
 
   neonavigation_common::compat::checkCompatMode();
-  auto subMaps = neonavigation_common::compat::subscribe(
-      nh, "maps",
-      nh, "/maps", 1, cbMaps);
-  auto subFloor = neonavigation_common::compat::subscribe(
-      nh, "floor",
-      pnh, "floor", 1, cbFloor);
+  auto subMaps = neonavigation_common::compat::subscribe(nh, "maps", nh, "/maps", 1, cbMaps);
+  auto subFloor = neonavigation_common::compat::subscribe(nh, "floor", pnh, "floor", 1, cbFloor);
   auto pubMap = neonavigation_common::compat::advertise<nav_msgs::OccupancyGrid>(
-      nh, "map",
-      nh, "/map", 1, true);
+    nh, "map", nh, "/map", 1, true);
 
   tf2_ros::TransformBroadcaster tfb;
   geometry_msgs::TransformStamped trans;
@@ -83,23 +72,17 @@ int main(int argc, char** argv)
 
   ros::Rate wait(10);
   int floor_prev = -1;
-  while (ros::ok())
-  {
+  while (ros::ok()) {
     wait.sleep();
     ros::spinOnce();
 
-    if (maps.maps.size() == 0)
-      continue;
+    if (maps.maps.size() == 0) continue;
 
-    if (floor_cur != floor_prev)
-    {
-      if (floor_cur >= 0 && floor_cur < static_cast<int>(maps.maps.size()))
-      {
+    if (floor_cur != floor_prev) {
+      if (floor_cur >= 0 && floor_cur < static_cast<int>(maps.maps.size())) {
         pubMap.publish(maps.maps[floor_cur]);
         trans.transform.translation.z = orig_mapinfos[floor_cur].origin.position.z;
-      }
-      else
-      {
+      } else {
         ROS_INFO("Floor out of range");
       }
       floor_prev = floor_cur;

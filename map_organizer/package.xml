@@ -20,6 +20,9 @@
 
   <!-- ROS 2 interface layer uses the real rclcpp. -->
   <depend condition="$ROS_VERSION == 2">rclcpp</depend>
+  <depend condition="$ROS_VERSION == 2">rclcpp_components</depend>
+  <!-- ROS 2 successor of map_server; used by tie_maps to load maps from disk. -->
+  <depend condition="$ROS_VERSION == 2">nav2_map_server</depend>
 
   <depend>geometry_msgs</depend>
   <depend>nav_msgs</depend>
@@ -34,12 +37,16 @@
   <depend>neonavigation_common</depend>
 
   <depend>eigen</depend>
+  <depend>yaml-cpp</depend>
 
   <build_depend>libpcl-all-dev</build_depend>
   <exec_depend>libpcl-all</exec_depend>
 
   <test_depend condition="$ROS_VERSION == 1">rostest</test_depend>
-  <test_depend condition="$ROS_VERSION == 1">roslint</test_depend>
+
+  <test_depend condition="$ROS_VERSION == 2">ament_lint_auto</test_depend>
+  <test_depend condition="$ROS_VERSION == 2">ament_lint_common</test_depend>
+  <test_depend condition="$ROS_VERSION == 2">ament_cmake_clang_format</test_depend>
 
   <export>
     <build_type condition="$ROS_VERSION == 1">catkin</build_type>

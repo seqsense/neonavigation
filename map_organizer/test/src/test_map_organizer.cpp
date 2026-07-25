@@ -27,16 +27,15 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <string>
-
-#include <ros/ros.h>
-#include <std_msgs/Int32.h>
+#include <gtest/gtest.h>
 #include <map_organizer_msgs/OccupancyGridArray.h>
 #include <nav_msgs/OccupancyGrid.h>
+#include <ros/ros.h>
+#include <std_msgs/Int32.h>
 
-#include <gtest/gtest.h>
+#include <string>
 
-void validateMap0(const nav_msgs::OccupancyGrid& map, const double z)
+void validateMap0(const nav_msgs::OccupancyGrid & map, const double z)
 {
   ASSERT_EQ("map_ground", map.header.frame_id);
   ASSERT_EQ(2u, map.info.width);
@@ -54,7 +53,7 @@ void validateMap0(const nav_msgs::OccupancyGrid& map, const double z)
   ASSERT_EQ(100, map.data[2]);
   ASSERT_EQ(100, map.data[3]);
 }
-void validateMap1(const nav_msgs::OccupancyGrid& map, const double z)
+void validateMap1(const nav_msgs::OccupancyGrid & map, const double z)
 {
   ASSERT_EQ("map_ground", map.header.frame_id);
   ASSERT_EQ(2u, map.info.width);
@@ -78,20 +77,15 @@ TEST(MapOrganizer, MapArray)
   ros::NodeHandle nh;
 
   map_organizer_msgs::OccupancyGridArray::ConstPtr maps;
-  const boost::function<void(const map_organizer_msgs::OccupancyGridArray::ConstPtr&)>
-      cb = [&maps](const map_organizer_msgs::OccupancyGridArray::ConstPtr& msg) -> void
-  {
-    maps = msg;
-  };
+  const boost::function<void(const map_organizer_msgs::OccupancyGridArray::ConstPtr &)> cb =
+    [&maps](const map_organizer_msgs::OccupancyGridArray::ConstPtr & msg) -> void { maps = msg; };
   ros::Subscriber sub = nh.subscribe("maps", 1, cb);
 
   ros::Rate rate(10.0);
-  for (int i = 0; i < 100 && ros::ok(); ++i)
-  {
+  for (int i = 0; i < 100 && ros::ok(); ++i) {
     rate.sleep();
     ros::spinOnce();
-    if (maps)
-      break;
+    if (maps) break;
   }
   ASSERT_TRUE(static_cast<bool>(maps));
   ASSERT_EQ(2u, maps->maps.size());
@@ -105,27 +99,18 @@ TEST(MapOrganizer, Maps)
   ros::NodeHandle nh;
 
   nav_msgs::OccupancyGrid::ConstPtr map[2];
-  const boost::function<void(const nav_msgs::OccupancyGrid::ConstPtr&, int)>
-      cb = [&map](const nav_msgs::OccupancyGrid::ConstPtr& msg,
-                  const int id) -> void
-  {
-    map[id] = msg;
-  };
-  ros::Subscriber sub0 =
-      nh.subscribe<nav_msgs::OccupancyGrid>("map0", 1, boost::bind(cb, _1, 0));
-  ros::Subscriber sub1 =
-      nh.subscribe<nav_msgs::OccupancyGrid>("map1", 1, boost::bind(cb, _1, 1));
+  const boost::function<void(const nav_msgs::OccupancyGrid::ConstPtr &, int)> cb =
+    [&map](const nav_msgs::OccupancyGrid::ConstPtr & msg, const int id) -> void { map[id] = msg; };
+  ros::Subscriber sub0 = nh.subscribe<nav_msgs::OccupancyGrid>("map0", 1, boost::bind(cb, _1, 0));
+  ros::Subscriber sub1 = nh.subscribe<nav_msgs::OccupancyGrid>("map1", 1, boost::bind(cb, _1, 1));
 
   ros::Rate rate(10.0);
-  for (int i = 0; i < 100 && ros::ok(); ++i)
-  {
+  for (int i = 0; i < 100 && ros::ok(); ++i) {
     rate.sleep();
     ros::spinOnce();
-    if (map[0] && map[1])
-      break;
+    if (map[0] && map[1]) break;
   }
-  for (int i = 0; i < 2; ++i)
-  {
+  for (int i = 0; i < 2; ++i) {
     ASSERT_TRUE(static_cast<bool>(map[i]));
   }
   validateMap0(*(map[0]), 1.0);
@@ -137,22 +122,16 @@ TEST(MapOrganizer, SelectMap)
   ros::NodeHandle nh;
 
   nav_msgs::OccupancyGrid::ConstPtr map;
-  const boost::function<void(const nav_msgs::OccupancyGrid::ConstPtr&)>
-      cb = [&map](const nav_msgs::OccupancyGrid::ConstPtr& msg) -> void
-  {
-    map = msg;
-  };
-  ros::Subscriber sub =
-      nh.subscribe<nav_msgs::OccupancyGrid>("map", 1, cb);
+  const boost::function<void(const nav_msgs::OccupancyGrid::ConstPtr &)> cb =
+    [&map](const nav_msgs::OccupancyGrid::ConstPtr & msg) -> void { map = msg; };
+  ros::Subscriber sub = nh.subscribe<nav_msgs::OccupancyGrid>("map", 1, cb);
   ros::Publisher pub = nh.advertise<std_msgs::Int32>("floor", 1);
 
   ros::Rate rate(10.0);
-  for (int i = 0; i < 100 && ros::ok(); ++i)
-  {
+  for (int i = 0; i < 100 && ros::ok(); ++i) {
     rate.sleep();
     ros::spinOnce();
-    if (pub.getNumSubscribers() > 0 && map)
-      break;
+    if (pub.getNumSubscribers() > 0 && map) break;
   }
   ASSERT_GT(pub.getNumSubscribers(), 0u);
   ASSERT_TRUE(static_cast<bool>(map));
@@ -163,12 +142,10 @@ TEST(MapOrganizer, SelectMap)
   pub.publish(floor);
 
   map = nullptr;
-  for (int i = 0; i < 10 && ros::ok(); ++i)
-  {
+  for (int i = 0; i < 10 && ros::ok(); ++i) {
     rate.sleep();
     ros::spinOnce();
-    if (map)
-      break;
+    if (map) break;
   }
   ASSERT_FALSE(static_cast<bool>(map));
 
@@ -176,12 +153,10 @@ TEST(MapOrganizer, SelectMap)
   pub.publish(floor);
 
   map = nullptr;
-  for (int i = 0; i < 100 && ros::ok(); ++i)
-  {
+  for (int i = 0; i < 100 && ros::ok(); ++i) {
     rate.sleep();
     ros::spinOnce();
-    if (map)
-      break;
+    if (map) break;
   }
   ASSERT_TRUE(static_cast<bool>(map));
   validateMap1(*map, 0.0);
@@ -192,20 +167,15 @@ TEST(MapOrganizer, SavedMapArray)
   ros::NodeHandle nh;
 
   map_organizer_msgs::OccupancyGridArray::ConstPtr maps;
-  const boost::function<void(const map_organizer_msgs::OccupancyGridArray::ConstPtr&)>
-      cb = [&maps](const map_organizer_msgs::OccupancyGridArray::ConstPtr& msg) -> void
-  {
-    maps = msg;
-  };
+  const boost::function<void(const map_organizer_msgs::OccupancyGridArray::ConstPtr &)> cb =
+    [&maps](const map_organizer_msgs::OccupancyGridArray::ConstPtr & msg) -> void { maps = msg; };
   ros::Subscriber sub = nh.subscribe("saved/maps", 1, cb);
 
   ros::Rate rate(10.0);
-  for (int i = 0; i < 100 && ros::ok(); ++i)
-  {
+  for (int i = 0; i < 100 && ros::ok(); ++i) {
     rate.sleep();
     ros::spinOnce();
-    if (maps)
-      break;
+    if (maps) break;
   }
   ASSERT_TRUE(static_cast<bool>(maps));
   ASSERT_EQ(2u, maps->maps.size());
@@ -216,13 +186,12 @@ TEST(MapOrganizer, SavedMapArray)
   // clean temporary files
   ros::NodeHandle pnh("~");
   std::string file_prefix;
-  if (pnh.getParam("file_prefix", file_prefix))
-  {
+  if (pnh.getParam("file_prefix", file_prefix)) {
     ASSERT_EQ(0, system(std::string("rm -f " + file_prefix + "*").c_str()));
   }
 }
 
-int main(int argc, char** argv)
+int main(int argc, char ** argv)
 {
   testing::InitGoogleTest(&argc, argv);
   ros::init(argc, argv, "test_map_organizer");
