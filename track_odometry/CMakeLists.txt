@@ -120,6 +120,42 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
     # copyright linter instead of fabricating a recognized license text.
     list(APPEND AMENT_LINT_AUTO_EXCLUDE ament_cmake_copyright)
     ament_lint_auto_find_test_dependencies()
+
+    find_package(ament_cmake_gtest REQUIRED)
+    find_package(launch_testing_ament_cmake REQUIRED)
+
+    # The ROS 1 rostest sources live under test/ (AMENT_IGNORE'd); the ROS 2
+    # ports live under test_ros2/ so they are picked up by ament lint while the
+    # untouched ROS 1 test definitions stay excluded.
+
+    # Pure unit test of the hybridized track_odometry::projectTranslation logic
+    # (ROS 2 port of the ROS 1 catkin_add_gtest test_tf_projection).
+    ament_add_gtest(ros2_test_tf_projection
+      test_ros2/src/ros2_test_tf_projection.cpp)
+    target_link_libraries(ros2_test_tf_projection tf_projection)
+    ament_target_dependencies(ros2_test_tf_projection tf2 tf2_geometry_msgs)
+
+    # Integration test gtest binary driven by launch_testing (mirrors the ROS 1
+    # track_odometry_rostest.test). It owns its main() / rclcpp::init, so it is
+    # built as a plain executable and started as a node by the launch harness.
+    ament_add_gtest_executable(ros2_test_track_odometry
+      test_ros2/src/ros2_test_track_odometry.cpp)
+    ament_target_dependencies(ros2_test_track_odometry
+      rclcpp nav_msgs sensor_msgs tf2 tf2_geometry_msgs)
+    install(TARGETS ros2_test_track_odometry DESTINATION lib/${PROJECT_NAME})
+
+    # Integration test gtest binary driven by launch_testing (mirrors the ROS 1
+    # tf_projection_rostest.test).
+    ament_add_gtest_executable(ros2_test_tf_projection_node
+      test_ros2/src/ros2_test_tf_projection_node.cpp)
+    ament_target_dependencies(ros2_test_tf_projection_node
+      rclcpp geometry_msgs tf2 tf2_ros)
+    install(TARGETS ros2_test_tf_projection_node DESTINATION lib/${PROJECT_NAME})
+
+    add_launch_test(test_ros2/test/test_track_odometry_launch.py
+      TIMEOUT 200)
+    add_launch_test(test_ros2/test/test_tf_projection_launch.py
+      TIMEOUT 120)
   endif()
 
   ament_auto_package()
