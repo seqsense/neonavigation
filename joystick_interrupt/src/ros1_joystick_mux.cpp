@@ -27,15 +27,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <neonavigation_common/compatibility.h>
 #include <ros/ros.h>
-
-#include "rclcpp/rclcpp.hpp"
-
-#include "sensor_msgs/msg/joy.hpp"
-
 #include <topic_tools/shape_shifter.h>
 
-#include <neonavigation_common/compatibility.h>
+#include "rclcpp/rclcpp.hpp"
+#include "sensor_msgs/msg/joy.hpp"
 
 class JoystickMux
 {
@@ -55,75 +52,62 @@ private:
 
   void cbJoy(const sensor_msgs::msg::Joy::Ptr msg)
   {
-    if (static_cast<size_t>(interrupt_button_) >= msg->buttons.size())
-    {
-      RCLCPP_ERROR(logger_,
-          "Out of range: number of buttons (%lu) must be greater than interrupt_button (%d).",
-          msg->buttons.size(), interrupt_button_);
+    if (static_cast<size_t>(interrupt_button_) >= msg->buttons.size()) {
+      RCLCPP_ERROR(
+        logger_,
+        "Out of range: number of buttons (%lu) must be greater than interrupt_button (%d).",
+        msg->buttons.size(), interrupt_button_);
       return;
     }
 
     last_joy_msg_ = rclcpp::Clock(RCL_ROS_TIME).now();
-    if (msg->buttons[interrupt_button_])
-    {
+    if (msg->buttons[interrupt_button_]) {
       selected_ = 1;
-    }
-    else
-    {
+    } else {
       selected_ = 0;
     }
   };
-  void cbTopic(const boost::shared_ptr<topic_tools::ShapeShifter const>& msg, int id)
+  void cbTopic(const boost::shared_ptr<topic_tools::ShapeShifter const> & msg, int id)
   {
-    if (selected_ == id)
-    {
-      if (!advertised_)
-      {
+    if (selected_ == id) {
+      if (!advertised_) {
         advertised_ = true;
-        if (neonavigation_common::compat::getCompat() !=
-            neonavigation_common::compat::current_level)
-        {
-          RCLCPP_ERROR(logger_,
-              "Use %s (%s%s) topic instead of %s (%s%s)",
-              nh_.resolveName("mux_output", false).c_str(),
-              neonavigation_common::compat::getSimplifiedNamespace(nh_).c_str(),
-              "mux_output",
-              pnh_.resolveName("output", false).c_str(),
-              neonavigation_common::compat::getSimplifiedNamespace(pnh_).c_str(),
-              "output");
+        if (
+          neonavigation_common::compat::getCompat() !=
+          neonavigation_common::compat::current_level) {
+          RCLCPP_ERROR(
+            logger_, "Use %s (%s%s) topic instead of %s (%s%s)",
+            nh_.resolveName("mux_output", false).c_str(),
+            neonavigation_common::compat::getSimplifiedNamespace(nh_).c_str(), "mux_output",
+            pnh_.resolveName("output", false).c_str(),
+            neonavigation_common::compat::getSimplifiedNamespace(pnh_).c_str(), "output");
           pub_topic_ = msg->advertise(pnh_, "output", 1, false);
-        }
-        else
-        {
+        } else {
           pub_topic_ = msg->advertise(nh_, "mux_output", 1, false);
         }
       }
       pub_topic_.publish(*msg);
     }
   };
-  void cbTimer(const ros::TimerEvent& /* e */)
+  void cbTimer(const ros::TimerEvent & /* e */)
   {
-    if (rclcpp::Clock(RCL_ROS_TIME).now() - last_joy_msg_ > rclcpp::Duration::from_seconds(timeout_))
-    {
+    if (
+      rclcpp::Clock(RCL_ROS_TIME).now() - last_joy_msg_ >
+      rclcpp::Duration::from_seconds(timeout_)) {
       selected_ = 0;
     }
   }
 
 public:
   JoystickMux()
-    : nh_("")
-    , pnh_("~")
-    , logger_(rclcpp::get_logger("joystick_mux"))
-    , last_joy_msg_(0, RCL_ROS_TIME)
+  : nh_(""), pnh_("~"), logger_(rclcpp::get_logger("joystick_mux")), last_joy_msg_(0, RCL_ROS_TIME)
   {
     neonavigation_common::compat::checkCompatMode();
     sub_joy_ = nh_.subscribe("joy", 1, &JoystickMux::cbJoy, this);
     sub_topics_[0] = neonavigation_common::compat::subscribe<topic_tools::ShapeShifter>(
-        nh_, "mux_input0",
-        pnh_, "input0", 1, boost::bind(&JoystickMux::cbTopic, this, _1, 0));
+      nh_, "mux_input0", pnh_, "input0", 1, boost::bind(&JoystickMux::cbTopic, this, _1, 0));
     sub_topics_[1] = neonavigation_common::compat::subscribe<topic_tools::ShapeShifter>(
-        nh_, "mux_input1",
-        pnh_, "input1", 1, boost::bind(&JoystickMux::cbTopic, this, _1, 1));
+      nh_, "mux_input1", pnh_, "input1", 1, boost::bind(&JoystickMux::cbTopic, this, _1, 1));
 
     pnh_.param("interrupt_button", interrupt_button_, 5);
     pnh_.param("timeout", timeout_, 0.5);
@@ -136,7 +120,7 @@ public:
   }
 };
 
-int main(int argc, char* argv[])
+int main(int argc, char * argv[])
 {
   ros::init(argc, argv, "joystick_mux");
 

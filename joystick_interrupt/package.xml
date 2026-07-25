@@ -28,8 +28,11 @@
 
   <depend>neonavigation_common</depend>
 
-  <test_depend condition="$ROS_VERSION == 1">roslint</test_depend>
   <test_depend condition="$ROS_VERSION == 1">rostest</test_depend>
+
+  <test_depend condition="$ROS_VERSION == 2">ament_lint_auto</test_depend>
+  <test_depend condition="$ROS_VERSION == 2">ament_lint_common</test_depend>
+  <test_depend condition="$ROS_VERSION == 2">ament_cmake_clang_format</test_depend>
 
   <export>
     <build_type condition="$ROS_VERSION == 1">catkin</build_type>

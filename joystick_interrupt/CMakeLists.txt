@@ -29,20 +29,16 @@ if($ENV{ROS_VERSION} EQUAL 1)
   include_directories(${catkin_INCLUDE_DIRS})
 
 
-  add_executable(joystick_interrupt src/joystick_interrupt.cpp)
+  add_executable(joystick_interrupt src/ros1_joystick_interrupt.cpp)
   target_link_libraries(joystick_interrupt ${catkin_LIBRARIES})
 
-  add_executable(joystick_mux src/joystick_mux.cpp)
+  add_executable(joystick_mux src/ros1_joystick_mux.cpp)
   target_link_libraries(joystick_mux ${catkin_LIBRARIES})
 
 
   if(CATKIN_ENABLE_TESTING)
     find_package(rostest REQUIRED)
     add_subdirectory(test)
-
-    find_package(roslint REQUIRED)
-    roslint_cpp()
-    roslint_add_test()
   endif()
 
 
@@ -72,6 +68,32 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
 
   set(CMAKE_CXX_STANDARD 17)
   set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+  # ROS 2 component interface node: interrupts cmd_vel by joystick input.
+  ament_auto_add_library(joystick_interrupt SHARED
+    src/ros2_joystick_interrupt.cpp)
+  rclcpp_components_register_node(joystick_interrupt
+    PLUGIN "joystick_interrupt::JoystickInterrupt"
+    EXECUTABLE joystick_interrupt_node)
+
+  # ROS 2 component interface node: joystick-selected mux of arbitrary-type
+  # topics (topic_tools::ShapeShifter ported to generic pub/sub).
+  ament_auto_add_library(joystick_mux SHARED
+    src/ros2_joystick_mux.cpp)
+  rclcpp_components_register_node(joystick_mux
+    PLUGIN "joystick_interrupt::JoystickMux"
+    EXECUTABLE joystick_mux_node)
+
+  if(BUILD_TESTING)
+    find_package(ament_lint_auto REQUIRED)
+    list(APPEND AMENT_LINT_AUTO_EXCLUDE ament_cmake_uncrustify)
+    # The existing BSD 3-clause headers ("the neonavigation authors") are not
+    # matched by ament_copyright's known-license templates (reported as
+    # license=<unknown>). Keep the original headers untouched and skip the
+    # copyright linter instead of fabricating a recognized license text.
+    list(APPEND AMENT_LINT_AUTO_EXCLUDE ament_cmake_copyright)
+    ament_lint_auto_find_test_dependencies()
+  endif()
 
   ament_auto_package()
 
