@@ -180,6 +180,36 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
     # excluded. The existing license text is kept as-is.
     list(APPEND AMENT_LINT_AUTO_EXCLUDE ament_cmake_copyright)
     ament_lint_auto_find_test_dependencies()
+
+    find_package(ament_cmake_gtest REQUIRED)
+    find_package(launch_testing_ament_cmake REQUIRED)
+
+    # Pure unit test for the hybridized PointcloudToMaps::generateMaps logic.
+    # Replaces the ROS 1 pointcloud_to_maps_rostest.test, which exercised the
+    # same algorithm through a running node.
+    ament_add_gtest(ros2_test_pointcloud_to_maps
+      test/src/ros2_test_pointcloud_to_maps.cpp)
+    target_link_libraries(ros2_test_pointcloud_to_maps pointcloud_to_maps_core
+      ${PCL_LIBRARIES})
+    target_include_directories(ros2_test_pointcloud_to_maps PUBLIC
+      ${PCL_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIRS})
+    ament_target_dependencies(ros2_test_pointcloud_to_maps
+      rclcpp map_organizer_msgs nav_msgs std_msgs)
+
+    # Integration test gtest binary driven by launch_testing (mirrors the ROS 1
+    # map_organizer_rostest.test). It owns its main() / rclcpp::init, so it is
+    # built as a plain executable and started as a node by the launch harness.
+    ament_add_gtest_executable(ros2_test_map_organizer
+      test/src/ros2_test_map_organizer.cpp)
+    ament_target_dependencies(ros2_test_map_organizer
+      rclcpp map_organizer_msgs nav_msgs std_msgs)
+    install(TARGETS ros2_test_map_organizer DESTINATION lib/${PROJECT_NAME})
+
+    # Map fixtures loaded by tie_maps in the integration test.
+    install(DIRECTORY test/data DESTINATION share/${PROJECT_NAME}/test/)
+
+    add_launch_test(test/test/test_map_organizer_launch.py
+      TIMEOUT 120)
   endif()
 
   ament_auto_package()
