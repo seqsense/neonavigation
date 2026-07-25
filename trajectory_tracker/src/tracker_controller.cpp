@@ -44,26 +44,26 @@
 #include <cmath>
 #include <string>
 
-#include <Eigen/Core>
-#include <Eigen/Geometry>
+#include "Eigen/Core"
+#include "Eigen/Geometry"
 
-#include <ros/ros.h>
+#include "rclcpp/rclcpp.hpp"
 
-#include <geometry_msgs/Twist.h>
+#include "geometry_msgs/msg/twist.hpp"
 
-#include <tf2/utils.h>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include "tf2/utils.h"
+#include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 
-#include <trajectory_tracker_msgs/TrajectoryTrackerStatus.h>
+#include "trajectory_tracker_msgs/msg/trajectory_tracker_status.hpp"
 
-#include <trajectory_tracker/basic_control.h>
-#include <trajectory_tracker/eigen_line.h>
-#include <trajectory_tracker/path2d.h>
-#include <trajectory_tracker/tracker_controller.h>
+#include "trajectory_tracker/basic_control.h"
+#include "trajectory_tracker/eigen_line.h"
+#include "trajectory_tracker/path2d.h"
+#include "trajectory_tracker/tracker_controller.h"
 
 namespace trajectory_tracker
 {
-TrackerController::TrackerController(tf2_ros::Buffer& tfbuf)
+TrackerController::TrackerController(tf2_ros::Buffer& tfbuf, const rclcpp::Logger& logger)
   : look_forward_(0.0)
   , curv_forward_(0.0)
   , k_{0.0, 0.0, 0.0}
@@ -93,6 +93,7 @@ TrackerController::TrackerController(tf2_ros::Buffer& tfbuf)
   , goal_tolerance_lin_vel_(0.0)
   , goal_tolerance_ang_vel_(0.0)
   , tfbuf_(tfbuf)
+  , logger_(logger)
   , is_path_updated_(false)
 {
 }
@@ -147,9 +148,9 @@ TrackerController::ControlOutput TrackerController::control(
     const double dt)
 {
   ControlOutput output;
-  trajectory_tracker_msgs::TrajectoryTrackerStatus& status = output.status;
-  geometry_msgs::Twist& cmd_vel = output.cmd_vel;
-  status.header.stamp = ros::Time::now();
+  trajectory_tracker_msgs::msg::TrajectoryTrackerStatus& status = output.status;
+  geometry_msgs::msg::Twist& cmd_vel = output.cmd_vel;
+  status.header.stamp = rclcpp::Clock(RCL_ROS_TIME).now();
   status.path_header = path_header_;
   if (is_path_updated_)
   {
@@ -163,8 +164,8 @@ TrackerController::ControlOutput TrackerController::control(
       getTrackingResult(odom_to_robot, prediction_offset, odom_linear_vel, odom_angular_vel);
   switch (tracking_result.status)
   {
-    case trajectory_tracker_msgs::TrajectoryTrackerStatus::NO_PATH:
-    case trajectory_tracker_msgs::TrajectoryTrackerStatus::FAR_FROM_PATH:
+    case trajectory_tracker_msgs::msg::TrajectoryTrackerStatus::NO_PATH:
+    case trajectory_tracker_msgs::msg::TrajectoryTrackerStatus::FAR_FROM_PATH:
     {
       v_lim_.clear();
       w_lim_.clear();
@@ -190,8 +191,8 @@ TrackerController::ControlOutput TrackerController::control(
               (-tracking_result.angle_remains * k_ang_rotation_ - w_lim_.get() * k_avel_rotation_) * dt;
           w_lim_.increment(wvel_increment, vel_[1], acc_[1], dt);
         }
-        ROS_DEBUG(
-            "trajectory_tracker: angular residual %0.3f, angular vel %0.3f",
+        RCLCPP_DEBUG(
+            logger_, "trajectory_tracker: angular residual %0.3f, angular vel %0.3f",
             tracking_result.angle_remains, w_lim_.get());
       }
       else
@@ -217,7 +218,8 @@ TrackerController::ControlOutput TrackerController::control(
         const double wvel_diff = w_lim_.get() - wref;
         w_lim_.increment(dt * (-dist_diff * k_[0] - angle_diff * k_ang - wvel_diff * k_[2]), vel_[1], acc_[1], dt);
 
-        ROS_DEBUG(
+        RCLCPP_DEBUG(
+            logger_,
             "trajectory_tracker: distance residual %0.3f, angular residual %0.3f, ang vel residual %0.3f"
             ", v_lim %0.3f, w_lim %0.3f signed_local_distance %0.3f, k_ang %0.3f",
             dist_diff, angle_diff, wvel_diff, v_lim_.get(), w_lim_.get(), tracking_result.signed_local_distance, k_ang);
@@ -248,7 +250,7 @@ TrackerController::TrackingResult TrackerController::getTrackingResult(
 {
   if (path_header_.frame_id.size() == 0 || path_.size() == 0)
   {
-    return TrackingResult(trajectory_tracker_msgs::TrajectoryTrackerStatus::NO_PATH);
+    return TrackingResult(trajectory_tracker_msgs::msg::TrajectoryTrackerStatus::NO_PATH);
   }
   // Transform
   trajectory_tracker::Path2D lpath;
@@ -256,15 +258,18 @@ TrackerController::TrackingResult TrackerController::getTrackingResult(
   try
   {
     tf2::Stamped<tf2::Transform> path_to_odom;
-    tf2::fromMsg(
-        tfbuf_.lookupTransform(path_header_.frame_id, frame_odom_, ros::Time(0)), path_to_odom);
+    const auto path_to_odom_msg =
+        tfbuf_.lookupTransform(path_header_.frame_id, frame_odom_, rclcpp::Time(0, 0, RCL_ROS_TIME));
+    tf2::fromMsg(path_to_odom_msg, path_to_odom);
+    const rclcpp::Time path_to_odom_stamp(path_to_odom_msg.header.stamp);
     const tf2::Transform path_to_robot = path_to_odom * odom_to_robot;
-    transform_delay = (ros::Time::now() - path_to_odom.stamp_).toSec();
+    transform_delay = (rclcpp::Clock(RCL_ROS_TIME).now() - path_to_odom_stamp).seconds();
     if (std::abs(transform_delay) > 0.1 && check_old_path_)
     {
-      ROS_ERROR_THROTTLE(
-          1.0, "Timestamp of the transform is too old %f %f",
-          ros::Time::now().toSec(), path_to_odom.stamp_.toSec());
+      rclcpp::Clock clock(RCL_ROS_TIME);
+      RCLCPP_ERROR_THROTTLE(
+          logger_, clock, 1000, "Timestamp of the transform is too old %f %f",
+          rclcpp::Clock(RCL_ROS_TIME).now().seconds(), path_to_odom_stamp.seconds());
     }
     const float robot_yaw = tf2::getYaw(path_to_robot.getRotation());
     const Eigen::Transform<double, 2, Eigen::TransformTraits::AffineCompact> path_to_robot_2d =
@@ -280,8 +285,8 @@ TrackerController::TrackingResult TrackerController::getTrackingResult(
   }
   catch (tf2::TransformException& e)
   {
-    ROS_WARN("TF exception: %s", e.what());
-    return TrackingResult(trajectory_tracker_msgs::TrajectoryTrackerStatus::NO_PATH);
+    RCLCPP_WARN(logger_, "TF exception: %s", e.what());
+    return TrackingResult(trajectory_tracker_msgs::msg::TrajectoryTrackerStatus::NO_PATH);
   }
 
   const Eigen::Vector2d origin_raw = prediction_offset.head<2>();
@@ -304,7 +309,7 @@ TrackerController::TrackingResult TrackerController::getTrackingResult(
 
   if (it_nearest == lpath.end())
   {
-    return TrackingResult(trajectory_tracker_msgs::TrajectoryTrackerStatus::NO_PATH);
+    return TrackingResult(trajectory_tracker_msgs::msg::TrajectoryTrackerStatus::NO_PATH);
   }
 
   const int i_nearest = std::distance(lpath.cbegin(), it_nearest);
@@ -346,14 +351,15 @@ TrackerController::TrackingResult TrackerController::getTrackingResult(
   // Curvature
   const float curv = lpath.getCurvature(it_nearest, it_local_goal, pos_on_line, curv_forward_);
 
-  ROS_DEBUG(
+  RCLCPP_DEBUG(
+      logger_,
       "trajectory_tracker: nearest: %d, local goal: %d, done: %d, goal: %lu, remain: %0.3f, remain_local: %0.3f",
       i_nearest, i_local_goal, path_step_done_, lpath.size(), distance_remains, remain_local);
 
   bool arrive_local_goal(false);
   bool in_place_turning = (vec[1] == 0.0 && vec[0] == 0.0);
 
-  TrackingResult result(trajectory_tracker_msgs::TrajectoryTrackerStatus::FOLLOWING);
+  TrackingResult result(trajectory_tracker_msgs::msg::TrajectoryTrackerStatus::FOLLOWING);
 
   // Stop and rotate
   const bool large_angle_error = std::abs(rotate_ang_) < M_PI && std::cos(rotate_ang_) > std::cos(angle_remains);
@@ -364,7 +370,8 @@ TrackerController::TrackingResult TrackerController::getTrackingResult(
   {
     if (large_angle_error)
     {
-      ROS_INFO_THROTTLE(1.0, "Stop and rotate due to large angular error: %0.3f", angle_remains);
+      rclcpp::Clock clock(RCL_ROS_TIME);
+      RCLCPP_INFO_THROTTLE(logger_, clock, 1000, "Stop and rotate due to large angular error: %0.3f", angle_remains);
     }
 
     if (path_length < min_track_path_ ||
@@ -398,7 +405,7 @@ TrackerController::TrackingResult TrackerController::getTrackingResult(
       result.distance_remains_raw = distance_remains_raw;
       result.angle_remains = angle_remains;
       result.angle_remains_raw = angle_remains + yaw_raw;
-      result.status = trajectory_tracker_msgs::TrajectoryTrackerStatus::FAR_FROM_PATH;
+      result.status = trajectory_tracker_msgs::msg::TrajectoryTrackerStatus::FAR_FROM_PATH;
       return result;
     }
 
@@ -424,7 +431,7 @@ TrackerController::TrackingResult TrackerController::getTrackingResult(
       (goal_tolerance_ang_vel_ == 0.0 || std::abs(odom_angular_vel) < goal_tolerance_ang_vel_) &&
       it_local_goal == lpath.end())
   {
-    result.status = trajectory_tracker_msgs::TrajectoryTrackerStatus::GOAL;
+    result.status = trajectory_tracker_msgs::msg::TrajectoryTrackerStatus::GOAL;
   }
 
   if (arrive_local_goal)

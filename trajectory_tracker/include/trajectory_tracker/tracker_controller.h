@@ -34,29 +34,30 @@
 #include <limits>
 #include <string>
 
-#include <Eigen/Core>
-#include <Eigen/Geometry>
+#include "Eigen/Core"
+#include "Eigen/Geometry"
 
-#include <ros/ros.h>
+#include "rclcpp/rclcpp.hpp"
 
-#include <geometry_msgs/Twist.h>
-#include <std_msgs/Header.h>
+#include "geometry_msgs/msg/twist.hpp"
+#include "std_msgs/msg/header.hpp"
 
-#include <tf2/utils.h>
-#include <tf2_ros/buffer.h>
+#include "tf2/utils.h"
+#include "tf2_ros/buffer.h"
 
-#include <trajectory_tracker_msgs/TrajectoryTrackerStatus.h>
+#include "trajectory_tracker_msgs/msg/trajectory_tracker_status.hpp"
 
-#include <trajectory_tracker/basic_control.h>
-#include <trajectory_tracker/eigen_line.h>
-#include <trajectory_tracker/path2d.h>
+#include "trajectory_tracker/basic_control.h"
+#include "trajectory_tracker/eigen_line.h"
+#include "trajectory_tracker/path2d.h"
 
 namespace trajectory_tracker
 {
 // TrackerController holds the pure trajectory-following control logic.
 // It has no knowledge of ROS nodes, publishers, subscribers, parameters or
 // dynamic_reconfigure; those belong to the interface layer (TrackerNode).
-// Message types, TF, ros::Time and ROS logging are still used as-is.
+// Message types, TF, time and logging use the ROS 2 (rclcpp) surface, which on
+// ROS 1 is provided by sq_ros1_rclcpp_compat so the same source builds on both.
 class TrackerController
 {
 public:
@@ -96,11 +97,11 @@ public:
   // Result of a single control step. The interface layer publishes both.
   struct ControlOutput
   {
-    geometry_msgs::Twist cmd_vel;
-    trajectory_tracker_msgs::TrajectoryTrackerStatus status;
+    geometry_msgs::msg::Twist cmd_vel;
+    trajectory_tracker_msgs::msg::TrajectoryTrackerStatus status;
   };
 
-  explicit TrackerController(tf2_ros::Buffer& tfbuf);
+  TrackerController(tf2_ros::Buffer& tfbuf, const rclcpp::Logger& logger);
 
   void setParameters(const Parameters& params);
 
@@ -122,13 +123,13 @@ public:
     frame_odom_ = frame_odom;
   }
 
-  const std_msgs::Header& pathHeader() const
+  const std_msgs::msg::Header& pathHeader() const
   {
     return path_header_;
   }
 
-  // Update the internal path from a nav_msgs::Path or
-  // trajectory_tracker_msgs::PathWithVelocity message.
+  // Update the internal path from a nav_msgs::msg::Path or
+  // trajectory_tracker_msgs::msg::PathWithVelocity message.
   template <typename MSG_TYPE>
   void setPath(const MSG_TYPE& msg)
   {
@@ -140,7 +141,8 @@ public:
     {
       if (std::isfinite(path_pose.velocity_) && path_pose.velocity_ < -0.0)
       {
-        ROS_ERROR_THROTTLE(1.0, "path_velocity.velocity.x must be positive");
+        rclcpp::Clock clock(RCL_ROS_TIME);
+        RCLCPP_ERROR_THROTTLE(logger_, clock, 1000, "path_velocity.velocity.x must be positive");
         path_.clear();
         return;
       }
@@ -203,9 +205,10 @@ private:
   double goal_tolerance_ang_vel_;
 
   tf2_ros::Buffer& tfbuf_;
+  rclcpp::Logger logger_;
 
   trajectory_tracker::Path2D path_;
-  std_msgs::Header path_header_;
+  std_msgs::msg::Header path_header_;
   bool is_path_updated_;
 
   struct TrackingResult
@@ -227,7 +230,7 @@ private:
     {
     }
 
-    int status;  // same as trajectory_tracker_msgs::TrajectoryTrackerStatus::status
+    int status;  // same as trajectory_tracker_msgs::msg::TrajectoryTrackerStatus::status
     double distance_remains;
     double angle_remains;
     double distance_remains_raw;  // remained distance without prediction

@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<package format="2">
+<package format="3">
   <name>trajectory_tracker</name>
   <version>0.18.3</version>
   <description>Path following control package for wheeled mobile robot</description>
@@ -8,17 +8,24 @@
   <license>BSD</license>
   <author email="atsushi.w@ieee.org">Atsushi Watanabe</author>
 
-  <buildtool_depend>catkin</buildtool_depend>
+  <buildtool_depend condition="$ROS_VERSION == 1">catkin</buildtool_depend>
+  <buildtool_depend condition="$ROS_VERSION == 2">ament_cmake</buildtool_depend>
+  <buildtool_depend condition="$ROS_VERSION == 2">ament_cmake_auto</buildtool_depend>
 
-  <depend>roscpp</depend>
-  <test_depend>roslint</test_depend>
-  <test_depend>rostest</test_depend>
+  <!-- ROS 1 interface layer (roscpp nodes) and ROS 1-only helpers. -->
+  <depend condition="$ROS_VERSION == 1">roscpp</depend>
+  <depend condition="$ROS_VERSION == 1">dynamic_reconfigure</depend>
+  <depend condition="$ROS_VERSION == 1">interactive_markers</depend>
+  <depend condition="$ROS_VERSION == 1">std_srvs</depend>
+  <!-- Provides the rclcpp-style shim used by the hybrid logic library on ROS 1. -->
+  <depend condition="$ROS_VERSION == 1">sq_ros1_rclcpp_compat</depend>
 
-  <depend>dynamic_reconfigure</depend>
+  <!-- ROS 2 logic library uses the real rclcpp. -->
+  <depend condition="$ROS_VERSION == 2">rclcpp</depend>
+
   <depend>geometry_msgs</depend>
-  <depend>interactive_markers</depend>
   <depend>nav_msgs</depend>
-  <depend>std_srvs</depend>
+  <depend>std_msgs</depend>
   <depend>tf2</depend>
   <depend>tf2_geometry_msgs</depend>
   <depend>tf2_ros</depend>
@@ -27,4 +34,12 @@
 
   <depend>neonavigation_common</depend>
   <depend version_gte="0.8.0">trajectory_tracker_msgs</depend>
+
+  <test_depend condition="$ROS_VERSION == 1">roslint</test_depend>
+  <test_depend condition="$ROS_VERSION == 1">rostest</test_depend>
+
+  <export>
+    <build_type condition="$ROS_VERSION == 1">catkin</build_type>
+    <build_type condition="$ROS_VERSION == 2">ament_cmake</build_type>
+  </export>
 </package>

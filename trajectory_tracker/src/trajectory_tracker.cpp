@@ -64,6 +64,8 @@
 #include <trajectory_tracker_msgs/PathWithVelocity.h>
 #include <trajectory_tracker_msgs/TrajectoryTrackerStatus.h>
 
+#include <sq_ros1_compat/logger.hpp>
+
 #include <trajectory_tracker/TrajectoryTrackerConfig.h>
 #include <trajectory_tracker/tracker_controller.h>
 
@@ -118,7 +120,7 @@ TrackerNode::TrackerNode()
   : nh_()
   , pnh_("~")
   , tfl_(tfbuf_)
-  , controller_(tfbuf_)
+  , controller_(tfbuf_, sq_ros1_compat::get_logger("trajectory_tracker"))
 {
   neonavigation_common::compat::checkCompatMode();
   std::string frame_robot;
