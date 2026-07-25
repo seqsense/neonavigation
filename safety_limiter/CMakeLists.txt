@@ -135,6 +135,39 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
     # excluded. Existing license text is kept as-is (Copyright=keep).
     list(APPEND AMENT_LINT_AUTO_EXCLUDE ament_cmake_copyright)
     ament_lint_auto_find_test_dependencies()
+
+    find_package(ament_cmake_gtest REQUIRED)
+    find_package(GTest REQUIRED)
+    find_package(launch_testing_ament_cmake REQUIRED)
+    # Pull the test-only message deps (tf2_geometry_msgs) into the ament_auto
+    # link set so the ros2_test_* executables below link against them.
+    ament_auto_find_test_dependencies()
+
+    include_directories(test/include)
+
+    # Integration test gtest binaries. They own their main() (call rclcpp::init
+    # before RUN_ALL_TESTS), so they are built as plain executables linked
+    # against GTest and driven by the launch_testing descriptions below, which
+    # mirror the ROS 1 safety_limiter_rostest / safety_limiter2_rostest tests.
+    ament_auto_add_executable(ros2_test_safety_limiter
+      test/src/ros2_test_safety_limiter.cpp)
+    target_link_libraries(ros2_test_safety_limiter ${GTEST_LIBRARIES})
+
+    ament_auto_add_executable(ros2_test_safety_limiter2
+      test/src/ros2_test_safety_limiter2.cpp)
+    target_link_libraries(ros2_test_safety_limiter2 ${GTEST_LIBRARIES})
+
+    install(DIRECTORY test/configs
+      DESTINATION share/${PROJECT_NAME}/test/)
+
+    # The gtest matrix itself fits the 120 s ROS 1 budget; the launch harness
+    # adds node-startup overhead on top, so give the launch test extra margin.
+    add_launch_test(test/test/test_safety_limiter_launch.py
+      TARGET test_safety_limiter
+      TIMEOUT 180)
+    add_launch_test(test/test/test_safety_limiter2_launch.py
+      TARGET test_safety_limiter2
+      TIMEOUT 60)
   endif()
 
   ament_auto_package()
