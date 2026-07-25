@@ -27,18 +27,15 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <geometry_msgs/Twist.h>
+#include <gtest/gtest.h>
+#include <ros/ros.h>
+#include <sensor_msgs/PointCloud2.h>
+#include <test_safety_limiter_base.h>
+
 #include <algorithm>
 #include <cmath>
 #include <string>
-
-#include <ros/ros.h>
-
-#include <geometry_msgs/Twist.h>
-#include <sensor_msgs/PointCloud2.h>
-
-#include <test_safety_limiter_base.h>
-
-#include <gtest/gtest.h>
 
 TEST_F(SafetyLimiterTest, SafetyLimitLinearSimpleSimulationWithMargin)
 {
@@ -48,33 +45,26 @@ TEST_F(SafetyLimiterTest, SafetyLimitLinearSimpleSimulationWithMargin)
   ros::Rate wait(1.0 / dt);
 
   const float velocities[] = {-0.8, -0.4, 0.4, 0.8};
-  for (const float vel : velocities)
-  {
+  for (const float vel : velocities) {
     float x = 0;
     bool stopped = false;
-    const boost::function<void(const geometry_msgs::Twist::ConstPtr&)> cb_cmd_vel =
-        [dt, ax, &x, &v, &stopped](const geometry_msgs::Twist::ConstPtr& msg) -> void
-    {
-      if (msg->linear.x >= v)
-      {
+    const boost::function<void(const geometry_msgs::Twist::ConstPtr &)> cb_cmd_vel =
+      [dt, ax, &x, &v, &stopped](const geometry_msgs::Twist::ConstPtr & msg) -> void {
+      if (msg->linear.x >= v) {
         v = std::min(v + ax * dt, msg->linear.x);
-      }
-      else
-      {
+      } else {
         v = std::max(v - ax * dt, msg->linear.x);
       }
       x += dt * v;
 
-      if (std::abs(v) < 1e-4 && std::abs(x) > 0.5)
-      {
+      if (std::abs(v) < 1e-4 && std::abs(x) > 0.5) {
         stopped = true;
       }
     };
     ros::Subscriber sub_cmd_vel = nh_.subscribe("cmd_vel", 1, cb_cmd_vel);
 
     int count_after_stop = 10;
-    for (float t = 0; t < 10.0 && ros::ok() && count_after_stop > 0; t += dt)
-    {
+    for (float t = 0; t < 10.0 && ros::ok() && count_after_stop > 0; t += dt) {
       if (vel > 0)
         publishSinglePointPointcloud2(1.5 - x, 0, 0, "base_link", ros::Time::now());
       else
@@ -85,31 +75,23 @@ TEST_F(SafetyLimiterTest, SafetyLimitLinearSimpleSimulationWithMargin)
 
       wait.sleep();
       ros::spinOnce();
-      if (stopped)
-      {
+      if (stopped) {
         count_after_stop--;
       }
     }
     // margin is set to 0.2
-    if (vel > 0)
-    {
-      EXPECT_GT(1.4, x)
-          << "vel: " << vel;  // Collision point - margin
-      EXPECT_LT(1.3, x)
-          << "vel: " << vel;  // Collision point - margin * 2
-    }
-    else
-    {
-      EXPECT_LT(-1.4, x)
-          << "vel: " << vel;  // Collision point + margin
-      EXPECT_GT(-1.3, x)
-          << "vel: " << vel;  // Collision point + margin * 2
+    if (vel > 0) {
+      EXPECT_GT(1.4, x) << "vel: " << vel;  // Collision point - margin
+      EXPECT_LT(1.3, x) << "vel: " << vel;  // Collision point - margin * 2
+    } else {
+      EXPECT_LT(-1.4, x) << "vel: " << vel;  // Collision point + margin
+      EXPECT_GT(-1.3, x) << "vel: " << vel;  // Collision point + margin * 2
     }
     sub_cmd_vel.shutdown();
   }
 }
 
-int main(int argc, char** argv)
+int main(int argc, char ** argv)
 {
   testing::InitGoogleTest(&argc, argv);
   ros::init(argc, argv, "test_safety_limiter");

@@ -69,7 +69,7 @@ if($ENV{ROS_VERSION} EQUAL 1)
   target_link_libraries(safety_limiter_core ${catkin_LIBRARIES} ${PCL_LIBRARIES})
   add_dependencies(safety_limiter_core ${catkin_EXPORTED_TARGETS})
 
-  add_executable(safety_limiter src/safety_limiter_node.cpp)
+  add_executable(safety_limiter src/ros1_safety_limiter_node.cpp)
   target_link_libraries(safety_limiter safety_limiter_core ${catkin_LIBRARIES} ${PCL_LIBRARIES})
   add_dependencies(safety_limiter ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg)
 
@@ -78,10 +78,6 @@ if($ENV{ROS_VERSION} EQUAL 1)
     find_package(nav_msgs REQUIRED)
     find_package(tf2_geometry_msgs REQUIRED)
     add_subdirectory(test)
-
-    find_package(roslint REQUIRED)
-    roslint_cpp()
-    roslint_add_test()
   endif()
 
 
@@ -120,8 +116,26 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
     ${PCL_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIRS})
   target_link_libraries(safety_limiter_core ${PCL_LIBRARIES})
 
-  # ROS 2 interface node is added by a later migration step
-  # (migration-hybrid-interface); only the logic library is built here.
+  # ROS 2 interface node (component + standalone executable safety_limiter).
+  ament_auto_add_library(safety_limiter_component SHARED
+    src/ros2_safety_limiter_node.cpp)
+  target_link_libraries(safety_limiter_component safety_limiter_core ${PCL_LIBRARIES})
+  target_include_directories(safety_limiter_component PUBLIC
+    ${PCL_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIRS})
+  rclcpp_components_register_node(safety_limiter_component
+    PLUGIN "safety_limiter::SafetyLimiterNode"
+    EXECUTABLE safety_limiter)
+
+  if(BUILD_TESTING)
+    find_package(ament_lint_auto REQUIRED)
+    # CPP_FORMATTER=clang_format: exclude uncrustify, keep clang_format + cpplint.
+    list(APPEND AMENT_LINT_AUTO_EXCLUDE ament_cmake_uncrustify)
+    # The neonavigation BSD headers are not recognized by ament_copyright's
+    # full-text templates (license=<unknown>), so the copyright linter is
+    # excluded. Existing license text is kept as-is (Copyright=keep).
+    list(APPEND AMENT_LINT_AUTO_EXCLUDE ament_cmake_copyright)
+    ament_lint_auto_find_test_dependencies()
+  endif()
 
   ament_auto_package()
 

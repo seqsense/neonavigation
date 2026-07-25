@@ -27,8 +27,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef SAFETY_LIMITER_SAFETY_LIMITER_H
-#define SAFETY_LIMITER_SAFETY_LIMITER_H
+#ifndef SAFETY_LIMITER__SAFETY_LIMITER_H_
+#define SAFETY_LIMITER__SAFETY_LIMITER_H_
 
 #include <cassert>
 #include <cmath>
@@ -38,19 +38,17 @@
 #include <vector>
 
 #include "geometry_msgs/msg/twist.hpp"
-#include "sensor_msgs/msg/point_cloud.hpp"
-
 #include "pcl/point_cloud.h"
 #include "pcl/point_types.h"
-
 #include "rclcpp/rclcpp.hpp"
+#include "sensor_msgs/msg/point_cloud.hpp"
 #include "tf2_ros/buffer.h"
 
 namespace safety_limiter
 {
-pcl::PointXYZ operator-(const pcl::PointXYZ& a, const pcl::PointXYZ& b);
-pcl::PointXYZ operator+(const pcl::PointXYZ& a, const pcl::PointXYZ& b);
-pcl::PointXYZ operator*(const pcl::PointXYZ& a, const float& b);
+pcl::PointXYZ operator-(const pcl::PointXYZ & a, const pcl::PointXYZ & b);
+pcl::PointXYZ operator+(const pcl::PointXYZ & a, const pcl::PointXYZ & b);
+pcl::PointXYZ operator*(const pcl::PointXYZ & a, const float & b);
 
 // Minimal 2D vector helper used by the footprint polygon geometry.
 class vec
@@ -62,49 +60,35 @@ public:
     c[0] = x;
     c[1] = y;
   }
-  vec()
-  {
-    c[0] = c[1] = 0.0;
-  }
-  float& operator[](const int& i)
+  vec() { c[0] = c[1] = 0.0; }
+  float & operator[](const int & i)
   {
     assert(i < 2);
     return c[i];
   }
-  const float& operator[](const int& i) const
+  const float & operator[](const int & i) const
   {
     assert(i < 2);
     return c[i];
   }
-  vec operator-(const vec& a) const
+  vec operator-(const vec & a) const
   {
     vec out = *this;
     out[0] -= a[0];
     out[1] -= a[1];
     return out;
   }
-  float cross(const vec& a) const
-  {
-    return (*this)[0] * a[1] - (*this)[1] * a[0];
-  }
-  float dot(const vec& a) const
-  {
-    return (*this)[0] * a[0] + (*this)[1] * a[1];
-  }
-  float dist(const vec& a) const
-  {
-    return std::hypot((*this)[0] - a[0], (*this)[1] - a[1]);
-  }
-  float dist_line(const vec& a, const vec& b) const
+  float cross(const vec & a) const { return (*this)[0] * a[1] - (*this)[1] * a[0]; }
+  float dot(const vec & a) const { return (*this)[0] * a[0] + (*this)[1] * a[1]; }
+  float dist(const vec & a) const { return std::hypot((*this)[0] - a[0], (*this)[1] - a[1]); }
+  float dist_line(const vec & a, const vec & b) const
   {
     return (b - a).cross((*this) - a) / b.dist(a);
   }
-  float dist_linestrip(const vec& a, const vec& b) const
+  float dist_linestrip(const vec & a, const vec & b) const
   {
-    if ((b - a).dot((*this) - a) <= 0)
-      return this->dist(a);
-    if ((a - b).dot((*this) - b) <= 0)
-      return this->dist(b);
+    if ((b - a).dot((*this) - a) <= 0) return this->dist(a);
+    if ((a - b).dot((*this) - b) <= 0) return this->dist(b);
     return std::abs(this->dist_line(a, b));
   }
 };
@@ -114,45 +98,38 @@ class polygon
 {
 public:
   std::vector<vec> v;
-  void move(const float& x, const float& y, const float& yaw)
+  void move(const float & x, const float & y, const float & yaw)
   {
     const float cos_v = cosf(yaw);
     const float sin_v = sinf(yaw);
-    for (auto& p : v)
-    {
+    for (auto & p : v) {
       const auto tmp = p;
       p[0] = cos_v * tmp[0] - sin_v * tmp[1] + x;
       p[1] = sin_v * tmp[0] + cos_v * tmp[1] + y;
     }
   }
-  bool inside(const vec& a) const
+  bool inside(const vec & a) const
   {
     int cn = 0;
-    for (size_t i = 0; i < v.size() - 1; i++)
-    {
-      auto& v1 = v[i];
-      auto& v2 = v[i + 1];
-      if ((v1[1] <= a[1] && a[1] < v2[1]) ||
-          (v2[1] <= a[1] && a[1] < v1[1]))
-      {
+    for (size_t i = 0; i < v.size() - 1; i++) {
+      auto & v1 = v[i];
+      auto & v2 = v[i + 1];
+      if ((v1[1] <= a[1] && a[1] < v2[1]) || (v2[1] <= a[1] && a[1] < v1[1])) {
         float lx;
         lx = v1[0] + (v2[0] - v1[0]) * (a[1] - v1[1]) / (v2[1] - v1[1]);
-        if (a[0] < lx)
-          cn++;
+        if (a[0] < lx) cn++;
       }
     }
     return ((cn & 1) == 1);
   }
-  float dist(const vec& a) const
+  float dist(const vec & a) const
   {
     float dist = std::numeric_limits<float>::max();
-    for (size_t i = 0; i < v.size() - 1; i++)
-    {
-      auto& v1 = v[i];
-      auto& v2 = v[i + 1];
+    for (size_t i = 0; i < v.size() - 1; i++) {
+      auto & v1 = v[i];
+      auto & v2 = v[i + 1];
       auto d = a.dist_linestrip(v1, v2);
-      if (d < dist)
-        dist = d;
+      if (d < dist) dist = d;
     }
     return dist;
   }
@@ -193,34 +170,24 @@ public:
     sensor_msgs::msg::PointCloud collision_points;
   };
 
-  SafetyLimiter(tf2_ros::Buffer& tfbuf, const rclcpp::Logger& logger);
+  SafetyLimiter(tf2_ros::Buffer & tfbuf, const rclcpp::Logger & logger);
 
-  void setParameters(const Parameters& params);
-  void setFootprint(const polygon& footprint, const float footprint_radius);
-  void setBaseFrame(const std::string& base_frame_id);
+  void setParameters(const Parameters & params);
+  void setFootprint(const polygon & footprint, const float footprint_radius);
+  void setBaseFrame(const std::string & base_frame_id);
 
-  float footprintRadius() const
-  {
-    return footprint_radius_;
-  }
-  bool hasCollisionAtNow() const
-  {
-    return has_collision_at_now_;
-  }
-  rclcpp::Time stuckStartedSince() const
-  {
-    return stuck_started_since_;
-  }
+  float footprintRadius() const { return footprint_radius_; }
+  bool hasCollisionAtNow() const { return has_collision_at_now_; }
+  rclcpp::Time stuckStartedSince() const { return stuck_started_since_; }
 
   // Run one collision-prediction step against the accumulated cloud and return
   // the allowed velocity ratio together with the colliding points.
   // Note: cloud is transformed in place, matching the original node behavior.
   PredictResult predict(
-      const geometry_msgs::msg::Twist& twist,
-      const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud);
+    const geometry_msgs::msg::Twist & twist, const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud);
 
 private:
-  tf2_ros::Buffer& tfbuf_;
+  tf2_ros::Buffer & tfbuf_;
   rclcpp::Logger logger_;
 
   Parameters params_;
@@ -234,4 +201,4 @@ private:
 };
 }  // namespace safety_limiter
 
-#endif  // SAFETY_LIMITER_SAFETY_LIMITER_H
+#endif  // SAFETY_LIMITER__SAFETY_LIMITER_H_

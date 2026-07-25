@@ -27,18 +27,17 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <algorithm>
-#include <cmath>
-#include <limits>
-#include <memory>
-#include <string>
-#include <vector>
-
-#include <ros/ros.h>
-
 #include <diagnostic_updater/diagnostic_updater.h>
 #include <dynamic_reconfigure/server.h>
 #include <geometry_msgs/Twist.h>
+#include <neonavigation_common/compatibility.h>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
+#include <pcl_conversions/pcl_conversions.h>
+#include <pcl_ros/transforms.h>
+#include <ros/ros.h>
+#include <safety_limiter/SafetyLimiterConfig.h>
+#include <safety_limiter/safety_limiter.h>
 #include <safety_limiter_msgs/SafetyLimiterStatus.h>
 #include <sensor_msgs/PointCloud.h>
 #include <sensor_msgs/PointCloud2.h>
@@ -47,21 +46,17 @@
 #include <tf2_ros/transform_listener.h>
 #include <tf2_sensor_msgs/tf2_sensor_msgs.h>
 
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
-#include <pcl_conversions/pcl_conversions.h>
-#include <pcl_ros/transforms.h>
-
-#include <neonavigation_common/compatibility.h>
-
+#include <algorithm>
+#include <cmath>
+#include <limits>
+#include <memory>
 #include <sq_ros1_compat/logger.hpp>
-
-#include <safety_limiter/SafetyLimiterConfig.h>
-#include <safety_limiter/safety_limiter.h>
+#include <string>
+#include <vector>
 
 namespace safety_limiter
 {
-bool XmlRpc_isNumber(XmlRpc::XmlRpcValue& value)
+bool XmlRpc_isNumber(XmlRpc::XmlRpcValue & value)
 {
   return value.getType() == XmlRpc::XmlRpcValue::TypeInt ||
          value.getType() == XmlRpc::XmlRpcValue::TypeDouble;
@@ -114,52 +109,44 @@ protected:
 
 public:
   SafetyLimiterNode()
-    : nh_()
-    , pnh_("~")
-    , tfl_(tfbuf_)
-    , limiter_(tfbuf_, sq_ros1_compat::get_logger("safety_limiter"))
-    , cloud_accum_(new pcl::PointCloud<pcl::PointXYZ>)
-    , cloud_clear_(false)
-    , last_disable_cmd_(0)
-    , watchdog_stop_(false)
-    , has_cloud_(false)
-    , has_twist_(true)
+  : nh_(),
+    pnh_("~"),
+    tfl_(tfbuf_),
+    limiter_(tfbuf_, sq_ros1_compat::get_logger("safety_limiter")),
+    cloud_accum_(new pcl::PointCloud<pcl::PointXYZ>),
+    cloud_clear_(false),
+    last_disable_cmd_(0),
+    watchdog_stop_(false),
+    has_cloud_(false),
+    has_twist_(true)
   {
     neonavigation_common::compat::checkCompatMode();
     pub_twist_ = neonavigation_common::compat::advertise<geometry_msgs::Twist>(
-        nh_, "cmd_vel",
-        pnh_, "cmd_vel_out", 1, true);
+      nh_, "cmd_vel", pnh_, "cmd_vel_out", 1, true);
     pub_cloud_ = nh_.advertise<sensor_msgs::PointCloud>("collision", 1, true);
     pub_status_ = pnh_.advertise<safety_limiter_msgs::SafetyLimiterStatus>("status", 1, true);
     sub_twist_ = neonavigation_common::compat::subscribe(
-        nh_, "cmd_vel_in",
-        pnh_, "cmd_vel_in", 1, &SafetyLimiterNode::cbTwist, this);
+      nh_, "cmd_vel_in", pnh_, "cmd_vel_in", 1, &SafetyLimiterNode::cbTwist, this);
     sub_disable_ = neonavigation_common::compat::subscribe(
-        nh_, "disable_safety",
-        pnh_, "disable", 1, &SafetyLimiterNode::cbDisable, this);
+      nh_, "disable_safety", pnh_, "disable", 1, &SafetyLimiterNode::cbDisable, this);
     sub_watchdog_ = neonavigation_common::compat::subscribe(
-        nh_, "watchdog_reset",
-        pnh_, "watchdog_reset", 1, &SafetyLimiterNode::cbWatchdogReset, this);
+      nh_, "watchdog_reset", pnh_, "watchdog_reset", 1, &SafetyLimiterNode::cbWatchdogReset, this);
 
     int num_input_clouds;
     pnh_.param("num_input_clouds", num_input_clouds, 1);
-    if (num_input_clouds == 1)
-    {
+    if (num_input_clouds == 1) {
       sub_clouds_.push_back(neonavigation_common::compat::subscribe(
-          nh_, "cloud",
-          pnh_, "cloud", 1, &SafetyLimiterNode::cbCloud, this));
-    }
-    else
-    {
-      for (int i = 0; i < num_input_clouds; ++i)
-      {
-        sub_clouds_.push_back(nh_.subscribe(
-            "cloud" + std::to_string(i), 1, &SafetyLimiterNode::cbCloud, this));
+        nh_, "cloud", pnh_, "cloud", 1, &SafetyLimiterNode::cbCloud, this));
+    } else {
+      for (int i = 0; i < num_input_clouds; ++i) {
+        sub_clouds_.push_back(
+          nh_.subscribe("cloud" + std::to_string(i), 1, &SafetyLimiterNode::cbCloud, this));
       }
     }
 
     if (pnh_.hasParam("t_margin"))
-      ROS_WARN("safety_limiter: t_margin parameter is obsolated. Use d_margin and yaw_margin instead.");
+      ROS_WARN(
+        "safety_limiter: t_margin parameter is obsolated. Use d_margin and yaw_margin instead.");
     pnh_.param("base_frame", base_frame_id_, std::string("base_link"));
     pnh_.param("fixed_frame", fixed_frame_id_, std::string("odom"));
     limiter_.setBaseFrame(base_frame_id_);
@@ -170,28 +157,23 @@ public:
     pnh_.param("max_angular_vel", max_values_[1], std::numeric_limits<double>::infinity());
 
     parameter_server_.reset(
-        new dynamic_reconfigure::Server<SafetyLimiterConfig>(parameter_server_mutex_, pnh_));
+      new dynamic_reconfigure::Server<SafetyLimiterConfig>(parameter_server_mutex_, pnh_));
     parameter_server_->setCallback(boost::bind(&SafetyLimiterNode::cbParameter, this, _1, _2));
 
     XmlRpc::XmlRpcValue footprint_xml;
-    if (!pnh_.hasParam("footprint"))
-    {
+    if (!pnh_.hasParam("footprint")) {
       ROS_FATAL("Footprint doesn't specified");
       throw std::runtime_error("Footprint doesn't specified");
     }
     pnh_.getParam("footprint", footprint_xml);
-    if (footprint_xml.getType() != XmlRpc::XmlRpcValue::TypeArray || footprint_xml.size() < 3)
-    {
+    if (footprint_xml.getType() != XmlRpc::XmlRpcValue::TypeArray || footprint_xml.size() < 3) {
       ROS_FATAL("Invalid footprint");
       throw std::runtime_error("Invalid footprint");
     }
     polygon footprint_p;
     float footprint_radius = 0;
-    for (int i = 0; i < footprint_xml.size(); i++)
-    {
-      if (!XmlRpc_isNumber(footprint_xml[i][0]) ||
-          !XmlRpc_isNumber(footprint_xml[i][1]))
-      {
+    for (int i = 0; i < footprint_xml.size(); i++) {
+      if (!XmlRpc_isNumber(footprint_xml[i][0]) || !XmlRpc_isNumber(footprint_xml[i][1])) {
         ROS_FATAL("Invalid footprint value");
         throw std::runtime_error("Invalid footprint value");
       }
@@ -202,8 +184,7 @@ public:
       footprint_p.v.push_back(v);
 
       const float dist = std::hypot(v[0], v[1]);
-      if (dist > footprint_radius)
-        footprint_radius = dist;
+      if (dist > footprint_radius) footprint_radius = dist;
     }
     footprint_p.v.push_back(footprint_p.v.front());
     limiter_.setFootprint(footprint_p, footprint_radius);
@@ -215,24 +196,23 @@ public:
   void spin()
   {
     ros::Timer predict_timer =
-        nh_.createTimer(ros::Duration(1.0 / hz_), &SafetyLimiterNode::cbPredictTimer, this);
+      nh_.createTimer(ros::Duration(1.0 / hz_), &SafetyLimiterNode::cbPredictTimer, this);
 
-    if (watchdog_interval_ != ros::Duration(0.0))
-    {
+    if (watchdog_interval_ != ros::Duration(0.0)) {
       watchdog_timer_ =
-          nh_.createTimer(watchdog_interval_, &SafetyLimiterNode::cbWatchdogTimer, this);
+        nh_.createTimer(watchdog_interval_, &SafetyLimiterNode::cbWatchdogTimer, this);
     }
 
     ros::spin();
   }
 
 protected:
-  void cbWatchdogReset(const std_msgs::Empty::ConstPtr& /* msg */)
+  void cbWatchdogReset(const std_msgs::Empty::ConstPtr & /* msg */)
   {
     watchdog_timer_.setPeriod(watchdog_interval_, true);
     watchdog_stop_ = false;
   }
-  void cbWatchdogTimer(const ros::TimerEvent& /* event */)
+  void cbWatchdogTimer(const ros::TimerEvent & /* event */)
   {
     ROS_WARN_THROTTLE(1.0, "safety_limiter: Watchdog timed-out");
     watchdog_stop_ = true;
@@ -242,15 +222,12 @@ protected:
 
     diag_updater_.force_update();
   }
-  void cbPredictTimer(const ros::TimerEvent& /* event */)
+  void cbPredictTimer(const ros::TimerEvent & /* event */)
   {
-    if (!has_twist_)
-      return;
-    if (!has_cloud_)
-      return;
+    if (!has_twist_) return;
+    if (!has_cloud_) return;
 
-    if (ros::Time::now() - last_cloud_stamp_ > ros::Duration(timeout_))
-    {
+    if (ros::Time::now() - last_cloud_stamp_ > ros::Duration(timeout_)) {
       ROS_WARN_THROTTLE(1.0, "safety_limiter: PointCloud timed-out");
       geometry_msgs::Twist cmd_vel;
       pub_twist_.publish(cmd_vel);
@@ -265,21 +242,18 @@ protected:
 
     ros::Time now = ros::Time::now();
     const SafetyLimiter::PredictResult result = limiter_.predict(twist_, cloud_accum_);
-    if (result.has_collision_points)
-      pub_cloud_.publish(result.collision_points);
+    if (result.has_collision_points) pub_cloud_.publish(result.collision_points);
     const double r_lim_current = result.r_lim;
 
-    if (r_lim_current < r_lim_)
-      r_lim_ = r_lim_current;
+    if (r_lim_current < r_lim_) r_lim_ = r_lim_current;
 
-    if (r_lim_current < 1.0)
-      hold_off_ = now + hold_;
+    if (r_lim_current < 1.0) hold_off_ = now + hold_;
 
     cloud_clear_ = true;
 
     diag_updater_.force_update();
   }
-  void cbParameter(const SafetyLimiterConfig& config, const uint32_t /* level */)
+  void cbParameter(const SafetyLimiterConfig & config, const uint32_t /* level */)
   {
     boost::recursive_mutex::scoped_lock lock(parameter_server_mutex_);
     hz_ = config.freq;
@@ -309,99 +283,79 @@ protected:
     r_lim_ = 1.0;
   }
 
-  geometry_msgs::Twist
-  limit(const geometry_msgs::Twist& in)
+  geometry_msgs::Twist limit(const geometry_msgs::Twist & in)
   {
     auto out = in;
-    if (r_lim_ < 1.0 - EPSILON)
-    {
+    if (r_lim_ < 1.0 - EPSILON) {
       out.linear.x *= r_lim_;
       out.linear.y *= r_lim_;
       out.angular.z *= r_lim_;
-      if (std::abs(in.linear.x - out.linear.x) > EPSILON ||
-          std::abs(in.linear.y - out.linear.y) > EPSILON ||
-          std::abs(in.angular.z - out.angular.z) > EPSILON)
-      {
+      if (
+        std::abs(in.linear.x - out.linear.x) > EPSILON ||
+        std::abs(in.linear.y - out.linear.y) > EPSILON ||
+        std::abs(in.angular.z - out.angular.z) > EPSILON) {
         ROS_WARN_THROTTLE(
-            1.0, "safety_limiter: (%0.2f, %0.2f, %0.2f)->(%0.2f, %0.2f, %0.2f)",
-            in.linear.x, in.linear.y, in.angular.z,
-            out.linear.x, out.linear.y, out.angular.z);
+          1.0, "safety_limiter: (%0.2f, %0.2f, %0.2f)->(%0.2f, %0.2f, %0.2f)", in.linear.x,
+          in.linear.y, in.angular.z, out.linear.x, out.linear.y, out.angular.z);
       }
     }
     return out;
   }
 
-  geometry_msgs::Twist
-  limitMaxVelocities(const geometry_msgs::Twist& in)
+  geometry_msgs::Twist limitMaxVelocities(const geometry_msgs::Twist & in)
   {
     auto out = in;
-    if (max_values_[0] <= 0.0)
-    {
+    if (max_values_[0] <= 0.0) {
       out.linear.x = 0;
       out.linear.y = 0;
-    }
-    else
-    {
+    } else {
       const double out_linear_vel = std::hypot(out.linear.x, out.linear.y);
-      if (out_linear_vel > max_values_[0])
-      {
+      if (out_linear_vel > max_values_[0]) {
         const double vel_ratio = max_values_[0] / out_linear_vel;
         out.linear.x *= vel_ratio;
         out.linear.y *= vel_ratio;
       }
     }
-    out.angular.z = (out.angular.z > 0) ?
-                        std::min(out.angular.z, max_values_[1]) :
-                        std::max(out.angular.z, -max_values_[1]);
+    out.angular.z = (out.angular.z > 0) ? std::min(out.angular.z, max_values_[1])
+                                        : std::max(out.angular.z, -max_values_[1]);
 
     return out;
   }
 
-  void cbTwist(const geometry_msgs::Twist::ConstPtr& msg)
+  void cbTwist(const geometry_msgs::Twist::ConstPtr & msg)
   {
     ros::Time now = ros::Time::now();
 
     twist_ = *msg;
     has_twist_ = true;
 
-    if (now - last_disable_cmd_ < ros::Duration(disable_timeout_))
-    {
+    if (now - last_disable_cmd_ < ros::Duration(disable_timeout_)) {
       pub_twist_.publish(limitMaxVelocities(twist_));
-    }
-    else if (!has_cloud_ || watchdog_stop_)
-    {
+    } else if (!has_cloud_ || watchdog_stop_) {
       geometry_msgs::Twist cmd_vel;
       pub_twist_.publish(cmd_vel);
-    }
-    else
-    {
+    } else {
       geometry_msgs::Twist cmd_vel = limitMaxVelocities(limit(twist_));
       pub_twist_.publish(cmd_vel);
 
-      if (now > hold_off_)
-        r_lim_ = 1.0;
+      if (now > hold_off_) r_lim_ = 1.0;
     }
   }
 
-  void cbCloud(const sensor_msgs::PointCloud2::ConstPtr& msg)
+  void cbCloud(const sensor_msgs::PointCloud2::ConstPtr & msg)
   {
-    const bool can_transform = tfbuf_.canTransform(
-        fixed_frame_id_, msg->header.frame_id, msg->header.stamp);
-    const ros::Time stamp =
-        can_transform ? msg->header.stamp : ros::Time(0);
+    const bool can_transform =
+      tfbuf_.canTransform(fixed_frame_id_, msg->header.frame_id, msg->header.stamp);
+    const ros::Time stamp = can_transform ? msg->header.stamp : ros::Time(0);
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_fixed(new pcl::PointCloud<pcl::PointXYZ>());
-    if (!msg->data.empty())
-    {
+    if (!msg->data.empty()) {
       sensor_msgs::PointCloud2 cloud_msg_fixed;
-      try
-      {
+      try {
         const geometry_msgs::TransformStamped cloud_to_fixed =
-            tfbuf_.lookupTransform(fixed_frame_id_, msg->header.frame_id, stamp);
+          tfbuf_.lookupTransform(fixed_frame_id_, msg->header.frame_id, stamp);
         tf2::doTransform(*msg, cloud_msg_fixed, cloud_to_fixed);
-      }
-      catch (tf2::TransformException& e)
-      {
+      } catch (tf2::TransformException & e) {
         ROS_WARN_THROTTLE(1.0, "safety_limiter: Transform failed: %s", e.what());
         return;
       }
@@ -410,8 +364,7 @@ protected:
       pcl::fromROSMsg(cloud_msg_fixed, *cloud_fixed);
     }
 
-    if (cloud_clear_)
-    {
+    if (cloud_clear_) {
       cloud_clear_ = false;
       cloud_accum_.reset(new pcl::PointCloud<pcl::PointXYZ>);
     }
@@ -420,39 +373,31 @@ protected:
     last_cloud_stamp_ = msg->header.stamp;
     has_cloud_ = true;
   }
-  void cbDisable(const std_msgs::Bool::ConstPtr& msg)
+  void cbDisable(const std_msgs::Bool::ConstPtr & msg)
   {
-    if (msg->data)
-    {
+    if (msg->data) {
       last_disable_cmd_ = ros::Time::now();
     }
   }
 
-  void diagnoseCollision(diagnostic_updater::DiagnosticStatusWrapper& stat)
+  void diagnoseCollision(diagnostic_updater::DiagnosticStatusWrapper & stat)
   {
     safety_limiter_msgs::SafetyLimiterStatus status_msg;
 
-    if (!has_cloud_ || watchdog_stop_)
-    {
+    if (!has_cloud_ || watchdog_stop_) {
       stat.summary(diagnostic_msgs::DiagnosticStatus::ERROR, "Stopped due to data timeout.");
-    }
-    else if (r_lim_ == 1.0)
-    {
+    } else if (r_lim_ == 1.0) {
       stat.summary(diagnostic_msgs::DiagnosticStatus::OK, "OK");
-    }
-    else if (r_lim_ < EPSILON)
-    {
-      stat.summary(diagnostic_msgs::DiagnosticStatus::WARN,
-                   (limiter_.hasCollisionAtNow()) ?
-                       "Cannot escape from collision." :
-                       "Trying to avoid collision, but cannot move anymore.");
-    }
-    else
-    {
-      stat.summary(diagnostic_msgs::DiagnosticStatus::OK,
-                   (limiter_.hasCollisionAtNow()) ?
-                       "Escaping from collision." :
-                       "Reducing velocity to avoid collision.");
+    } else if (r_lim_ < EPSILON) {
+      stat.summary(
+        diagnostic_msgs::DiagnosticStatus::WARN,
+        (limiter_.hasCollisionAtNow()) ? "Cannot escape from collision."
+                                       : "Trying to avoid collision, but cannot move anymore.");
+    } else {
+      stat.summary(
+        diagnostic_msgs::DiagnosticStatus::OK, (limiter_.hasCollisionAtNow())
+                                                 ? "Escaping from collision."
+                                                 : "Reducing velocity to avoid collision.");
     }
     stat.addf("Velocity Limit Ratio", "%.2f", r_lim_);
     stat.add("Pointcloud Availability", has_cloud_ ? "true" : "false");
@@ -469,7 +414,7 @@ protected:
 
 }  // namespace safety_limiter
 
-int main(int argc, char** argv)
+int main(int argc, char ** argv)
 {
   ros::init(argc, argv, "safety_limiter");
 
