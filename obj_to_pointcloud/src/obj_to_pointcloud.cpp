@@ -36,15 +36,14 @@
 
 #include <ros/ros.h>
 
-#include <sensor_msgs/PointCloud2.h>
-
-#include <pcl/filters/voxel_grid.h>
-#include <pcl/io/vtk_lib_io.h>
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
-#include <pcl_conversions/pcl_conversions.h>
-
-#include <neonavigation_common/compatibility.h>
+#include "neonavigation_common/compatibility.h"
+#include "pcl/filters/voxel_grid.h"
+#include "pcl/io/vtk_lib_io.h"
+#include "pcl/point_cloud.h"
+#include "pcl/point_types.h"
+#include "pcl_conversions/pcl_conversions.h"
+#include "rclcpp/rclcpp.hpp"
+#include "sensor_msgs/msg/point_cloud2.hpp"
 
 pcl::PointXYZ operator-(const pcl::PointXYZ& a, const pcl::PointXYZ& b)
 {
@@ -90,6 +89,7 @@ public:
   ObjToPointcloudNode()
     : nh_()
     , pnh_("~")
+    , logger_(rclcpp::get_logger("obj_to_pointcloud"))
     , engine_(seed_gen_())
   {
     neonavigation_common::compat::checkCompatMode();
@@ -101,7 +101,7 @@ public:
     pnh_.param("objs", file_, std::string(""));
     if (file_.compare("") == 0)
     {
-      ROS_ERROR("OBJ file not specified");
+      RCLCPP_ERROR(logger_, "OBJ file not specified");
       ros::shutdown();
       return;
     }
@@ -120,6 +120,7 @@ private:
   ros::NodeHandle nh_;
   ros::NodeHandle pnh_;
   ros::Publisher pub_cloud_;
+  rclcpp::Logger logger_;
 
   std::string file_;
   std::string frame_id_;
@@ -133,9 +134,9 @@ private:
   std::random_device seed_gen_;
   std::default_random_engine engine_;
 
-  sensor_msgs::PointCloud2 convertObj(const std::vector<std::string>& files)
+  sensor_msgs::msg::PointCloud2 convertObj(const std::vector<std::string>& files)
   {
-    sensor_msgs::PointCloud2 pc_msg;
+    sensor_msgs::msg::PointCloud2 pc_msg;
     pcl::PolygonMesh::Ptr mesh(new pcl::PolygonMesh());
     pcl::PointCloud<pcl::PointXYZ>::Ptr pc(new pcl::PointCloud<pcl::PointXYZ>());
     pcl::PointCloud<pcl::PointXYZ>::Ptr pc_rs(new pcl::PointCloud<pcl::PointXYZ>());
@@ -151,7 +152,7 @@ private:
       {
         if (pcl::io::loadPCDFile(file, *pc) == -1)
         {
-          ROS_ERROR("Failed to load PCD file");
+          RCLCPP_ERROR(logger_, "Failed to load PCD file");
           ros::shutdown();
           return pc_msg;
         }
@@ -168,7 +169,7 @@ private:
       {
         if (pcl::io::loadPolygonFileOBJ(file, *mesh) == -1)
         {
-          ROS_ERROR("Failed to load OBJ file");
+          RCLCPP_ERROR(logger_, "Failed to load OBJ file");
           ros::shutdown();
           return pc_msg;
         }
@@ -187,7 +188,7 @@ private:
         {
           if (poly.vertices.size() != 3)
           {
-            ROS_ERROR("Input mesh mush be triangle");
+            RCLCPP_ERROR(logger_, "Input mesh mush be triangle");
             ros::shutdown();
             return pc_msg;
           }
@@ -235,8 +236,8 @@ private:
 
     pcl::toROSMsg(*pc_ds, pc_msg);
     pc_msg.header.frame_id = frame_id_;
-    pc_msg.header.stamp = ros::Time::now();
-    ROS_INFO("pointcloud (%d points) has been generated from %d verticles",
+    pc_msg.header.stamp = rclcpp::Clock(RCL_ROS_TIME).now();
+    RCLCPP_INFO(logger_, "pointcloud (%d points) has been generated from %d verticles",
              (int)pc_ds->size(),
              (int)pc->size());
     return pc_msg;
