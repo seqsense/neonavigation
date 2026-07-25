@@ -97,7 +97,7 @@ private:
       pub_topic_.publish(*msg);
     }
   };
-  void cbTimer(const ros::TimerEvent& e)
+  void cbTimer(const ros::TimerEvent& /* e */)
   {
     if (ros::Time::now() - last_joy_msg_ > ros::Duration(timeout_))
     {

@@ -387,7 +387,7 @@ public:
     dist_ = 0;
     slip_.set(0.0, 0.1);
   }
-  void cbTimer(const ros::TimerEvent& event)
+  void cbTimer(const ros::TimerEvent& /* event */)
   {
     nav_msgs::Odometry::Ptr odom(new nav_msgs::Odometry);
     odom->header.stamp = ros::Time::now();

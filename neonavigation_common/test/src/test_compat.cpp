@@ -99,7 +99,7 @@ public:
     msg_const_ = msg;
   }
 
-  bool cbSrv(std_srvs::Empty::Request& req, std_srvs::Empty::Response& res)
+  bool cbSrv(std_srvs::Empty::Request& /* req */, std_srvs::Empty::Response& /* res */)
   {
     srv_called_ = true;
     return true;

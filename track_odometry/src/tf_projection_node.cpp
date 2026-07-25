@@ -155,7 +155,7 @@ public:
       tf_broadcaster_.sendTransform(trans_out);
     }
   }
-  void cbTimer(const ros::TimerEvent& event)
+  void cbTimer(const ros::TimerEvent& /* event */)
   {
     process();
   }

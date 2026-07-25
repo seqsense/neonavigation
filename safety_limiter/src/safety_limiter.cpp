@@ -268,12 +268,12 @@ public:
   }
 
 protected:
-  void cbWatchdogReset(const std_msgs::Empty::ConstPtr& msg)
+  void cbWatchdogReset(const std_msgs::Empty::ConstPtr& /* msg */)
   {
     watchdog_timer_.setPeriod(watchdog_interval_, true);
     watchdog_stop_ = false;
   }
-  void cbWatchdogTimer(const ros::TimerEvent& event)
+  void cbWatchdogTimer(const ros::TimerEvent& /* event */)
   {
     ROS_WARN_THROTTLE(1.0, "safety_limiter: Watchdog timed-out");
     watchdog_stop_ = true;
@@ -283,7 +283,7 @@ protected:
 
     diag_updater_.force_update();
   }
-  void cbPredictTimer(const ros::TimerEvent& event)
+  void cbPredictTimer(const ros::TimerEvent& /* event */)
   {
     if (!has_twist_)
       return;
@@ -351,7 +351,7 @@ protected:
     tmax_ += std::max(d_margin_ / vel_[0], yaw_margin_ / vel_[1]);
     r_lim_ = 1.0;
   }
-  double predict(const geometry_msgs::Twist& in)
+  double predict(const geometry_msgs::Twist& /* in */)
   {
     if (cloud_accum_->size() == 0)
     {

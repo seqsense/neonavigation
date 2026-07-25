@@ -355,7 +355,7 @@ void TrackerNode::cbOdometry(const nav_msgs::Odometry::ConstPtr& odom)
   prev_odom_stamp_ = odom->header.stamp;
 }
 
-void TrackerNode::cbTimer(const ros::TimerEvent& event)
+void TrackerNode::cbTimer(const ros::TimerEvent& /* event */)
 {
   try
   {
@@ -378,7 +378,7 @@ void TrackerNode::cbTimer(const ros::TimerEvent& event)
   }
 }
 
-void TrackerNode::cbOdomTimeout(const ros::TimerEvent& event)
+void TrackerNode::cbOdomTimeout(const ros::TimerEvent& /* event */)
 {
   ROS_WARN_STREAM("Odometry timeout. Last odometry stamp: " << prev_odom_stamp_);
   v_lim_.clear();
