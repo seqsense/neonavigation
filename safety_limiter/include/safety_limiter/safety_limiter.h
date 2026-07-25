@@ -30,22 +30,21 @@
 #ifndef SAFETY_LIMITER_SAFETY_LIMITER_H
 #define SAFETY_LIMITER_SAFETY_LIMITER_H
 
+#include <cassert>
 #include <cmath>
 #include <limits>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include <ros/assert.h>
-#include <ros/time.h>
+#include "geometry_msgs/msg/twist.hpp"
+#include "sensor_msgs/msg/point_cloud.hpp"
 
-#include <geometry_msgs/Twist.h>
-#include <sensor_msgs/PointCloud.h>
+#include "pcl/point_cloud.h"
+#include "pcl/point_types.h"
 
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
-
-#include <tf2_ros/buffer.h>
+#include "rclcpp/rclcpp.hpp"
+#include "tf2_ros/buffer.h"
 
 namespace safety_limiter
 {
@@ -69,12 +68,12 @@ public:
   }
   float& operator[](const int& i)
   {
-    ROS_ASSERT(i < 2);
+    assert(i < 2);
     return c[i];
   }
   const float& operator[](const int& i) const
   {
-    ROS_ASSERT(i < 2);
+    assert(i < 2);
     return c[i];
   }
   vec operator-(const vec& a) const
@@ -162,8 +161,9 @@ public:
 // SafetyLimiter holds the pure collision-prediction logic.
 // It has no knowledge of ROS nodes, publishers, subscribers, parameters or
 // dynamic_reconfigure; those belong to the interface layer (SafetyLimiterNode).
-// Message types, PCL, TF, ros::Time and ROS_* logging are kept in the ROS 1
-// style here; a later migration step converts them to the hybrid surface.
+// Message types, PCL, TF, time and logging use the ROS 2 (rclcpp) surface, which
+// on ROS 1 is provided by the sq_ros1_rclcpp_compat shim so the same source
+// builds for both ROS 1 and ROS 2.
 class SafetyLimiter
 {
 public:
@@ -190,10 +190,10 @@ public:
   {
     double r_lim = 1.0;
     bool has_collision_points = false;
-    sensor_msgs::PointCloud collision_points;
+    sensor_msgs::msg::PointCloud collision_points;
   };
 
-  explicit SafetyLimiter(tf2_ros::Buffer& tfbuf);
+  SafetyLimiter(tf2_ros::Buffer& tfbuf, const rclcpp::Logger& logger);
 
   void setParameters(const Parameters& params);
   void setFootprint(const polygon& footprint, const float footprint_radius);
@@ -207,7 +207,7 @@ public:
   {
     return has_collision_at_now_;
   }
-  ros::Time stuckStartedSince() const
+  rclcpp::Time stuckStartedSince() const
   {
     return stuck_started_since_;
   }
@@ -216,11 +216,12 @@ public:
   // the allowed velocity ratio together with the colliding points.
   // Note: cloud is transformed in place, matching the original node behavior.
   PredictResult predict(
-      const geometry_msgs::Twist& twist,
+      const geometry_msgs::msg::Twist& twist,
       const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud);
 
 private:
   tf2_ros::Buffer& tfbuf_;
+  rclcpp::Logger logger_;
 
   Parameters params_;
   double tmax_;
@@ -229,7 +230,7 @@ private:
   float footprint_radius_;
 
   bool has_collision_at_now_;
-  ros::Time stuck_started_since_;
+  rclcpp::Time stuck_started_since_;
 };
 }  // namespace safety_limiter
 

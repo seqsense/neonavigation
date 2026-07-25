@@ -54,6 +54,8 @@
 
 #include <neonavigation_common/compatibility.h>
 
+#include <sq_ros1_compat/logger.hpp>
+
 #include <safety_limiter/SafetyLimiterConfig.h>
 #include <safety_limiter/safety_limiter.h>
 
@@ -115,7 +117,7 @@ public:
     : nh_()
     , pnh_("~")
     , tfl_(tfbuf_)
-    , limiter_(tfbuf_)
+    , limiter_(tfbuf_, sq_ros1_compat::get_logger("safety_limiter"))
     , cloud_accum_(new pcl::PointCloud<pcl::PointXYZ>)
     , cloud_clear_(false)
     , last_disable_cmd_(0)

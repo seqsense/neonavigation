@@ -27,31 +27,31 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <safety_limiter/safety_limiter.h>
+#include "safety_limiter/safety_limiter.h"
 
 #include <algorithm>
 #include <cmath>
 #include <string>
 #include <vector>
 
-#include <Eigen/Core>
-#include <Eigen/Geometry>
+#include "Eigen/Core"
+#include "Eigen/Geometry"
 
-#include <ros/ros.h>
+#include "rclcpp/rclcpp.hpp"
 
-#include <geometry_msgs/Point32.h>
-#include <geometry_msgs/Twist.h>
-#include <geometry_msgs/TransformStamped.h>
-#include <sensor_msgs/PointCloud.h>
+#include "geometry_msgs/msg/point32.hpp"
+#include "geometry_msgs/msg/transform_stamped.hpp"
+#include "geometry_msgs/msg/twist.hpp"
+#include "sensor_msgs/msg/point_cloud.hpp"
 
-#include <pcl/common/transforms.h>
-#include <pcl/filters/voxel_grid.h>
-#include <pcl/kdtree/kdtree_flann.h>
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
-#include <pcl_conversions/pcl_conversions.h>
+#include "pcl/common/transforms.h"
+#include "pcl/filters/voxel_grid.h"
+#include "pcl/kdtree/kdtree_flann.h"
+#include "pcl/point_cloud.h"
+#include "pcl/point_types.h"
+#include "pcl_conversions/pcl_conversions.h"
 
-#include <tf2_ros/buffer.h>
+#include "tf2_ros/buffer.h"
 
 namespace safety_limiter
 {
@@ -80,12 +80,13 @@ pcl::PointXYZ operator*(const pcl::PointXYZ& a, const float& b)
   return c;
 }
 
-SafetyLimiter::SafetyLimiter(tf2_ros::Buffer& tfbuf)
+SafetyLimiter::SafetyLimiter(tf2_ros::Buffer& tfbuf, const rclcpp::Logger& logger)
   : tfbuf_(tfbuf)
+  , logger_(logger)
   , tmax_(0.0)
   , footprint_radius_(0.0)
   , has_collision_at_now_(false)
-  , stuck_started_since_(ros::Time(0))
+  , stuck_started_since_(rclcpp::Time(0, 0, RCL_ROS_TIME))
 {
 }
 
@@ -116,7 +117,7 @@ void SafetyLimiter::setBaseFrame(const std::string& base_frame_id)
 }
 
 SafetyLimiter::PredictResult SafetyLimiter::predict(
-    const geometry_msgs::Twist& twist,
+    const geometry_msgs::msg::Twist& twist,
     const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud)
 {
   PredictResult result;
@@ -128,18 +129,20 @@ SafetyLimiter::PredictResult SafetyLimiter::predict(
       result.r_lim = 1.0;
       return result;
     }
-    ROS_WARN_THROTTLE(1.0, "safety_limiter: Empty pointcloud passed.");
+    rclcpp::Clock clock(RCL_ROS_TIME);
+    RCLCPP_WARN_THROTTLE(logger_, clock, 1000, "safety_limiter: Empty pointcloud passed.");
     result.r_lim = 0.0;
     return result;
   }
 
+  const rclcpp::Time cloud_stamp = pcl_conversions::fromPCL(cloud->header.stamp);
   const bool can_transform = tfbuf_.canTransform(
-      base_frame_id_, cloud->header.frame_id,
-      pcl_conversions::fromPCL(cloud->header.stamp));
-  const ros::Time stamp =
-      can_transform ? pcl_conversions::fromPCL(cloud->header.stamp) : ros::Time(0);
+      base_frame_id_, cloud->header.frame_id, cloud_stamp);
+  rclcpp::Time stamp(0, 0, RCL_ROS_TIME);
+  if (can_transform)
+    stamp = cloud_stamp;
 
-  geometry_msgs::TransformStamped fixed_to_base;
+  geometry_msgs::msg::TransformStamped fixed_to_base;
   try
   {
     fixed_to_base = tfbuf_.lookupTransform(
@@ -147,7 +150,8 @@ SafetyLimiter::PredictResult SafetyLimiter::predict(
   }
   catch (tf2::TransformException& e)
   {
-    ROS_WARN_THROTTLE(1.0, "safety_limiter: Transform failed: %s", e.what());
+    rclcpp::Clock clock(RCL_ROS_TIME);
+    RCLCPP_WARN_THROTTLE(logger_, clock, 1000, "safety_limiter: Transform failed: %s", e.what());
     result.r_lim = 0.0;
     return result;
   }
@@ -187,7 +191,8 @@ SafetyLimiter::PredictResult SafetyLimiter::predict(
       result.r_lim = 1.0;
       return result;
     }
-    ROS_WARN_THROTTLE(1.0, "safety_limiter: Empty pointcloud passed.");
+    rclcpp::Clock clock(RCL_ROS_TIME);
+    RCLCPP_WARN_THROTTLE(logger_, clock, 1000, "safety_limiter: Empty pointcloud passed.");
     result.r_lim = 0.0;
     return result;
   }
@@ -205,9 +210,9 @@ SafetyLimiter::PredictResult SafetyLimiter::predict(
       Eigen::AngleAxisf(twist.angular.z * params_.dt, Eigen::Vector3f::UnitZ());
   move.setIdentity();
   move_inv.setIdentity();
-  sensor_msgs::PointCloud& col_points = result.collision_points;
+  sensor_msgs::msg::PointCloud& col_points = result.collision_points;
   col_points.header.frame_id = base_frame_id_;
-  col_points.header.stamp = ros::Time::now();
+  col_points.header.stamp = rclcpp::Clock(RCL_ROS_TIME).now();
 
   float d_col = 0;
   float yaw_col = 0;
@@ -245,7 +250,7 @@ SafetyLimiter::PredictResult SafetyLimiter::predict(
       vec v(point.x, point.y);
       if (footprint_p_.inside(v))
       {
-        geometry_msgs::Point32 pos;
+        geometry_msgs::msg::Point32 pos;
         pos.x = p.x;
         pos.y = p.y;
         pos.z = p.z;
@@ -283,13 +288,13 @@ SafetyLimiter::PredictResult SafetyLimiter::predict(
 
   if (has_collision_at_now_)
   {
-    if (stuck_started_since_ == ros::Time(0))
-      stuck_started_since_ = ros::Time::now();
+    if (stuck_started_since_ == rclcpp::Time(0, 0, RCL_ROS_TIME))
+      stuck_started_since_ = rclcpp::Clock(RCL_ROS_TIME).now();
   }
   else
   {
-    if (stuck_started_since_ != ros::Time(0))
-      stuck_started_since_ = ros::Time(0);
+    if (stuck_started_since_ != rclcpp::Time(0, 0, RCL_ROS_TIME))
+      stuck_started_since_ = rclcpp::Time(0, 0, RCL_ROS_TIME);
   }
 
   if (!has_collision)
