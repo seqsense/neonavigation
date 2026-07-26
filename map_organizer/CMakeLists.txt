@@ -37,14 +37,8 @@ if($ENV{ROS_VERSION} EQUAL 1)
     CATKIN_DEPENDS ${CATKIN_DEPENDS}
   )
 
-  # Generate ROS 2-style compat headers (map_organizer_msgs/msg/*.hpp) for the
-  # custom message the hybrid logic library returns. The standard message
-  # packages already get theirs from sq_ros1_rclcpp_compat.
-  generate_ros1_compat_headers(
-    PACKAGE map_organizer_msgs
-    MSG_DIR "${map_organizer_msgs_SOURCE_PREFIX}/msg"
-    OUTPUT_DIR "${CATKIN_DEVEL_PREFIX}/include"
-  )
+  # map_organizer_msgs generates its own ROS 2-style compat headers on the ROS 1
+  # side, so consumers just pick them up from the devel include space.
 
   set(CMAKE_CXX_STANDARD 14)
   set(CMAKE_CXX_STANDARD_REQUIRED ON)

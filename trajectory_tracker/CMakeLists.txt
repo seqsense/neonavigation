@@ -36,14 +36,8 @@ if($ENV{ROS_VERSION} EQUAL 1)
     CATKIN_DEPENDS ${CATKIN_DEPENDS}
   )
 
-  # Generate ROS 2-style compat headers (trajectory_tracker_msgs/msg/*.hpp) for
-  # the custom messages the hybrid logic library consumes. The standard message
-  # packages already get theirs from sq_ros1_rclcpp_compat.
-  generate_ros1_compat_headers(
-    PACKAGE trajectory_tracker_msgs
-    MSG_DIR "${trajectory_tracker_msgs_SOURCE_PREFIX}/msg"
-    OUTPUT_DIR "${CATKIN_DEVEL_PREFIX}/include"
-  )
+  # trajectory_tracker_msgs generates its own ROS 2-style compat headers on the
+  # ROS 1 side, so consumers just pick them up from the devel include space.
 
   set(CMAKE_CXX_STANDARD 14)
   set(CMAKE_CXX_STANDARD_REQUIRED ON)
