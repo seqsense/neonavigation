@@ -288,6 +288,150 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
       test/src/test_start_pose_predictor.cpp)
     target_include_directories(test_${PROJECT_NAME}_start_pose_predictor PRIVATE include)
     target_link_libraries(test_${PROJECT_NAME}_start_pose_predictor planner_3d_core)
+
+    # -- Integration tests (launch_testing driving the ROS 2 interface nodes) --
+    # ROS 2 counterparts of the ROS 1 rostests. The ROS 1 test sources under
+    # test/src/ keep using roscpp/actionlib and are only built by catkin; the
+    # rewritten ones live under test_ros2/ so that the two trees never mix.
+    # Each gtest binary owns its main() (it calls rclcpp::init before
+    # RUN_ALL_TESTS), so they are plain executables linked against GTest and
+    # started from the launch_testing descriptions.
+    find_package(GTest REQUIRED)
+    find_package(launch_testing_ament_cmake REQUIRED)
+
+    include_directories(test_ros2/include)
+
+    # The rostests fed the nodes with map_server; nav2_map_server's map_server
+    # is a lifecycle node which does not self-activate, so a plain node reusing
+    # its map_io library serves the very same YAML/PGM files instead.
+    find_package(nav2_map_server REQUIRED)
+    ament_auto_add_executable(ros2_test_map_publisher
+      test_ros2/src/ros2_test_map_publisher.cpp)
+    ament_target_dependencies(ros2_test_map_publisher nav2_map_server)
+
+    ament_auto_add_executable(ros2_test_planner_3d_map_size
+      test_ros2/src/ros2_test_planner_3d_map_size.cpp)
+    target_link_libraries(ros2_test_planner_3d_map_size ${GTEST_LIBRARIES})
+
+    ament_auto_add_executable(ros2_test_planner_2dof_serial_joints
+      test_ros2/src/ros2_test_planner_2dof_serial_joints.cpp)
+    target_link_libraries(ros2_test_planner_2dof_serial_joints ${GTEST_LIBRARIES})
+
+    ament_auto_add_executable(ros2_test_costmap_watchdog
+      test_ros2/src/ros2_test_costmap_watchdog.cpp)
+    target_link_libraries(ros2_test_costmap_watchdog ${GTEST_LIBRARIES})
+
+    ament_auto_add_executable(ros2_test_debug_outputs
+      test_ros2/src/ros2_test_debug_outputs.cpp)
+    target_link_libraries(ros2_test_debug_outputs ${GTEST_LIBRARIES})
+
+    # planner_3d built with assertions enabled, the ROS 2 counterpart of the
+    # ROS 1 planner_3d_debug target. The logic sources are recompiled with
+    # -DDEBUG (which re-enables assert() even in a release build) instead of
+    # linking the shared planner_3d_core, so the boundary test can catch
+    # out-of-range grid accesses. It intentionally registers the same component
+    # class as planner_3d_component; the generated main loads its own library
+    # by name, and both targets only coexist in a test build.
+    ament_auto_add_library(planner_3d_debug_component SHARED
+      src/ros2_planner_3d_node.cpp
+      src/costmap_bbf.cpp
+      src/grid_astar_model_3dof.cpp
+      src/motion_cache.cpp
+      src/motion_primitive_builder.cpp
+      src/planner_3d_core.cpp
+      src/distance_map.cpp
+      src/rotation_cache.cpp
+      src/start_pose_predictor.cpp)
+    target_compile_definitions(planner_3d_debug_component PUBLIC DEBUG)
+    target_link_libraries(planner_3d_debug_component ${OpenMP_CXX_FLAGS})
+    rclcpp_components_register_node(planner_3d_debug_component
+      PLUGIN "planner_cspace::planner_3d::Planner3dNode"
+      EXECUTABLE planner_3d_debug)
+
+    ament_auto_add_executable(ros2_test_navigate_boundary
+      test_ros2/src/ros2_test_navigate_boundary.cpp)
+    target_link_libraries(ros2_test_navigate_boundary ${GTEST_LIBRARIES})
+
+    ament_auto_add_executable(ros2_test_abort test_ros2/src/ros2_test_abort.cpp)
+    target_link_libraries(ros2_test_abort ${GTEST_LIBRARIES})
+
+    ament_auto_add_executable(ros2_test_preempt test_ros2/src/ros2_test_preempt.cpp)
+    target_link_libraries(ros2_test_preempt ${GTEST_LIBRARIES})
+
+    ament_auto_add_executable(ros2_test_tolerant_action
+      test_ros2/src/ros2_test_tolerant_action.cpp)
+    target_link_libraries(ros2_test_tolerant_action ${GTEST_LIBRARIES})
+
+    ament_auto_add_executable(ros2_test_dynamic_parameter_change
+      test_ros2/src/ros2_test_dynamic_parameter_change.cpp)
+    target_link_libraries(ros2_test_dynamic_parameter_change ${GTEST_LIBRARIES})
+
+    ament_auto_add_executable(ros2_test_navigate test_ros2/src/ros2_test_navigate.cpp)
+    target_link_libraries(ros2_test_navigate ${GTEST_LIBRARIES})
+
+    ament_auto_add_executable(ros2_test_navigate_remember
+      test_ros2/src/ros2_test_navigate_remember.cpp)
+    target_link_libraries(ros2_test_navigate_remember ${GTEST_LIBRARIES})
+
+    # Maps and goals shared with the ROS 1 tests.
+    install(DIRECTORY test/data DESTINATION share/${PROJECT_NAME}/test/)
+
+    add_launch_test(test_ros2/test/test_planner_3d_map_size_launch.py
+      TARGET test_planner_3d_map_size
+      TIMEOUT 180)
+    add_launch_test(test_ros2/test/test_planner_2dof_serial_joints_launch.py
+      TARGET test_planner_2dof_serial_joints
+      TIMEOUT 180)
+    add_launch_test(test_ros2/test/test_costmap_watchdog_launch.py
+      TARGET test_costmap_watchdog
+      TIMEOUT 180)
+    add_launch_test(test_ros2/test/test_debug_outputs_launch.py
+      TARGET test_debug_outputs
+      TIMEOUT 240)
+    add_launch_test(test_ros2/test/test_navigate_boundary_launch.py
+      TARGET test_navigate_boundary
+      TIMEOUT 300)
+    add_launch_test(test_ros2/test/test_abort_launch.py
+      TARGET test_abort
+      TIMEOUT 300)
+    add_launch_test(test_ros2/test/test_preempt_launch.py
+      TARGET test_preempt
+      TIMEOUT 300)
+    add_launch_test(test_ros2/test/test_tolerant_action_launch.py
+      TARGET test_tolerant_action
+      TIMEOUT 300)
+    add_launch_test(test_ros2/test/test_dynamic_parameter_change_launch.py
+      TARGET test_dynamic_parameter_change
+      TIMEOUT 360)
+
+    # Same matrix the ROS 1 CMakeLists registered with add_rostest.
+    add_launch_test(test_ros2/test/test_navigate_launch.py
+      TARGET test_navigate
+      TIMEOUT 700)
+    add_launch_test(test_ros2/test/test_navigate_launch.py
+      TARGET test_navigate_antialias_start
+      ARGS "antialias_start:=true"
+      TIMEOUT 700)
+    add_launch_test(test_ros2/test/test_navigate_launch.py
+      TARGET test_navigate_antialias_start_fast_map_update
+      ARGS "antialias_start:=true" "fast_map_update:=true"
+      TIMEOUT 700)
+    add_launch_test(test_ros2/test/test_navigate_launch.py
+      TARGET test_navigate_with_tolerance
+      ARGS "with_tolerance:=true"
+      TIMEOUT 700)
+    add_launch_test(test_ros2/test/test_navigate_launch.py
+      TARGET test_navigate_enable_crowd_mode
+      ARGS "enable_crowd_mode:=true"
+      TIMEOUT 700)
+
+    add_launch_test(test_ros2/test/test_navigate_remember_launch.py
+      TARGET test_navigate_remember
+      TIMEOUT 700)
+    add_launch_test(test_ros2/test/test_navigate_remember_launch.py
+      TARGET test_navigate_remember_enable_crowd_mode
+      ARGS "enable_crowd_mode:=true"
+      TIMEOUT 700)
   endif()
 
   ament_auto_package()

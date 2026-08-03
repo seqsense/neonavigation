@@ -27,6 +27,13 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+// Make DEBUG flag taking precedence over NDEBUG flag for boundary test
+#ifdef DEBUG
+#ifdef NDEBUG
+#undef NDEBUG
+#endif
+#endif
+
 #include <cmath>
 #include <limits>
 #include <memory>
