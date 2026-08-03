@@ -154,7 +154,7 @@ protected:
     }
     pub_debug_.publish(pc);
   }
-  void cbPublishFootprint(const ros::TimerEvent& event, const geometry_msgs::PolygonStamped msg)
+  void cbPublishFootprint(const ros::TimerEvent& /* event */, const geometry_msgs::PolygonStamped msg)
   {
     auto footprint = msg;
     footprint.header.stamp = ros::Time::now();

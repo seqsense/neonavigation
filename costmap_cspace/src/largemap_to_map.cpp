@@ -113,7 +113,7 @@ public:
   }
 
 private:
-  void cbTimer(const ros::TimerEvent& event)
+  void cbTimer(const ros::TimerEvent& /* event */)
   {
     publishMap();
   }

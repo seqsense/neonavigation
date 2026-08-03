@@ -194,7 +194,7 @@ public:
   }
 
 protected:
-  bool updateChain(const bool output)
+  bool updateChain(const bool /* output */)
   {
     return false;
   }
@@ -210,7 +210,7 @@ protected:
   virtual void generateCSpace(
       CSpace3DMsg::Ptr map,
       const nav_msgs::OccupancyGrid::ConstPtr& msg,
-      const UpdatedRegion& region)
+      const UpdatedRegion& /* region */)
   {
     ROS_ASSERT(ang_grid_ > 0);
     clearTravelableArea(map, msg);

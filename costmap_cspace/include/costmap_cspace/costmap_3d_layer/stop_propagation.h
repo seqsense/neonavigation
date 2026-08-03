@@ -47,10 +47,10 @@ public:
   using Ptr = std::shared_ptr<Costmap3dLayerStopPropagation>;
 
 public:
-  void loadConfig(XmlRpc::XmlRpcValue config)
+  void loadConfig(XmlRpc::XmlRpcValue /* config */)
   {
   }
-  void setMapMetaData(const costmap_cspace_msgs::MapMetaData3D& info)
+  void setMapMetaData(const costmap_cspace_msgs::MapMetaData3D& /* info */)
   {
   }
 
@@ -59,7 +59,7 @@ protected:
   {
     return 0;
   }
-  bool updateChain(const bool output)
+  bool updateChain(const bool /* output */)
   {
     region_ = UpdatedRegion(
         0, 0, 0, map_->info.width, map_->info.height, map_->info.angle, ros::Time(0));
@@ -68,8 +68,8 @@ protected:
     return false;
   }
   void updateCSpace(
-      const nav_msgs::OccupancyGrid::ConstPtr& map,
-      const UpdatedRegion& region)
+      const nav_msgs::OccupancyGrid::ConstPtr& /* map */,
+      const UpdatedRegion& /* region */)
   {
   }
 };

@@ -61,7 +61,7 @@ public:
       unknown_cost_ = static_cast<int>(config["unknown_cost"]);
     }
   }
-  void setMapMetaData(const costmap_cspace_msgs::MapMetaData3D& info)
+  void setMapMetaData(const costmap_cspace_msgs::MapMetaData3D& /* info */)
   {
   }
 
@@ -70,7 +70,7 @@ protected:
   {
     return 0;
   }
-  bool updateChain(const bool output)
+  bool updateChain(const bool /* output */)
   {
     for (
         size_t a = region_.yaw_;
@@ -96,8 +96,8 @@ protected:
     return false;
   }
   void updateCSpace(
-      const nav_msgs::OccupancyGrid::ConstPtr& map,
-      const UpdatedRegion& region)
+      const nav_msgs::OccupancyGrid::ConstPtr& /* map */,
+      const UpdatedRegion& /* region */)
   {
   }
 };

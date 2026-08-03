@@ -442,7 +442,7 @@ TEST(Costmap3dLayerFootprint, CSpaceOverwrite)
   // Overlay local map
   costmap_cspace_msgs::CSpace3DUpdate::Ptr updated(new costmap_cspace_msgs::CSpace3DUpdate);
   auto cb = [&updated](
-                const costmap_cspace::CSpace3DMsg::Ptr& map,
+                const costmap_cspace::CSpace3DMsg::Ptr& /* map */,
                 const costmap_cspace_msgs::CSpace3DUpdate::Ptr& update) -> bool
   {
     updated = update;
@@ -487,7 +487,7 @@ TEST(Costmap3dLayerFootprint, CSpaceOverwrite)
   costmap_cspace_msgs::CSpace3DUpdate::Ptr updated_max(new costmap_cspace_msgs::CSpace3DUpdate);
 
   auto cb_max = [&updated_max](
-                    const costmap_cspace::CSpace3DMsg::Ptr& map,
+                    const costmap_cspace::CSpace3DMsg::Ptr& /* map */,
                     const costmap_cspace_msgs::CSpace3DUpdate::Ptr& update) -> bool
   {
     updated_max = update;
@@ -629,22 +629,22 @@ TEST(Costmap3dLayerOutput, CSpaceOutOfBoundary)
           {"half-outside xy1", {3.0, -1.0}, true, {3u, 0u, 0u, 1u, 1u, 4u}},
           {"half-outside xy2", {3.0, 3.0}, true, {3u, 3u, 0u, 1u, 1u, 4u}},
           {"half-outside xy3", {-1.0, 3.0}, true, {0u, 3u, 0u, 1u, 1u, 4u}},
-          {"boundary x0", {-2.0, 0.0}, false},
-          {"boundary x1", {4, 0.0}, false},
-          {"boundary y0", {0, -2.0}, false},
-          {"boundary y1", {0, 4.0}, false},
-          {"boundary xy0", {-2.0, -2.0}, false},
-          {"boundary xy1", {4.0, -2.0}, false},
-          {"boundary xy2", {4.0, 4.0}, false},
-          {"boundary xy3", {-2.0, 4.0}, false},
-          {"outside x0", {-3.0, 0.0}, false},
-          {"outside x1", {5, 0.0}, false},
-          {"outside y0", {0, -3.0}, false},
-          {"outside y1", {0, 5.0}, false},
-          {"outside xy0", {-3.0, -3.0}, false},
-          {"outside xy1", {5.0, -3.0}, false},
-          {"outside xy2", {5.0, 5.0}, false},
-          {"outside xy3", {-3.0, 5.0}, false},
+          {"boundary x0", {-2.0, 0.0}, false, {}},
+          {"boundary x1", {4, 0.0}, false, {}},
+          {"boundary y0", {0, -2.0}, false, {}},
+          {"boundary y1", {0, 4.0}, false, {}},
+          {"boundary xy0", {-2.0, -2.0}, false, {}},
+          {"boundary xy1", {4.0, -2.0}, false, {}},
+          {"boundary xy2", {4.0, 4.0}, false, {}},
+          {"boundary xy3", {-2.0, 4.0}, false, {}},
+          {"outside x0", {-3.0, 0.0}, false, {}},
+          {"outside x1", {5, 0.0}, false, {}},
+          {"outside y0", {0, -3.0}, false, {}},
+          {"outside y1", {0, 5.0}, false, {}},
+          {"outside xy0", {-3.0, -3.0}, false, {}},
+          {"outside xy1", {5.0, -3.0}, false, {}},
+          {"outside xy2", {5.0, 5.0}, false, {}},
+          {"outside xy3", {-3.0, 5.0}, false, {}},
       };
 
   for (auto& d : dataset)
@@ -681,7 +681,7 @@ TEST(Costmap3dLayerOutput, CSpaceOutOfBoundary)
     // Overlay local map
     costmap_cspace_msgs::CSpace3DUpdate::Ptr updated;
     auto cb = [&updated](
-                  const costmap_cspace::CSpace3DMsg::Ptr& map,
+                  const costmap_cspace::CSpace3DMsg::Ptr& /* map */,
                   const costmap_cspace_msgs::CSpace3DUpdate::Ptr& update) -> bool
     {
       updated = update;
@@ -772,7 +772,7 @@ TEST(Costmap3dLayerOutput, UpdateStaticMap)
   costmap_cspace_msgs::CSpace3DUpdate::Ptr overlay_updated;
   int overlay_received_num = 0;
   auto cb_overlay = [&overlay_updated, &overlay_received_num](
-                        const costmap_cspace::CSpace3DMsg::Ptr& map,
+                        const costmap_cspace::CSpace3DMsg::Ptr& /* map */,
                         const costmap_cspace_msgs::CSpace3DUpdate::Ptr& update) -> bool
   {
     overlay_updated = update;

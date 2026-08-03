@@ -54,14 +54,14 @@ protected:
   UpdatedRegion region_prev_;
 
 public:
-  void loadConfig(XmlRpc::XmlRpcValue config)
+  void loadConfig(XmlRpc::XmlRpcValue /* config */)
   {
   }
   void setHandler(CALLBACK cb)
   {
     cb_ = cb;
   }
-  void setMapMetaData(const costmap_cspace_msgs::MapMetaData3D& info)
+  void setMapMetaData(const costmap_cspace_msgs::MapMetaData3D& /* info */)
   {
   }
 
@@ -71,8 +71,8 @@ protected:
     return 0;
   }
   void updateCSpace(
-      const nav_msgs::OccupancyGrid::ConstPtr& map,
-      const UpdatedRegion& region)
+      const nav_msgs::OccupancyGrid::ConstPtr& /* map */,
+      const UpdatedRegion& /* region */)
   {
   }
 };
