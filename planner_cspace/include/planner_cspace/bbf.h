@@ -27,22 +27,16 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PLANNER_CSPACE_BBF_H
-#define PLANNER_CSPACE_BBF_H
+#ifndef PLANNER_CSPACE__BBF_H_
+#define PLANNER_CSPACE__BBF_H_
 
 namespace planner_cspace
 {
 namespace bbf
 {
-constexpr float oddsToProbability(const float& o)
-{
-  return o / (1.0 + o);
-}
+constexpr float oddsToProbability(const float & o) { return o / (1.0 + o); }
 
-constexpr float probabilityToOdds(const float& p)
-{
-  return p / (1.0 - p);
-}
+constexpr float probabilityToOdds(const float & p) { return p / (1.0 - p); }
 
 const float MIN_PROBABILITY = 0.1;
 const float MAX_PROBABILITY = 1.0 - MIN_PROBABILITY;
@@ -55,12 +49,8 @@ protected:
   float odds_;
 
 public:
-  explicit BinaryBayesFilter(
-      const float& initial_odds = 1.0) noexcept
-    : odds_(initial_odds)
-  {
-  }
-  float update(const float& odds)
+  explicit BinaryBayesFilter(const float & initial_odds = 1.0) noexcept : odds_(initial_odds) {}
+  float update(const float & odds)
   {
     odds_ *= odds;
     if (odds_ < MIN_ODDS)
@@ -69,14 +59,8 @@ public:
       odds_ = MAX_ODDS;
     return odds_;
   }
-  float get() const
-  {
-    return odds_;
-  }
-  float getProbability() const
-  {
-    return oddsToProbability(odds_);
-  }
+  float get() const { return odds_; }
+  float getProbability() const { return oddsToProbability(odds_); }
   float getNormalizedProbability() const
   {
     return (getProbability() - MIN_PROBABILITY) / (MAX_PROBABILITY - MIN_PROBABILITY);
@@ -85,4 +69,4 @@ public:
 };  // namespace bbf
 }  // namespace planner_cspace
 
-#endif  // PLANNER_CSPACE_BBF_H
+#endif  // PLANNER_CSPACE__BBF_H_

@@ -27,37 +27,35 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PLANNER_CSPACE_PLANNER_3D_PLANNER_3D_CORE_H
-#define PLANNER_CSPACE_PLANNER_3D_PLANNER_3D_CORE_H
+#ifndef PLANNER_CSPACE__PLANNER_3D__PLANNER_3D_CORE_H_
+#define PLANNER_CSPACE__PLANNER_3D__PLANNER_3D_CORE_H_
 
 #include <functional>
+#include <memory>
 #include <string>
 #include <vector>
 
-#include <ros/duration.h>
-#include <ros/time.h>
-
-#include <costmap_cspace_msgs/CSpace3D.h>
-#include <costmap_cspace_msgs/CSpace3DUpdate.h>
-#include <costmap_cspace_msgs/MapMetaData3D.h>
-#include <geometry_msgs/Point32.h>
-#include <geometry_msgs/Pose.h>
-#include <geometry_msgs/PoseArray.h>
-#include <geometry_msgs/PoseStamped.h>
-#include <nav_msgs/OccupancyGrid.h>
-#include <nav_msgs/Path.h>
-#include <neonavigation_metrics_msgs/Metrics.h>
-#include <planner_cspace_msgs/PlannerStatus.h>
-#include <sensor_msgs/PointCloud.h>
-#include <std_msgs/Header.h>
-
-#include <planner_cspace/grid_astar.h>
-#include <planner_cspace/planner_3d/costmap_bbf.h>
-#include <planner_cspace/planner_3d/distance_map.h>
-#include <planner_cspace/planner_3d/grid_astar_model.h>
-#include <planner_cspace/planner_3d/pose_status.h>
-#include <planner_cspace/planner_3d/start_pose_predictor.h>
-#include <planner_cspace/planner_3d/temporary_escape.h>
+#include "costmap_cspace_msgs/msg/c_space3_d.hpp"
+#include "costmap_cspace_msgs/msg/c_space3_d_update.hpp"
+#include "costmap_cspace_msgs/msg/map_meta_data3_d.hpp"
+#include "geometry_msgs/msg/point32.hpp"
+#include "geometry_msgs/msg/pose.hpp"
+#include "geometry_msgs/msg/pose_array.hpp"
+#include "geometry_msgs/msg/pose_stamped.hpp"
+#include "nav_msgs/msg/occupancy_grid.hpp"
+#include "nav_msgs/msg/path.hpp"
+#include "neonavigation_metrics_msgs/msg/metrics.hpp"
+#include "planner_cspace/grid_astar.h"
+#include "planner_cspace/planner_3d/costmap_bbf.h"
+#include "planner_cspace/planner_3d/distance_map.h"
+#include "planner_cspace/planner_3d/grid_astar_model.h"
+#include "planner_cspace/planner_3d/pose_status.h"
+#include "planner_cspace/planner_3d/start_pose_predictor.h"
+#include "planner_cspace/planner_3d/temporary_escape.h"
+#include "planner_cspace_msgs/msg/planner_status.hpp"
+#include "rclcpp/rclcpp.hpp"
+#include "sensor_msgs/msg/point_cloud.hpp"
+#include "std_msgs/msg/header.hpp"
 
 namespace planner_cspace
 {
@@ -159,13 +157,15 @@ public:
   struct Callbacks
   {
     // Planned path (empty path means "stop").
-    std::function<void(const nav_msgs::Path&)> publish_path;
+    std::function<void(const nav_msgs::msg::Path &)> publish_path;
     // Debug output of the raw grid path.
-    std::function<void(const geometry_msgs::PoseArray&)> publish_path_poses;
+    std::function<void(const geometry_msgs::msg::PoseArray &)> publish_path_poses;
     // Debug output of the preserved part of the previous path.
-    std::function<void(const nav_msgs::Path&)> publish_preserved_path_poses;
+    std::function<void(const nav_msgs::msg::Path &)> publish_preserved_path_poses;
     // Debug output of the relocated start/end grids.
-    std::function<void(const geometry_msgs::PoseStamped&, const geometry_msgs::PoseStamped&)> publish_start_and_end;
+    std::function<void(
+      const geometry_msgs::msg::PoseStamped &, const geometry_msgs::msg::PoseStamped &)>
+      publish_start_and_end;
     // Distance map and hysteresis map should be published if anyone listens.
     std::function<void()> publish_debug_maps;
     // Remembered costmap should be published if anyone listens.
@@ -192,39 +192,42 @@ public:
     ABORT_MAX_RETRY,
   };
 
-  Planner3dCore();
+  explicit Planner3dCore(const rclcpp::Logger & logger);
 
-  void setCallbacks(const Callbacks& cb);
-  void initialize(const StaticParameters& p);
-  void setParameters(const Parameters& p);
+  void setCallbacks(const Callbacks & cb);
+  void initialize(const StaticParameters & p);
+  void setParameters(const Parameters & p);
 
   // --- Inputs -------------------------------------------------------------
   // Applies a new costmap. Returns the retained costmap update which should
   // be re-applied by the caller, or nullptr if there is nothing to re-apply.
-  costmap_cspace_msgs::CSpace3DUpdate::ConstPtr setMap(const costmap_cspace_msgs::CSpace3D::ConstPtr& msg);
+  std::shared_ptr<const costmap_cspace_msgs::msg::CSpace3DUpdate> setMap(
+    const std::shared_ptr<const costmap_cspace_msgs::msg::CSpace3D> & msg);
   void clearRetainedMapUpdate();
-  void applyCostmapUpdate(const costmap_cspace_msgs::CSpace3DUpdate::ConstPtr& msg);
-  void setStart(const geometry_msgs::PoseStamped& start);
+  void applyCostmapUpdate(
+    const std::shared_ptr<const costmap_cspace_msgs::msg::CSpace3DUpdate> & msg);
+  void setStart(const geometry_msgs::msg::PoseStamped & start);
   void clearStart();
-  SetGoalResult setGoal(const geometry_msgs::PoseStamped& msg);
+  SetGoalResult setGoal(const geometry_msgs::msg::PoseStamped & msg);
   void clearGoal();
-  void setGoalTolerance(const GoalTolerance& tolerance);
+  void setGoalTolerance(const GoalTolerance & tolerance);
   void clearGoalTolerance();
   void triggerTemporaryEscape();
   void forgetRememberedCostmap();
   void clearRememberedCostmap();
 
   // Plans a path between the given poses without touching the planner state.
-  bool makePlanOnDemand(const geometry_msgs::PoseStamped& start, const geometry_msgs::PoseStamped& goal,
-                        const double tolerance, nav_msgs::Path& plan);
+  bool makePlanOnDemand(
+    const geometry_msgs::msg::PoseStamped & start, const geometry_msgs::msg::PoseStamped & goal,
+    const double tolerance, nav_msgs::msg::Path & plan);
 
   // --- Planning cycle -----------------------------------------------------
   // Creates the pending cost estimation cache and checks the costmap age.
   // Returns false and stops the robot if the costmap is too old.
-  bool preparePlanCycle(const ros::Time& now);
+  bool preparePlanCycle(const rclcpp::Time & now);
   bool isReadyToPlan() const;
   // Runs one planning step and reports what the action servers should do.
-  PlanCycleResult runPlanCycle(const ros::Time& now);
+  PlanCycleResult runPlanCycle(const rclcpp::Time & now);
   void handleNoGoal();
 
   // --- Replan trigger helpers --------------------------------------------
@@ -232,75 +235,44 @@ public:
   // Returns true when the robot has reached the switchback pose. The
   // switchback state is cleared at the same time.
   bool checkSwitchbackArrival();
-  bool isPathSwitchback() const
-  {
-    return is_path_switchback_;
-  }
-  float swWait() const
-  {
-    return sw_wait_;
-  }
-  const ros::Time& lastCostmapStamp() const
-  {
-    return last_costmap_;
-  }
+  bool isPathSwitchback() const { return is_path_switchback_; }
+  float swWait() const { return sw_wait_; }
+  const rclcpp::Time & lastCostmapStamp() const { return last_costmap_; }
 
   // --- Accessors ----------------------------------------------------------
-  bool hasMap() const
-  {
-    return has_map_;
-  }
-  bool hasGoal() const
-  {
-    return has_goal_;
-  }
-  bool hasStart() const
-  {
-    return has_start_;
-  }
-  const geometry_msgs::PoseStamped& start() const
-  {
-    return start_;
-  }
-  const std_msgs::Header& mapHeader() const
-  {
-    return map_header_;
-  }
-  const planner_cspace_msgs::PlannerStatus& status() const
-  {
-    return status_;
-  }
-  void setStatusStamp(const ros::Time& stamp)
-  {
-    status_.header.stamp = stamp;
-  }
-  geometry_msgs::PoseStamped currentGoalStamped() const;
+  bool hasMap() const { return has_map_; }
+  bool hasGoal() const { return has_goal_; }
+  bool hasStart() const { return has_start_; }
+  const geometry_msgs::msg::PoseStamped & start() const { return start_; }
+  const std_msgs::msg::Header & mapHeader() const { return map_header_; }
+  const planner_cspace_msgs::msg::PlannerStatus & status() const { return status_; }
+  void setStatusStamp(const rclcpp::Time & stamp) { status_.header.stamp = stamp; }
+  geometry_msgs::msg::PoseStamped currentGoalStamped() const;
   // Appends the per-cycle metrics and returns the whole set, clearing the
   // internal buffer.
-  neonavigation_metrics_msgs::Metrics collectMetrics(const ros::Time& now);
+  neonavigation_metrics_msgs::msg::Metrics collectMetrics(const rclcpp::Time & now);
 
   // --- Debug outputs ------------------------------------------------------
-  sensor_msgs::PointCloud generateDistanceMapMsg() const;
-  nav_msgs::OccupancyGrid generateHysteresisMapMsg() const;
-  nav_msgs::OccupancyGrid generateRememberedMapMsg() const;
+  sensor_msgs::msg::PointCloud generateDistanceMapMsg() const;
+  nav_msgs::msg::OccupancyGrid generateHysteresisMapMsg() const;
+  nav_msgs::msg::OccupancyGrid generateRememberedMapMsg() const;
 
 protected:
-  Astar::Vec metric2Grid(const geometry_msgs::Pose& pose) const;
-  geometry_msgs::Pose grid2MetricPose(const Astar::Vec& grid) const;
-  geometry_msgs::Point32 grid2MetricPoint(const Astar::Vec& grid) const;
+  Astar::Vec metric2Grid(const geometry_msgs::msg::Pose & pose) const;
+  geometry_msgs::msg::Pose grid2MetricPose(const Astar::Vec & grid) const;
+  geometry_msgs::msg::Point32 grid2MetricPoint(const Astar::Vec & grid) const;
 
   template <class T>
-  DiscretePoseStatus relocateDiscretePoseIfNeededImpl(const T& cm,
-                                                      const int tolerance_range,
-                                                      const int tolerance_angle,
-                                                      Astar::Vec& pose_discrete) const;
-  DiscretePoseStatus relocateDiscretePoseIfNeeded(Astar::Vec& pose_discrete,
-                                                  const int tolerance_range,
-                                                  const int tolerance_angle,
-                                                  bool use_cm_rough = false) const;
+  DiscretePoseStatus relocateDiscretePoseIfNeededImpl(
+    const T & cm, const int tolerance_range, const int tolerance_angle,
+    Astar::Vec & pose_discrete) const;
+  DiscretePoseStatus relocateDiscretePoseIfNeeded(
+    Astar::Vec & pose_discrete, const int tolerance_range, const int tolerance_angle,
+    bool use_cm_rough = false) const;
   template <class T>
-  bool searchAvailablePos(const T& cm, Astar::Vec& s, const int xy_range, const int angle_range,
-                          int cost_acceptable = -1, const int min_xy_range = 0) const;
+  bool searchAvailablePos(
+    const T & cm, Astar::Vec & s, const int xy_range, const int angle_range,
+    int cost_acceptable = -1, const int min_xy_range = 0) const;
 
   bool createCostEstimCache(const bool goal_changed = true);
   void clearHysteresis();
@@ -309,15 +281,19 @@ protected:
   void publishRememberedMap();
   void publishEmptyPath();
   void publishFinishPath();
-  void publishPath(const nav_msgs::Path& path);
-  void publishStartAndGoalMarkers(const Astar::Vec& start_grid, const Astar::Vec& end_grid);
-  bool isPathFinishing(const Astar::Vec& start_grid, const Astar::Vec& end_grid) const;
-  StartPoseStatus buildStartPoses(const geometry_msgs::Pose& start_metric, const geometry_msgs::Pose& end_metric,
-                                  std::vector<Astar::VecWithCost>& result_start_poses);
-  bool makePlan(const geometry_msgs::Pose& start_metric, const geometry_msgs::Pose& end_metric,
-                nav_msgs::Path& path, bool hyst);
-  void updateTemporaryEscapeGoal(const Astar::Vec& start_grid, const bool log_on_unready = true);
-  int getSwitchIndex(const nav_msgs::Path& path) const;
+  void publishPath(const nav_msgs::msg::Path & path);
+  void publishStartAndGoalMarkers(const Astar::Vec & start_grid, const Astar::Vec & end_grid);
+  bool isPathFinishing(const Astar::Vec & start_grid, const Astar::Vec & end_grid) const;
+  StartPoseStatus buildStartPoses(
+    const geometry_msgs::msg::Pose & start_metric, const geometry_msgs::msg::Pose & end_metric,
+    std::vector<Astar::VecWithCost> & result_start_poses);
+  bool makePlan(
+    const geometry_msgs::msg::Pose & start_metric, const geometry_msgs::msg::Pose & end_metric,
+    nav_msgs::msg::Path & path, bool hyst);
+  void updateTemporaryEscapeGoal(const Astar::Vec & start_grid, const bool log_on_unready = true);
+  int getSwitchIndex(const nav_msgs::msg::Path & path) const;
+
+  rclcpp::Logger logger_;
 
   Callbacks cb_;
 
@@ -337,9 +313,9 @@ protected:
 
   GridAstarModel3D::Ptr model_;
 
-  costmap_cspace_msgs::MapMetaData3D map_info_;
-  costmap_cspace_msgs::CSpace3DUpdate::ConstPtr map_update_retained_;
-  std_msgs::Header map_header_;
+  costmap_cspace_msgs::msg::MapMetaData3D map_info_;
+  std::shared_ptr<const costmap_cspace_msgs::msg::CSpace3DUpdate> map_update_retained_;
+  std_msgs::msg::Header map_header_;
   float freq_;
   float freq_min_;
   float search_timeout_abort_;
@@ -390,10 +366,10 @@ protected:
   // Cost weights
   CostCoeff cc_;
 
-  geometry_msgs::PoseStamped start_;
-  geometry_msgs::PoseStamped goal_;
-  geometry_msgs::PoseStamped goal_raw_;
-  geometry_msgs::PoseStamped goal_original_;
+  geometry_msgs::msg::PoseStamped start_;
+  geometry_msgs::msg::PoseStamped goal_;
+  geometry_msgs::msg::PoseStamped goal_raw_;
+  geometry_msgs::msg::PoseStamped goal_original_;
   Astar::Vecf ec_;
   double goal_tolerance_lin_f_;
   double goal_tolerance_ang_f_;
@@ -407,12 +383,12 @@ protected:
   bool has_goal_tolerance_;
   GoalTolerance goal_tolerance_;
 
-  planner_cspace_msgs::PlannerStatus status_;
-  neonavigation_metrics_msgs::Metrics metrics_;
+  planner_cspace_msgs::msg::PlannerStatus status_;
+  neonavigation_metrics_msgs::msg::Metrics metrics_;
 
   bool find_best_;
   float sw_wait_;
-  geometry_msgs::PoseStamped sw_pos_;
+  geometry_msgs::msg::PoseStamped sw_pos_;
   bool is_path_switchback_;
 
   bool force_goal_orientation_;
@@ -422,17 +398,17 @@ protected:
   int cnt_stuck_;
   bool is_start_occupied_;
 
-  ros::Duration costmap_watchdog_;
-  ros::Time last_costmap_;
+  rclcpp::Duration costmap_watchdog_;
+  rclcpp::Time last_costmap_;
 
   int prev_map_update_x_min_;
   int prev_map_update_x_max_;
   int prev_map_update_y_min_;
   int prev_map_update_y_max_;
-  nav_msgs::Path previous_path_;
+  nav_msgs::msg::Path previous_path_;
   StartPosePredictor start_pose_predictor_;
 };
 }  // namespace planner_3d
 }  // namespace planner_cspace
 
-#endif  // PLANNER_CSPACE_PLANNER_3D_PLANNER_3D_CORE_H
+#endif  // PLANNER_CSPACE__PLANNER_3D__PLANNER_3D_CORE_H_

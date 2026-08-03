@@ -27,20 +27,17 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <memory>
-#include <string>
-
-#include <gtest/gtest.h>
-
 #include <actionlib/client/simple_action_client.h>
+#include <gtest/gtest.h>
 #include <move_base_msgs/MoveBaseAction.h>
+#include <planner_cspace/action_test_base.h>
 #include <planner_cspace_msgs/PlannerStatus.h>
 #include <ros/ros.h>
 
-#include <planner_cspace/action_test_base.h>
+#include <memory>
+#include <string>
 
-class PreemptTest
-  : public ActionTestBase<move_base_msgs::MoveBaseAction, ACTION_TOPIC_MOVE_BASE>
+class PreemptTest : public ActionTestBase<move_base_msgs::MoveBaseAction, ACTION_TOPIC_MOVE_BASE>
 {
 protected:
   move_base_msgs::MoveBaseGoal CreateGoalInFree()
@@ -65,35 +62,26 @@ TEST_F(PreemptTest, Preempt)
   const ros::Duration wait(1.0);
 
   move_base_->sendGoal(CreateGoalInFree());
-  while (move_base_->getState().state_ !=
-         actionlib::SimpleClientGoalState::ACTIVE)
-  {
+  while (move_base_->getState().state_ != actionlib::SimpleClientGoalState::ACTIVE) {
     wait.sleep();
     ASSERT_LT(ros::Time::now(), deadline)
-        << "Action didn't get active: " << move_base_->getState().toString()
-        << statusString();
+      << "Action didn't get active: " << move_base_->getState().toString() << statusString();
   }
-  while (move_base_->getState().state_ ==
-         actionlib::SimpleClientGoalState::ACTIVE)
-  {
+  while (move_base_->getState().state_ == actionlib::SimpleClientGoalState::ACTIVE) {
     move_base_->cancelAllGoals();
     wait.sleep();
     ASSERT_LT(ros::Time::now(), deadline)
-        << "Action didn't get inactive: " << move_base_->getState().toString()
-        << statusString();
+      << "Action didn't get inactive: " << move_base_->getState().toString() << statusString();
   }
 
   ASSERT_TRUE(planner_status_);
 
-  ASSERT_EQ(actionlib::SimpleClientGoalState::PREEMPTED,
-            move_base_->getState().state_);
-  ASSERT_EQ(planner_cspace_msgs::PlannerStatus::GOING_WELL,
-            planner_status_->error);
-  ASSERT_EQ(planner_cspace_msgs::PlannerStatus::DONE,
-            planner_status_->status);
+  ASSERT_EQ(actionlib::SimpleClientGoalState::PREEMPTED, move_base_->getState().state_);
+  ASSERT_EQ(planner_cspace_msgs::PlannerStatus::GOING_WELL, planner_status_->error);
+  ASSERT_EQ(planner_cspace_msgs::PlannerStatus::DONE, planner_status_->status);
 }
 
-int main(int argc, char** argv)
+int main(int argc, char ** argv)
 {
   testing::InitGoogleTest(&argc, argv);
   ros::init(argc, argv, "test_preempt");

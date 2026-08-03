@@ -27,6 +27,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <omp.h>
+
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -36,28 +38,26 @@
 #include <string>
 #include <vector>
 
-#include <omp.h>
-
-#include <ros/console.h>
-
-#include <planner_cspace/planner_2dof_serial_joints/planner_core.h>
+#include "planner_cspace/planner_2dof_serial_joints/planner_core.h"
+#include "rclcpp/rclcpp.hpp"
 
 namespace planner_cspace
 {
 namespace planner_2dof_serial_joints
 {
-Planner2dofSerialJointsCore::Planner2dofSerialJointsCore()
-  : resolution_(128)
-  , avg_vel_(-1.0f)
-  , point_vel_(PointVelMode::VEL_PREV)
-  , debug_aa_(false)
-  , replan_interval_(0)
-  , reset_replan_timer_(false)
+Planner2dofSerialJointsCore::Planner2dofSerialJointsCore(const rclcpp::Logger & logger)
+: logger_(logger),
+  resolution_(128),
+  avg_vel_(-1.0f),
+  point_vel_(PointVelMode::VEL_PREV),
+  debug_aa_(false),
+  replan_interval_(0, 0),
+  reset_replan_timer_(false)
 {
-  status_.status = planner_cspace_msgs::PlannerStatus::DONE;
+  status_.status = planner_cspace_msgs::msg::PlannerStatus::DONE;
 }
 
-void Planner2dofSerialJointsCore::initialize(const Config& config)
+void Planner2dofSerialJointsCore::initialize(const Config & config)
 {
   group_ = config.group_name;
   resolution_ = config.resolution;
@@ -71,8 +71,7 @@ void Planner2dofSerialJointsCore::initialize(const Config& config)
   as_.reset(Astar::Vec(resolution_ * 2, resolution_ * 2));
   cm_.clear(0);
 
-  for (size_t i = 0; i < 2; ++i)
-  {
+  for (size_t i = 0; i < 2; ++i) {
     links_[i].name_ = config.links[i].name;
     links_[i].radius_[0] = config.links[i].joint_radius;
     links_[i].radius_[1] = config.links[i].end_radius;
@@ -85,9 +84,9 @@ void Planner2dofSerialJointsCore::initialize(const Config& config)
     links_[i].current_th_ = 0.0;
   }
 
-  ROS_INFO("link group: %s", group_.c_str());
-  ROS_INFO(" - link0: %s", links_[0].name_.c_str());
-  ROS_INFO(" - link1: %s", links_[1].name_.c_str());
+  RCLCPP_INFO(logger_, "link group: %s", group_.c_str());
+  RCLCPP_INFO(logger_, " - link0: %s", links_[0].name_.c_str());
+  RCLCPP_INFO(logger_, " - link1: %s", links_[1].name_.c_str());
 
   Astar::Vecf euclid_cost_coef;
   euclid_cost_coef[0] = config.links[0].coef;
@@ -97,55 +96,43 @@ void Planner2dofSerialJointsCore::initialize(const Config& config)
   cc.weight_cost_ = config.weight_cost;
   cc.expand_ = config.expand;
 
-  ROS_INFO("Resolution: %d", resolution_);
+  RCLCPP_INFO(logger_, "Resolution: %d", resolution_);
   Astar::Vec p;
-  for (p[0] = 0; p[0] < resolution_ * 2; p[0]++)
-  {
-    for (p[1] = 0; p[1] < resolution_ * 2; p[1]++)
-    {
+  for (p[0] = 0; p[0] < resolution_ * 2; p[0]++) {
+    for (p[1] = 0; p[1] < resolution_ * 2; p[1]++) {
       Astar::Vecf pf;
       grid2Metric(p, pf);
 
-      if (links_[0].isCollide(links_[1], pf[0], pf[1]))
-        cm_[p] = 100;
+      if (links_[0].isCollide(links_[1], pf[0], pf[1])) cm_[p] = 100;
       // else if(pf[0] > M_PI || pf[1] > M_PI)
       //   cm_[p] = 50;
       else
         cm_[p] = 0;
     }
   }
-  for (p[0] = 0; p[0] < resolution_ * 2; p[0]++)
-  {
-    for (p[1] = 0; p[1] < resolution_ * 2; p[1]++)
-    {
-      if (cm_[p] != 100)
-        continue;
+  for (p[0] = 0; p[0] < resolution_ * 2; p[0]++) {
+    for (p[1] = 0; p[1] < resolution_ * 2; p[1]++) {
+      if (cm_[p] != 100) continue;
 
       Astar::Vec d;
       int range = std::lround(cc.expand_ * resolution_ / (2.0 * M_PI));
-      for (d[0] = -range; d[0] <= range; d[0]++)
-      {
-        for (d[1] = -range; d[1] <= range; d[1]++)
-        {
+      for (d[0] = -range; d[0] <= range; d[0]++) {
+        for (d[1] = -range; d[1] <= range; d[1]++) {
           Astar::Vec p2 = p + d;
-          if ((unsigned int)p2[0] >= (unsigned int)resolution_ * 2 ||
-              (unsigned int)p2[1] >= (unsigned int)resolution_ * 2)
+          if (
+            (unsigned int)p2[0] >= (unsigned int)resolution_ * 2 ||
+            (unsigned int)p2[1] >= (unsigned int)resolution_ * 2)
             continue;
           int dist = std::max(std::abs(d[0]), abs(d[1]));
           int c = std::floor(100.0 * (range - dist) / range);
-          if (cm_[p2] < c)
-            cm_[p2] = c;
+          if (cm_[p2] < c) cm_[p2] = c;
         }
       }
     }
   }
 
-  model_.reset(new GridAstarModel2DoFSerialJoint(
-      euclid_cost_coef,
-      resolution_,
-      cm_,
-      cc,
-      config.range));
+  model_.reset(
+    new GridAstarModel2DoFSerialJoint(euclid_cost_coef, resolution_, cm_, cc, config.range));
 
   omp_set_num_threads(config.num_threads);
 }
@@ -156,10 +143,7 @@ void Planner2dofSerialJointsCore::setCurrentAngles(const float th0, const float 
   links_[1].current_th_ = th1;
 }
 
-void Planner2dofSerialJointsCore::invalidateAvgVel()
-{
-  avg_vel_ = -1.0;
-}
+void Planner2dofSerialJointsCore::invalidateAvgVel() { avg_vel_ = -1.0; }
 
 bool Planner2dofSerialJointsCore::takeReplanTimerReset()
 {
@@ -169,60 +153,51 @@ bool Planner2dofSerialJointsCore::takeReplanTimerReset()
 }
 
 void Planner2dofSerialJointsCore::grid2Metric(
-    const int t0, const int t1,
-    float& gt0, float& gt1) const
+  const int t0, const int t1, float & gt0, float & gt1) const
 {
   gt0 = (t0 - resolution_) * 2.0 * M_PI / static_cast<float>(resolution_);
   gt1 = (t1 - resolution_) * 2.0 * M_PI / static_cast<float>(resolution_);
 }
 
 void Planner2dofSerialJointsCore::metric2Grid(
-    int& t0, int& t1,
-    const float gt0, const float gt1) const
+  int & t0, int & t1, const float gt0, const float gt1) const
 {
   t0 = std::lround(gt0 * resolution_ / (2.0 * M_PI)) + resolution_;
   t1 = std::lround(gt1 * resolution_ / (2.0 * M_PI)) + resolution_;
 }
 
-void Planner2dofSerialJointsCore::grid2Metric(
-    const Astar::Vec t,
-    Astar::Vecf& gt) const
+void Planner2dofSerialJointsCore::grid2Metric(const Astar::Vec t, Astar::Vecf & gt) const
 {
   grid2Metric(t[0], t[1], gt[0], gt[1]);
 }
 
-void Planner2dofSerialJointsCore::metric2Grid(
-    Astar::Vec& t,
-    const Astar::Vecf gt) const
+void Planner2dofSerialJointsCore::metric2Grid(Astar::Vec & t, const Astar::Vecf gt) const
 {
   metric2Grid(t[0], t[1], gt[0], gt[1]);
 }
 
 bool Planner2dofSerialJointsCore::cbProgress(
-    const std::list<Astar::Vec>& /* path_grid */, const SearchStats& /* stats */)
+  const std::list<Astar::Vec> & /* path_grid */, const SearchStats & /* stats */)
 {
   return false;
 }
 
 bool Planner2dofSerialJointsCore::makePlan(
-    const Astar::Vecf sg, const Astar::Vecf eg, std::list<Astar::Vecf>& path)
+  const Astar::Vecf sg, const Astar::Vecf eg, std::list<Astar::Vecf> & path)
 {
   Astar::Vec s, e;
   metric2Grid(s, sg);
   metric2Grid(e, eg);
-  ROS_INFO("Planning from (%d, %d) to (%d, %d)",
-           s[0], s[1], e[0], e[1]);
+  RCLCPP_INFO(logger_, "Planning from (%d, %d) to (%d, %d)", s[0], s[1], e[0], e[1]);
 
-  if (cm_[s] == 100)
-  {
-    ROS_WARN("Path plan failed (current status is in collision)");
-    status_.error = planner_cspace_msgs::PlannerStatus::PATH_NOT_FOUND;
+  if (cm_[s] == 100) {
+    RCLCPP_WARN(logger_, "Path plan failed (current status is in collision)");
+    status_.error = planner_cspace_msgs::msg::PlannerStatus::PATH_NOT_FOUND;
     return false;
   }
-  if (cm_[e] == 100)
-  {
-    ROS_WARN("Path plan failed (goal status is in collision)");
-    status_.error = planner_cspace_msgs::PlannerStatus::PATH_NOT_FOUND;
+  if (cm_[e] == 100) {
+    RCLCPP_WARN(logger_, "Path plan failed (goal status is in collision)");
+    status_.error = planner_cspace_msgs::msg::PlannerStatus::PATH_NOT_FOUND;
     return false;
   }
   Astar::Vec d = e - s;
@@ -231,12 +206,10 @@ bool Planner2dofSerialJointsCore::makePlan(
   std::vector<Astar::VecWithCost> starts;
   starts.emplace_back(s);
 
-  if (model_->cost(s, e, starts, e) >= model_->euclidCost(d))
-  {
+  if (model_->cost(s, e, starts, e) >= model_->euclidCost(d)) {
     path.push_back(sg);
     path.push_back(eg);
-    if (s == e)
-    {
+    if (s == e) {
       reset_replan_timer_ = true;
     }
     return true;
@@ -244,35 +217,31 @@ bool Planner2dofSerialJointsCore::makePlan(
   std::list<Astar::Vec> path_grid;
   // const auto ts = std::chrono::high_resolution_clock::now();
   float cancel = std::numeric_limits<float>::max();
-  if (replan_interval_ >= ros::Duration(0))
-    cancel = replan_interval_.toSec();
+  if (replan_interval_ >= rclcpp::Duration(0, 0)) cancel = replan_interval_.seconds();
   if (!as_.search(
-          starts, e, path_grid, model_,
-          std::bind(&Planner2dofSerialJointsCore::cbProgress, this,
-                    std::placeholders::_1, std::placeholders::_2),
-          0, cancel, true))
-  {
-    ROS_WARN("Path plan failed (goal unreachable)");
-    status_.error = planner_cspace_msgs::PlannerStatus::PATH_NOT_FOUND;
+        starts, e, path_grid, model_,
+        std::bind(
+          &Planner2dofSerialJointsCore::cbProgress, this, std::placeholders::_1,
+          std::placeholders::_2),
+        0, cancel, true)) {
+    RCLCPP_WARN(logger_, "Path plan failed (goal unreachable)");
+    status_.error = planner_cspace_msgs::msg::PlannerStatus::PATH_NOT_FOUND;
     return false;
   }
   // const auto tnow = std::chrono::high_resolution_clock::now();
-  // ROS_INFO("Path found (%0.3f sec.)",
+  // RCLCPP_INFO(logger_, "Path found (%0.3f sec.)",
   //   std::chrono::duration<float>(tnow - ts).count());
 
   bool first = false;
   Astar::Vec n_prev = s;
   path.push_back(sg);
   int i = 0;
-  for (auto& n : path_grid)
-  {
-    if (!first)
-    {
+  for (auto & n : path_grid) {
+    if (!first) {
       first = true;
       continue;
     }
-    if (i == 0)
-      ROS_INFO("  next: %d, %d", n[0], n[1]);
+    if (i == 0) RCLCPP_INFO(logger_, "  next: %d, %d", n[0], n[1]);
     Astar::Vec n_diff = n - n_prev;
     n_diff.cycle(resolution_, resolution_);
     Astar::Vec n2 = n_prev + n_diff;
@@ -285,25 +254,18 @@ bool Planner2dofSerialJointsCore::makePlan(
   }
   float prec = 2.0 * M_PI / static_cast<float>(resolution_);
   Astar::Vecf egp = eg;
-  if (egp[0] < 0)
-    egp[0] += std::ceil(-egp[0] / M_PI * 2.0) * M_PI * 2.0;
-  if (egp[1] < 0)
-    egp[1] += std::ceil(-egp[1] / M_PI * 2.0) * M_PI * 2.0;
+  if (egp[0] < 0) egp[0] += std::ceil(-egp[0] / M_PI * 2.0) * M_PI * 2.0;
+  if (egp[1] < 0) egp[1] += std::ceil(-egp[1] / M_PI * 2.0) * M_PI * 2.0;
   path.back()[0] += fmod(egp[0] + prec / 2.0, prec) - prec / 2.0;
   path.back()[1] += fmod(egp[1] + prec / 2.0, prec) - prec / 2.0;
 
-  if (debug_aa_)
-  {
+  if (debug_aa_) {
     Astar::Vec p;
-    for (p[0] = resolution_ / 2; p[0] < resolution_ * 3 / 2; p[0]++)
-    {
-      for (p[1] = resolution_ / 2; p[1] < resolution_ * 3 / 2; p[1]++)
-      {
+    for (p[0] = resolution_ / 2; p[0] < resolution_ * 3 / 2; p[0]++) {
+      for (p[1] = resolution_ / 2; p[1] < resolution_ * 3 / 2; p[1]++) {
         bool found = false;
-        for (auto& g : path_grid)
-        {
-          if (g == p)
-            found = true;
+        for (auto & g : path_grid) {
+          if (g == p) found = true;
         }
         if (p == s)
           printf("\033[31ms\033[0m");
@@ -322,19 +284,16 @@ bool Planner2dofSerialJointsCore::makePlan(
   return true;
 }
 
-trajectory_msgs::JointTrajectory Planner2dofSerialJointsCore::buildTrajectory(
-    const std::list<Astar::Vecf>& path, const ros::Duration& time_from_start,
-    const std_msgs::Header& header)
+trajectory_msgs::msg::JointTrajectory Planner2dofSerialJointsCore::buildTrajectory(
+  const std::list<Astar::Vecf> & path, const rclcpp::Duration & time_from_start,
+  const std_msgs::msg::Header & header)
 {
-  if (avg_vel_ < 0)
-  {
+  if (avg_vel_ < 0) {
     float pos_sum = 0;
-    for (auto it = path.begin(); it != path.end(); it++)
-    {
+    for (auto it = path.begin(); it != path.end(); it++) {
       auto it_next = it;
       it_next++;
-      if (it_next != path.end())
-      {
+      if (it_next != path.end()) {
         float diff[2], diff_max;
         diff[0] = std::abs((*it_next)[0] - (*it)[0]);
         diff[1] = std::abs((*it_next)[1] - (*it)[1]);
@@ -342,33 +301,26 @@ trajectory_msgs::JointTrajectory Planner2dofSerialJointsCore::buildTrajectory(
         pos_sum += diff_max;
       }
     }
-    if (time_from_start <= ros::Duration(0))
-    {
+    if (time_from_start <= rclcpp::Duration(0, 0)) {
       avg_vel_ = std::min(links_[0].vmax_, links_[1].vmax_);
-    }
-    else
-    {
-      avg_vel_ = pos_sum / time_from_start.toSec();
-      if (avg_vel_ > links_[0].vmax_)
-        avg_vel_ = links_[0].vmax_;
-      if (avg_vel_ > links_[1].vmax_)
-        avg_vel_ = links_[1].vmax_;
+    } else {
+      avg_vel_ = pos_sum / time_from_start.seconds();
+      if (avg_vel_ > links_[0].vmax_) avg_vel_ = links_[0].vmax_;
+      if (avg_vel_ > links_[1].vmax_) avg_vel_ = links_[1].vmax_;
     }
   }
 
-  trajectory_msgs::JointTrajectory out;
+  trajectory_msgs::msg::JointTrajectory out;
   out.header = header;
-  out.header.stamp = ros::Time(0);
+  out.header.stamp = rclcpp::Time(0, 0, RCL_ROS_TIME);
   out.joint_names.resize(2);
   out.joint_names[0] = links_[0].name_;
   out.joint_names[1] = links_[1].name_;
   float pos_sum = 0.0;
-  for (auto it = path.begin(); it != path.end(); it++)
-  {
-    if (it == path.begin())
-      continue;
+  for (auto it = path.begin(); it != path.end(); it++) {
+    if (it == path.begin()) continue;
 
-    trajectory_msgs::JointTrajectoryPoint p;
+    trajectory_msgs::msg::JointTrajectoryPoint p;
     p.positions.resize(2);
     p.velocities.resize(2);
 
@@ -383,16 +335,12 @@ trajectory_msgs::JointTrajectory Planner2dofSerialJointsCore::buildTrajectory(
     diff_max = std::max(diff[0], diff[1]);
     pos_sum += diff_max;
 
-    if (it_next == path.end())
-    {
+    if (it_next == path.end()) {
       p.velocities[0] = 0.0;
       p.velocities[1] = 0.0;
-    }
-    else
-    {
+    } else {
       float dir[2], dir_max;
-      switch (point_vel_)
-      {
+      switch (point_vel_) {
         default:
         case PointVelMode::VEL_PREV:
           dir[0] = ((*it)[0] - (*it_prev)[0]);
@@ -413,7 +361,7 @@ trajectory_msgs::JointTrajectory Planner2dofSerialJointsCore::buildTrajectory(
       p.velocities[0] = dir[0] / t;
       p.velocities[1] = dir[1] / t;
     }
-    p.time_from_start = ros::Duration(pos_sum / avg_vel_);
+    p.time_from_start = rclcpp::Duration::from_seconds(pos_sum / avg_vel_);
     p.positions[0] = (*it)[0];
     p.positions[1] = (*it)[1];
     out.points.push_back(p);
@@ -421,16 +369,16 @@ trajectory_msgs::JointTrajectory Planner2dofSerialJointsCore::buildTrajectory(
   return out;
 }
 
-trajectory_msgs::JointTrajectory Planner2dofSerialJointsCore::buildStayTrajectory(
-    const std_msgs::Header& header) const
+trajectory_msgs::msg::JointTrajectory Planner2dofSerialJointsCore::buildStayTrajectory(
+  const std_msgs::msg::Header & header) const
 {
-  trajectory_msgs::JointTrajectory out;
+  trajectory_msgs::msg::JointTrajectory out;
   out.header = header;
-  out.header.stamp = ros::Time(0);
+  out.header.stamp = rclcpp::Time(0, 0, RCL_ROS_TIME);
   out.joint_names.resize(2);
   out.joint_names[0] = links_[0].name_;
   out.joint_names[1] = links_[1].name_;
-  trajectory_msgs::JointTrajectoryPoint p;
+  trajectory_msgs::msg::JointTrajectoryPoint p;
   p.positions.resize(2);
   p.positions[0] = links_[0].current_th_;
   p.positions[1] = links_[1].current_th_;
@@ -440,31 +388,26 @@ trajectory_msgs::JointTrajectory Planner2dofSerialJointsCore::buildStayTrajector
 }
 
 bool Planner2dofSerialJointsCore::replan(
-    const float target0, const float target1,
-    const ros::Duration& time_from_start,
-    const std_msgs::Header& header,
-    trajectory_msgs::JointTrajectory& out)
+  const float target0, const float target1, const rclcpp::Duration & time_from_start,
+  const std_msgs::msg::Header & header, trajectory_msgs::msg::JointTrajectory & out)
 {
-  const Astar::Vecf start(
-      links_[0].current_th_,
-      links_[1].current_th_);
+  const Astar::Vecf start(links_[0].current_th_, links_[1].current_th_);
   const Astar::Vecf end(target0, target1);
 
-  ROS_INFO("link %s: %0.3f, %0.3f", group_.c_str(), target0, target1);
+  RCLCPP_INFO(logger_, "link %s: %0.3f, %0.3f", group_.c_str(), target0, target1);
 
-  status_.status = planner_cspace_msgs::PlannerStatus::DOING;
-  status_.error = planner_cspace_msgs::PlannerStatus::GOING_WELL;
+  status_.status = planner_cspace_msgs::msg::PlannerStatus::DOING;
+  status_.error = planner_cspace_msgs::msg::PlannerStatus::GOING_WELL;
 
-  ROS_INFO("Start searching");
+  RCLCPP_INFO(logger_, "Start searching");
   std::list<Astar::Vecf> path;
-  if (makePlan(start, end, path))
-  {
-    ROS_INFO("Trajectory found");
+  if (makePlan(start, end, path)) {
+    RCLCPP_INFO(logger_, "Trajectory found");
     out = buildTrajectory(path, time_from_start, header);
     return true;
   }
   out = buildStayTrajectory(header);
-  ROS_WARN("Trajectory not found");
+  RCLCPP_WARN(logger_, "Trajectory not found");
   return false;
 }
 }  // namespace planner_2dof_serial_joints

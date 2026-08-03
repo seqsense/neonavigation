@@ -27,17 +27,17 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <gtest/gtest.h>
+#include <omp.h>
+
+#include <atomic>
+#include <chrono>
 #include <list>
+#include <thread>
 #include <unordered_map>
 #include <vector>
 
-#include <boost/thread.hpp>
-
-#include <omp.h>
-
-#include <gtest/gtest.h>
-
-#include <planner_cspace/grid_astar.h>
+#include "planner_cspace/grid_astar.h"
 
 namespace planner_cspace
 {
@@ -54,53 +54,39 @@ TEST(GridAstar, ParallelSearch)
     std::vector<std::vector<Vec>> search_;
 
   public:
-    Model()
-      : search_(16)
+    Model() : search_(16)
     {
       // create search table of graph edges (relative vector to the connected grid)
       // 0: connected to 1-14
       // 1-14: connected to 1-15
-      for (int i = 1; i <= 14; ++i)
-      {
+      for (int i = 1; i <= 14; ++i) {
         search_[0].push_back(Vec(i));
-        for (int j = 1; j <= 15; ++j)
-        {
-          if (i == j)
-            continue;
+        for (int j = 1; j <= 15; ++j) {
+          if (i == j) continue;
           search_[i].push_back(Vec(j - i));
         }
       }
     }
-    float cost(const Vec&, const Vec&, const std::vector<VecWithCost>&, const Vec&) const final
+    float cost(const Vec &, const Vec &, const std::vector<VecWithCost> &, const Vec &) const final
     {
       return 1.0;
     }
-    float costEstim(const Vec& /* s */, const Vec& /* e */) const final
-    {
-      return 0.0;
-    }
-    const std::vector<Vec>& searchGrids(const Vec& p, const std::vector<VecWithCost>&, const Vec&) const final
+    float costEstim(const Vec & /* s */, const Vec & /* e */) const final { return 0.0; }
+    const std::vector<Vec> & searchGrids(
+      const Vec & p, const std::vector<VecWithCost> &, const Vec &) const final
     {
       return search_[p[0]];
     }
   };
   Model::Ptr model(new Model());
 
-  const auto cb_progress = [](const std::list<Vec>&, const SearchStats&) -> bool
-  {
-    return true;
-  };
+  const auto cb_progress = [](const std::list<Vec> &, const SearchStats &) -> bool { return true; };
 
-  for (int i = 0; i < 1000; ++i)
-  {
+  for (int i = 0; i < 1000; ++i) {
     std::list<Vec> path;
     std::vector<Model::VecWithCost> starts;
     starts.emplace_back(Vec(0));
-    ASSERT_TRUE(
-        as.search(
-            starts, Vec(15), path,
-            model, cb_progress,
-            0, 1.0));
+    ASSERT_TRUE(as.search(starts, Vec(15), path, model, cb_progress, 0, 1.0));
 
     ASSERT_EQ(path.size(), 3u);
     ASSERT_EQ(path.front(), Vec(0));
@@ -121,21 +107,18 @@ TEST(GridAstar, TimeoutAbort)
     std::vector<std::vector<Vec>> search_;
 
   public:
-    Model()
-      : search_(3)
+    Model() : search_(3)
     {
       search_[0].push_back(Vec(1));
       search_[1].push_back(Vec(2));
     }
-    float cost(const Vec&, const Vec&, const std::vector<VecWithCost>&, const Vec&) const final
+    float cost(const Vec &, const Vec &, const std::vector<VecWithCost> &, const Vec &) const final
     {
       return 1.0;
     }
-    float costEstim(const Vec& /* s */, const Vec& /* e */) const final
-    {
-      return 0.0;
-    }
-    const std::vector<Vec>& searchGrids(const Vec& p, const std::vector<VecWithCost>&, const Vec&) const final
+    float costEstim(const Vec & /* s */, const Vec & /* e */) const final { return 0.0; }
+    const std::vector<Vec> & searchGrids(
+      const Vec & p, const std::vector<VecWithCost> &, const Vec &) const final
     {
       return search_[p[0]];
     }
@@ -143,10 +126,9 @@ TEST(GridAstar, TimeoutAbort)
   Model::Ptr model(new Model());
 
   int cnt(0);
-  const auto cb_progress = [&cnt](const std::list<Vec>& /* path_grid */, const SearchStats& stats) -> bool
-  {
-    switch (cnt++)
-    {
+  const auto cb_progress =
+    [&cnt](const std::list<Vec> & /* path_grid */, const SearchStats & stats) -> bool {
+    switch (cnt++) {
       case 0:
         EXPECT_EQ(1u, stats.num_loop);
         EXPECT_EQ(1u, stats.num_search_queue);
@@ -182,59 +164,44 @@ TEST(GridAstar, SearchWithMultipleStarts)
     std::vector<std::vector<Vec>> search_;
 
   public:
-    Model()
-      : search_(16)
+    Model() : search_(16)
     {
       // create search table of graph edges (relative vector to the connected grid)
       // 0: connected to 2-14
       // 1: connected to 2-14
       // 2-14: connected to 2-15
-      for (int i = 2; i <= 14; ++i)
-      {
+      for (int i = 2; i <= 14; ++i) {
         search_[0].push_back(Vec(i));
         search_[1].push_back(Vec(i - 1));
-        for (int j = 2; j <= 15; ++j)
-        {
-          if (i == j)
-            continue;
+        for (int j = 2; j <= 15; ++j) {
+          if (i == j) continue;
           search_[i].push_back(Vec(j - i));
         }
       }
     }
-    float cost(const Vec&, const Vec&, const std::vector<VecWithCost>&, const Vec&) const final
+    float cost(const Vec &, const Vec &, const std::vector<VecWithCost> &, const Vec &) const final
     {
       return 1.0;
     }
-    float costEstim(const Vec& /* s */, const Vec& /* e */) const final
-    {
-      return 0.0;
-    }
-    const std::vector<Vec>& searchGrids(const Vec& p, const std::vector<VecWithCost>&, const Vec&) const final
+    float costEstim(const Vec & /* s */, const Vec & /* e */) const final { return 0.0; }
+    const std::vector<Vec> & searchGrids(
+      const Vec & p, const std::vector<VecWithCost> &, const Vec &) const final
     {
       return search_[p[0]];
     }
   };
   Model::Ptr model(new Model());
 
-  const auto cb_progress = [](const std::list<Vec>&, const SearchStats&) -> bool
-  {
-    return true;
-  };
+  const auto cb_progress = [](const std::list<Vec> &, const SearchStats &) -> bool { return true; };
 
-  for (int add_cost_to = 0; add_cost_to < 2; ++add_cost_to)
-  {
+  for (int add_cost_to = 0; add_cost_to < 2; ++add_cost_to) {
     std::vector<GridAstar<1, 1>::VecWithCost> starts;
     starts.emplace_back(Vec(0));
     starts.emplace_back(Vec(1));
     starts[add_cost_to].c_ = 0.1;
 
     std::list<Vec> path;
-    ASSERT_TRUE(
-        as.search(
-            starts, Vec(15), path,
-            model, cb_progress,
-            0, 1.0))
-        << add_cost_to;
+    ASSERT_TRUE(as.search(starts, Vec(15), path, model, cb_progress, 0, 1.0)) << add_cost_to;
     ASSERT_EQ(path.size(), 3u);
     ASSERT_EQ(path.back(), Vec(15));
     if (add_cost_to == 0)
@@ -247,15 +214,9 @@ TEST(GridAstar, SearchWithMultipleStarts)
 class GridAstarTestWrapper : public GridAstar<1, 1>
 {
 public:
-  explicit GridAstarTestWrapper(const Vec& size)
-    : GridAstar(size)
-  {
-  }
-  std::unordered_map<Vec, Vec, Vec>& parentMap()
-  {
-    return parents_;
-  }
-  bool findPath(const std::vector<VecWithCost>& ss, const Vec& e, std::list<Vec>& path) const
+  explicit GridAstarTestWrapper(const Vec & size) : GridAstar(size) {}
+  std::unordered_map<Vec, Vec, Vec> & parentMap() { return parents_; }
+  bool findPath(const std::vector<VecWithCost> & ss, const Vec & e, std::list<Vec> & path) const
   {
     return GridAstar::findPath(ss, e, path);
   }
@@ -271,24 +232,22 @@ TEST(GridAstar, FindPathLooped)
   as.parentMap()[Vec(1)] = Vec(2);
 
   std::list<Vec> path;
-  const auto timeout_func = []()
-  {
-    try
-    {
-      boost::this_thread::sleep(boost::posix_time::milliseconds(1000));
-    }
-    catch (boost::thread_interrupted&)
-    {
-      return;
+  std::atomic<bool> finished(false);
+  const auto timeout_func = [&finished]() {
+    for (int i = 0; i < 100; ++i) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      if (finished) return;
     }
     EXPECT_TRUE(false) << "Looks entered endless loop. Test will be aborted.";
     abort();
   };
-  boost::thread timeout(timeout_func);
+  std::thread timeout(timeout_func);
   std::vector<GridAstarTestWrapper::VecWithCost> starts;
   starts.emplace_back(Vec(0));
-  ASSERT_FALSE(as.findPath(starts, Vec(3), path));
-  timeout.interrupt();
+  const bool found = as.findPath(starts, Vec(3), path);
+  finished = true;
+  timeout.join();
+  ASSERT_FALSE(found);
 }
 
 TEST(GridAstar, FindPathUnconnected)
@@ -313,8 +272,7 @@ TEST(GridAstar, FindPath)
   as.parentMap()[Vec(1)] = Vec(0);
 
   // findPath must return same result for multiple calls
-  for (int i = 0; i < 2; ++i)
-  {
+  for (int i = 0; i < 2; ++i) {
     std::list<Vec> path;
     std::vector<GridAstarTestWrapper::VecWithCost> starts;
     starts.emplace_back(Vec(0));
@@ -328,7 +286,7 @@ TEST(GridAstar, FindPath)
 }
 }  // namespace planner_cspace
 
-int main(int argc, char** argv)
+int main(int argc, char ** argv)
 {
   testing::InitGoogleTest(&argc, argv);
 

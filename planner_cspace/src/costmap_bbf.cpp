@@ -27,12 +27,13 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "planner_cspace/planner_3d/costmap_bbf.h"
+
 #include <algorithm>
 #include <cmath>
 
-#include <planner_cspace/bbf.h>
-#include <planner_cspace/blockmem_gridmap.h>
-#include <planner_cspace/planner_3d/costmap_bbf.h>
+#include "planner_cspace/bbf.h"
+#include "planner_cspace/blockmem_gridmap.h"
 
 namespace planner_cspace
 {
@@ -40,10 +41,8 @@ namespace planner_3d
 {
 void CostmapBBFImpl::updateCostmap()
 {
-  for (VecInternal p = updated_min_; p[1] <= updated_max_[1]; p[1]++)
-  {
-    for (p[0] = updated_min_[0]; p[0] <= updated_max_[0]; p[0]++)
-    {
+  for (VecInternal p = updated_min_; p[1] <= updated_max_[1]; p[1]++) {
+    for (p[0] = updated_min_[0]; p[0] <= updated_max_[0]; p[0]++) {
       cm_hist_[p] = std::lround(cm_hist_bbf_[p].getNormalizedProbability() * 100.0);
     }
   }
@@ -51,60 +50,47 @@ void CostmapBBFImpl::updateCostmap()
   updated_max_ = VecInternal(-1, -1);
 }
 void CostmapBBFImpl::remember(
-    const BlockMemGridmapBase<char, 3, 2>* costmap,
-    const Vec& center,
-    const float remember_hit_odds, const float remember_miss_odds,
-    const int range_min, const int range_max)
+  const BlockMemGridmapBase<char, 3, 2> * costmap, const Vec & center,
+  const float remember_hit_odds, const float remember_miss_odds, const int range_min,
+  const int range_max)
 {
   updated_min_ = VecInternal(
-      std::min(updated_min_[0], std::max(0, center[0] - range_max)),
-      std::min(updated_min_[1], std::max(0, center[1] - range_max)));
+    std::min(updated_min_[0], std::max(0, center[0] - range_max)),
+    std::min(updated_min_[1], std::max(0, center[1] - range_max)));
   updated_max_ = VecInternal(
-      std::max(updated_max_[0], std::min(size_[0] - 1, center[0] + range_max)),
-      std::max(updated_max_[1], std::min(size_[1] - 1, center[1] + range_max)));
+    std::max(updated_max_[0], std::min(size_[0] - 1, center[0] + range_max)),
+    std::max(updated_max_[1], std::min(size_[1] - 1, center[1] + range_max)));
 
   const size_t width = size_[0];
   const size_t height = size_[1];
   const int range_min_sq = range_min * range_min;
   const int range_max_sq = range_max * range_max;
-  for (VecInternal p(-range_max, 0); p[0] <= range_max; p[0]++)
-  {
-    for (p[1] = -range_max; p[1] <= range_max; p[1]++)
-    {
+  for (VecInternal p(-range_max, 0); p[0] <= range_max; p[0]++) {
+    for (p[1] = -range_max; p[1] <= range_max; p[1]++) {
       const VecInternal gp = VecInternal(center[0], center[1]) + p;
-      if (static_cast<size_t>(gp[0]) >= width ||
-          static_cast<size_t>(gp[1]) >= height)
-        continue;
+      if (static_cast<size_t>(gp[0]) >= width || static_cast<size_t>(gp[1]) >= height) continue;
 
       const float r_sq = p.sqlen();
-      if (r_sq > range_max_sq)
-        continue;
+      if (r_sq > range_max_sq) continue;
 
       const int c = (*costmap)[Vec(gp[0], gp[1], 0)];
 
-      if (c < 0)
-        continue;
+      if (c < 0) continue;
 
-      if (c == 100)
-      {
-        if (r_sq >= range_min_sq)
-        {
+      if (c == 100) {
+        if (r_sq >= range_min_sq) {
           cm_hist_bbf_[gp].update(remember_hit_odds);
         }
-      }
-      else
-      {
+      } else {
         cm_hist_bbf_[gp].update(remember_miss_odds);
       }
     }
   }
 }
-void CostmapBBFImpl::forEach(const std::function<void(const Vec&, bbf::BinaryBayesFilter&)> cb)
+void CostmapBBFImpl::forEach(const std::function<void(const Vec &, bbf::BinaryBayesFilter &)> cb)
 {
-  for (Vec p(0, 0, 0); p[1] < size_[1]; p[1]++)
-  {
-    for (p[0] = 0; p[0] < size_[0]; p[0]++)
-    {
+  for (Vec p(0, 0, 0); p[1] < size_[1]; p[1]++) {
+    for (p[0] = 0; p[0] < size_[0]; p[0]++) {
       cb(p, cm_hist_bbf_[VecInternal(p[0], p[1])]);
     }
   }

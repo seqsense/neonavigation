@@ -27,22 +27,20 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PLANNER_CSPACE_PLANNER_2DOF_SERIAL_JOINTS_PLANNER_CORE_H
-#define PLANNER_CSPACE_PLANNER_2DOF_SERIAL_JOINTS_PLANNER_CORE_H
+#ifndef PLANNER_CSPACE__PLANNER_2DOF_SERIAL_JOINTS__PLANNER_CORE_H_
+#define PLANNER_CSPACE__PLANNER_2DOF_SERIAL_JOINTS__PLANNER_CORE_H_
 
 #include <cmath>
 #include <list>
 #include <string>
 
-#include <ros/duration.h>
-#include <ros/time.h>
-
-#include <planner_cspace_msgs/PlannerStatus.h>
-#include <std_msgs/Header.h>
-#include <trajectory_msgs/JointTrajectory.h>
-
-#include <planner_cspace/grid_astar.h>
-#include <planner_cspace/planner_2dof_serial_joints/grid_astar_model.h>
+#include "planner_cspace/grid_astar.h"
+#include "planner_cspace/planner_2dof_serial_joints/grid_astar_model.h"
+#include "planner_cspace_msgs/msg/planner_status.hpp"
+#include "rclcpp/rclcpp.hpp"
+#include "std_msgs/msg/header.hpp"
+#include "trajectory_msgs/msg/joint_trajectory.hpp"
+#include "trajectory_msgs/msg/joint_trajectory_point.hpp"
 
 namespace planner_cspace
 {
@@ -75,10 +73,7 @@ public:
       float y_;
       float th_;
 
-      float dist(const Vec3dof& b)
-      {
-        return std::hypot(b.x_ - x_, b.y_ - y_);
-      }
+      float dist(const Vec3dof & b) { return std::hypot(b.x_ - x_, b.y_ - y_); }
     };
 
   public:
@@ -90,11 +85,7 @@ public:
     Vec3dof gain_;
     float current_th_;
 
-    LinkBody()
-      : radius_{0.07f, 0.07f}
-      , vmax_(0.5f)
-      , length_(0.0f)
-      , current_th_(0.0f)
+    LinkBody() : radius_{0.07f, 0.07f}, vmax_(0.5f), length_(0.0f), current_th_(0.0f)
     {
       origin_.x_ = 0.0;
       origin_.y_ = 0.0;
@@ -115,19 +106,16 @@ public:
     {
       auto end0 = end(th0);
       auto end1 = b.end(th1);
-      auto& end0r = radius_[1];
-      auto& end1r = b.radius_[1];
-      auto& origin0 = origin_;
-      auto& origin1 = b.origin_;
-      auto& origin0r = radius_[0];
-      auto& origin1r = b.radius_[0];
+      auto & end0r = radius_[1];
+      auto & end1r = b.radius_[1];
+      auto & origin0 = origin_;
+      auto & origin1 = b.origin_;
+      auto & origin0r = radius_[0];
+      auto & origin1r = b.radius_[0];
 
-      if (end0.dist(end1) < end0r + end1r)
-        return true;
-      if (end0.dist(origin1) < end0r + origin1r)
-        return true;
-      if (end1.dist(origin0) < end1r + origin0r)
-        return true;
+      if (end0.dist(end1) < end0r + end1r) return true;
+      if (end0.dist(origin1) < end0r + origin1r) return true;
+      if (end1.dist(origin0) < end1r + origin0r) return true;
 
       // add side collision
 
@@ -161,56 +149,49 @@ public:
     float expand = 0.1f;
     PointVelMode point_vel = PointVelMode::VEL_PREV;
     bool debug_aa = false;
-    ros::Duration replan_interval = ros::Duration(0.2);
+    rclcpp::Duration replan_interval = rclcpp::Duration::from_seconds(0.2);
     LinkConfig links[2];
   };
 
-  Planner2dofSerialJointsCore();
+  explicit Planner2dofSerialJointsCore(const rclcpp::Logger & logger);
 
   // Builds the collision map and the search model. Must be called once
   // before any other method.
-  void initialize(const Config& config);
+  void initialize(const Config & config);
 
   void setCurrentAngles(const float th0, const float th1);
   // Forces recalculation of the average velocity on the next plan.
   void invalidateAvgVel();
 
-  const std::string& linkName(const size_t i) const
-  {
-    return links_[i].name_;
-  }
+  const std::string & linkName(const size_t i) const { return links_[i].name_; }
 
   // Plans a trajectory from the current joint angles to the given target.
   // The trajectory to be published is always stored to out; when no path is
   // found it holds a single point which keeps the current angles.
-  bool replan(const float target0, const float target1,
-              const ros::Duration& time_from_start,
-              const std_msgs::Header& header,
-              trajectory_msgs::JointTrajectory& out);
+  bool replan(
+    const float target0, const float target1, const rclcpp::Duration & time_from_start,
+    const std_msgs::msg::Header & header, trajectory_msgs::msg::JointTrajectory & out);
 
   // Returns true once when the replan interval timer should be reset.
   bool takeReplanTimerReset();
 
-  const planner_cspace_msgs::PlannerStatus& status() const
-  {
-    return status_;
-  }
-  void setStatusStamp(const ros::Time& stamp)
-  {
-    status_.header.stamp = stamp;
-  }
+  const planner_cspace_msgs::msg::PlannerStatus & status() const { return status_; }
+  void setStatusStamp(const rclcpp::Time & stamp) { status_.header.stamp = stamp; }
 
 protected:
-  void grid2Metric(const int t0, const int t1, float& gt0, float& gt1) const;
-  void metric2Grid(int& t0, int& t1, const float gt0, const float gt1) const;
-  void grid2Metric(const Astar::Vec t, Astar::Vecf& gt) const;
-  void metric2Grid(Astar::Vec& t, const Astar::Vecf gt) const;
-  bool makePlan(const Astar::Vecf sg, const Astar::Vecf eg, std::list<Astar::Vecf>& path);
-  bool cbProgress(const std::list<Astar::Vec>& path_grid, const SearchStats& stats);
-  trajectory_msgs::JointTrajectory buildTrajectory(
-      const std::list<Astar::Vecf>& path, const ros::Duration& time_from_start,
-      const std_msgs::Header& header);
-  trajectory_msgs::JointTrajectory buildStayTrajectory(const std_msgs::Header& header) const;
+  rclcpp::Logger logger_;
+
+  void grid2Metric(const int t0, const int t1, float & gt0, float & gt1) const;
+  void metric2Grid(int & t0, int & t1, const float gt0, const float gt1) const;
+  void grid2Metric(const Astar::Vec t, Astar::Vecf & gt) const;
+  void metric2Grid(Astar::Vec & t, const Astar::Vecf gt) const;
+  bool makePlan(const Astar::Vecf sg, const Astar::Vecf eg, std::list<Astar::Vecf> & path);
+  bool cbProgress(const std::list<Astar::Vec> & path_grid, const SearchStats & stats);
+  trajectory_msgs::msg::JointTrajectory buildTrajectory(
+    const std::list<Astar::Vecf> & path, const rclcpp::Duration & time_from_start,
+    const std_msgs::msg::Header & header);
+  trajectory_msgs::msg::JointTrajectory buildStayTrajectory(
+    const std_msgs::msg::Header & header) const;
 
   Astar as_;
   Astar::Gridmap<char, 0x40> cm_;
@@ -221,14 +202,14 @@ protected:
   PointVelMode point_vel_;
   std::string group_;
   bool debug_aa_;
-  ros::Duration replan_interval_;
+  rclcpp::Duration replan_interval_;
   bool reset_replan_timer_;
 
   LinkBody links_[2];
 
-  planner_cspace_msgs::PlannerStatus status_;
+  planner_cspace_msgs::msg::PlannerStatus status_;
 };
 }  // namespace planner_2dof_serial_joints
 }  // namespace planner_cspace
 
-#endif  // PLANNER_CSPACE_PLANNER_2DOF_SERIAL_JOINTS_PLANNER_CORE_H
+#endif  // PLANNER_CSPACE__PLANNER_2DOF_SERIAL_JOINTS__PLANNER_CORE_H_

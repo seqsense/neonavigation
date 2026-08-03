@@ -27,22 +27,21 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <memory>
-
-#include <ros/ros.h>
-
 #include <actionlib/client/simple_action_client.h>
 #include <move_base_msgs/MoveBaseAction.h>
-#include <planner_cspace_msgs/MoveWithToleranceAction.h>
 #include <nav_msgs/Path.h>
-
 #include <neonavigation_common/compatibility.h>
+#include <planner_cspace_msgs/MoveWithToleranceAction.h>
+#include <ros/ros.h>
+
+#include <memory>
 
 class PatrolActionNode
 {
 protected:
   using MoveBaseClient = actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction>;
-  using MoveWithToleranceClient = actionlib::SimpleActionClient<planner_cspace_msgs::MoveWithToleranceAction>;
+  using MoveWithToleranceClient =
+    actionlib::SimpleActionClient<planner_cspace_msgs::MoveWithToleranceAction>;
 
   ros::NodeHandle nh_;
   ros::NodeHandle pnh_;
@@ -58,17 +57,13 @@ protected:
   double tolerance_ang_;
   double tolerance_ang_finish_;
 
-  void cbPath(const nav_msgs::Path::ConstPtr& msg)
+  void cbPath(const nav_msgs::Path::ConstPtr & msg)
   {
-    if (path_.poses.size() > 0)
-    {
+    if (path_.poses.size() > 0) {
       // Cancel previous patrol if stored
-      if (with_tolerance_)
-      {
+      if (with_tolerance_) {
         act_cli_tolerant_->cancelAllGoals();
-      }
-      else
-      {
+      } else {
         act_cli_->cancelAllGoals();
       }
     }
@@ -77,26 +72,20 @@ protected:
   }
 
 public:
-  PatrolActionNode()
-    : nh_()
-    , pnh_("~")
+  PatrolActionNode() : nh_(), pnh_("~")
   {
     neonavigation_common::compat::checkCompatMode();
     sub_path_ = neonavigation_common::compat::subscribe(
-        nh_, "patrol_nodes",
-        pnh_, "path", 1, &PatrolActionNode::cbPath, this);
+      nh_, "patrol_nodes", pnh_, "path", 1, &PatrolActionNode::cbPath, this);
 
     pnh_.param("with_tolerance", with_tolerance_, false);
     pnh_.param("tolerance_lin", tolerance_lin_, 0.1);
     pnh_.param("tolerance_ang", tolerance_ang_, 0.1);
     pnh_.param("tolerance_ang_finish", tolerance_ang_finish_, 0.05);
 
-    if (with_tolerance_)
-    {
+    if (with_tolerance_) {
       act_cli_tolerant_.reset(new MoveWithToleranceClient("tolerant_move", false));
-    }
-    else
-    {
+    } else {
       act_cli_.reset(new MoveBaseClient("move_base", false));
     }
 
@@ -104,16 +93,14 @@ public:
   }
   bool sendNextGoal()
   {
-    if (path_.poses.size() <= pos_)
-    {
+    if (path_.poses.size() <= pos_) {
       ROS_WARN("Patrol finished. Waiting next path.");
       path_.poses.clear();
 
       return false;
     }
 
-    if (with_tolerance_)
-    {
+    if (with_tolerance_) {
       planner_cspace_msgs::MoveWithToleranceGoal goal;
 
       goal.target_pose.header = path_.poses[pos_].header;
@@ -124,9 +111,7 @@ public:
       goal.goal_tolerance_ang_finish = tolerance_ang_finish_;
 
       act_cli_tolerant_->sendGoal(goal);
-    }
-    else
-    {
+    } else {
       move_base_msgs::MoveBaseGoal goal;
 
       goal.target_pose.header = path_.poses[pos_].header;
@@ -143,45 +128,35 @@ public:
   {
     ros::Rate rate(10.0);
 
-    while (ros::ok())
-    {
+    while (ros::ok()) {
       ros::spinOnce();
       rate.sleep();
 
-      if (path_.poses.size() == 0)
-      {
+      if (path_.poses.size() == 0) {
         continue;
       }
 
-      if (pos_ == 0)
-      {
+      if (pos_ == 0) {
         sendNextGoal();
         continue;
       }
 
       actionlib::SimpleClientGoalState state =
-          with_tolerance_ ?
-              act_cli_tolerant_->getState() :
-              act_cli_->getState();
-      if (state == actionlib::SimpleClientGoalState::SUCCEEDED)
-      {
+        with_tolerance_ ? act_cli_tolerant_->getState() : act_cli_->getState();
+      if (state == actionlib::SimpleClientGoalState::SUCCEEDED) {
         ROS_INFO("Action has been finished.");
         sendNextGoal();
-      }
-      else if (state == actionlib::SimpleClientGoalState::ABORTED)
-      {
+      } else if (state == actionlib::SimpleClientGoalState::ABORTED) {
         ROS_ERROR("Action has been aborted. Skipping.");
         sendNextGoal();
-      }
-      else if (state == actionlib::SimpleClientGoalState::LOST)
-      {
+      } else if (state == actionlib::SimpleClientGoalState::LOST) {
         ROS_WARN_ONCE("Action server is not ready.");
       }
     }
   }
 };
 
-int main(int argc, char** argv)
+int main(int argc, char ** argv)
 {
   ros::init(argc, argv, "patrol");
 

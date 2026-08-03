@@ -27,22 +27,20 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <algorithm>
-#include <memory>
-#include <string>
-#include <utility>
-#include <vector>
-
-#include <ros/ros.h>
-
+#include <neonavigation_common/compatibility.h>
+#include <planner_cspace/planner_2dof_serial_joints/planner_core.h>
 #include <planner_cspace_msgs/PlannerStatus.h>
+#include <ros/ros.h>
 #include <sensor_msgs/JointState.h>
 #include <tf2_ros/transform_listener.h>
 #include <trajectory_msgs/JointTrajectory.h>
 
-#include <planner_cspace/planner_2dof_serial_joints/planner_core.h>
-
-#include <neonavigation_common/compatibility.h>
+#include <algorithm>
+#include <memory>
+#include <sq_ros1_compat/logger.hpp>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace planner_cspace
 {
@@ -79,57 +77,50 @@ private:
   ros::Duration replan_interval_;
   bool has_joint_states_;
 
-  void cbJoint(const sensor_msgs::JointState::ConstPtr& msg)
+  void cbJoint(const sensor_msgs::JointState::ConstPtr & msg)
   {
     int id[2] = {-1, -1};
-    for (size_t i = 0; i < msg->name.size(); i++)
-    {
+    for (size_t i = 0; i < msg->name.size(); i++) {
       if (msg->name[i].compare(planner_.linkName(0)) == 0)
         id[0] = i;
       else if (msg->name[i].compare(planner_.linkName(1)) == 0)
         id[1] = i;
     }
-    if (id[0] == -1 || id[1] == -1)
-    {
+    if (id[0] == -1 || id[1] == -1) {
       ROS_ERROR("joint_state does not contain link group %s.", group_.c_str());
       return;
     }
     planner_.setCurrentAngles(msg->position[id[0]], msg->position[id[1]]);
     has_joint_states_ = true;
 
-    if ((replan_prev_ + replan_interval_ < ros::Time::now() ||
-         replan_prev_ == ros::Time(0)) &&
-        replan_interval_ > ros::Duration(0))
-    {
+    if (
+      (replan_prev_ + replan_interval_ < ros::Time::now() || replan_prev_ == ros::Time(0)) &&
+      replan_interval_ > ros::Duration(0)) {
       replan();
     }
   }
-  void cbTrajectory(const trajectory_msgs::JointTrajectory::ConstPtr& msg)
+  void cbTrajectory(const trajectory_msgs::JointTrajectory::ConstPtr & msg)
   {
     id_[0] = -1;
     id_[1] = -1;
-    for (size_t i = 0; i < msg->joint_names.size(); i++)
-    {
+    for (size_t i = 0; i < msg->joint_names.size(); i++) {
       if (msg->joint_names[i].compare(planner_.linkName(0)) == 0)
         id_[0] = i;
       else if (msg->joint_names[i].compare(planner_.linkName(1)) == 0)
         id_[1] = i;
     }
-    if (id_[0] == -1 || id_[1] == -1)
-    {
+    if (id_[0] == -1 || id_[1] == -1) {
       ROS_ERROR("joint_trajectory does not contains link group %s.", group_.c_str());
       return;
     }
-    if (msg->points.size() != 1)
-    {
+    if (msg->points.size() != 1) {
       ROS_ERROR("single trajectory point required.");
     }
     decltype(cmd_prev_) cmd;
     cmd.first = msg->points[0].time_from_start;
     cmd.second.first = msg->points[0].positions[id_[0]];
     cmd.second.second = msg->points[0].positions[id_[1]];
-    if (cmd_prev_ == cmd)
-      return;
+    if (cmd_prev_ == cmd) return;
     cmd_prev_ = cmd;
     traj_prev_ = *msg;
     planner_.invalidateAvgVel();
@@ -138,23 +129,18 @@ private:
   }
   void replan()
   {
-    if (!has_joint_states_)
-      return;
+    if (!has_joint_states_) return;
 
     replan_prev_ = ros::Time::now();
-    if (id_[0] == -1 || id_[1] == -1)
-      return;
+    if (id_[0] == -1 || id_[1] == -1) return;
 
     trajectory_msgs::JointTrajectory out;
     planner_.replan(
-        static_cast<float>(traj_prev_.points[0].positions[id_[0]]),
-        static_cast<float>(traj_prev_.points[0].positions[id_[1]]),
-        traj_prev_.points[0].time_from_start,
-        traj_prev_.header,
-        out);
+      static_cast<float>(traj_prev_.points[0].positions[id_[0]]),
+      static_cast<float>(traj_prev_.points[0].positions[id_[1]]),
+      traj_prev_.points[0].time_from_start, traj_prev_.header, out);
     pub_trajectory_.publish(out);
-    if (planner_.takeReplanTimerReset())
-      replan_prev_ = ros::Time(0);
+    if (planner_.takeReplanTimerReset()) replan_prev_ = ros::Time(0);
 
     planner_.setStatusStamp(ros::Time::now());
     pub_status_.publish(planner_.status());
@@ -162,24 +148,23 @@ private:
 
 public:
   explicit Planner2dofSerialJointsNode(const std::string group_name)
-    : nh_()
-    , pnh_("~")
-    , tfl_(tfbuf_)
-    , has_joint_states_(false)
+  : nh_(),
+    pnh_("~"),
+    tfl_(tfbuf_),
+    planner_(sq_ros1_compat::get_logger("planner_2dof_serial_joints")),
+    has_joint_states_(false)
   {
     neonavigation_common::compat::checkCompatMode();
     group_ = group_name;
     ros::NodeHandle nh_group("~/" + group_);
 
     pub_trajectory_ = neonavigation_common::compat::advertise<trajectory_msgs::JointTrajectory>(
-        nh_, "joint_trajectory",
-        pnh_, "trajectory_out", 1, true);
+      nh_, "joint_trajectory", pnh_, "trajectory_out", 1, true);
     sub_trajectory_ = neonavigation_common::compat::subscribe(
-        nh_, "trajectory_in",
-        pnh_, "trajectory_in", 1, &Planner2dofSerialJointsNode::cbTrajectory, this);
+      nh_, "trajectory_in", pnh_, "trajectory_in", 1, &Planner2dofSerialJointsNode::cbTrajectory,
+      this);
     sub_joint_ = neonavigation_common::compat::subscribe(
-        nh_, "joint_states",
-        pnh_, "joint", 1, &Planner2dofSerialJointsNode::cbJoint, this);
+      nh_, "joint_states", pnh_, "joint", 1, &Planner2dofSerialJointsNode::cbJoint, this);
 
     pub_status_ = nh_group.advertise<planner_cspace_msgs::PlannerStatus>("status", 1, true);
 
@@ -245,7 +230,7 @@ public:
 }  // namespace planner_2dof_serial_joints
 }  // namespace planner_cspace
 
-int main(int argc, char* argv[])
+int main(int argc, char * argv[])
 {
   ros::init(argc, argv, "planner_2dof_serial_joints");
   ros::NodeHandle pnh("~");
@@ -253,11 +238,10 @@ int main(int argc, char* argv[])
   std::vector<planner_cspace::planner_2dof_serial_joints::Planner2dofSerialJointsNode::Ptr> jys;
   int n;
   pnh.param("num_groups", n, 1);
-  for (int i = 0; i < n; i++)
-  {
+  for (int i = 0; i < n; i++) {
     std::string name;
-    pnh.param("group" + std::to_string(i) + "_name",
-              name, std::string("group") + std::to_string(i));
+    pnh.param(
+      "group" + std::to_string(i) + "_name", name, std::string("group") + std::to_string(i));
     planner_cspace::planner_2dof_serial_joints::Planner2dofSerialJointsNode::Ptr jy;
 
     jy.reset(new planner_cspace::planner_2dof_serial_joints::Planner2dofSerialJointsNode(name));

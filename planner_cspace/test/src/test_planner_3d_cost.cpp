@@ -27,13 +27,13 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <gtest/gtest.h>
+
 #include <list>
 #include <vector>
 
-#include <costmap_cspace_msgs/MapMetaData3D.h>
-#include <planner_cspace/planner_3d/grid_astar_model.h>
-
-#include <gtest/gtest.h>
+#include "costmap_cspace_msgs/msg/map_meta_data3_d.hpp"
+#include "planner_cspace/planner_3d/grid_astar_model.h"
 
 namespace planner_cspace
 {
@@ -41,7 +41,7 @@ namespace planner_3d
 {
 TEST(GridAstarModel3D, Cost)
 {
-  costmap_cspace_msgs::MapMetaData3D map_info;
+  costmap_cspace_msgs::msg::MapMetaData3D map_info;
   map_info.width = 100;
   map_info.height = 100;
   map_info.angle = 16;
@@ -69,11 +69,8 @@ TEST(GridAstarModel3D, Cost)
   cc.turn_penalty_cost_threshold_ = 0;
 
   GridAstarModel3D model(
-      map_info,
-      GridAstarModel3D::Vecf(1.0f, 1.0f, 0.1f),
-      100.0,
-      cost_estim_cache, cm, cm, cm,
-      cc, 10);
+    map_info, GridAstarModel3D::Vecf(1.0f, 1.0f, 0.1f), 100.0, cost_estim_cache, cm, cm, cm, cc,
+    10);
 
   const GridAstarModel3D::Vec start(54, 50, 8);
   const GridAstarModel3D::Vec goal_straight(50, 50, 8);
@@ -99,23 +96,29 @@ TEST(GridAstarModel3D, Cost)
   const GridAstarModel3D::Vec goal2(10, 5, 3);
   cm[occupied_waypoint] = 100;
   // The cost toward the occupied cell should be negative.
-  EXPECT_LT(model.cost(start2, occupied_waypoint, {GridAstarModel3D::VecWithCost(start2)}, occupied_waypoint), 0);
+  EXPECT_LT(
+    model.cost(
+      start2, occupied_waypoint, {GridAstarModel3D::VecWithCost(start2)}, occupied_waypoint),
+    0);
   // The cost from the occupied cell should be negative.
-  EXPECT_LT(model.cost(occupied_waypoint, goal2, {GridAstarModel3D::VecWithCost(occupied_waypoint)}, goal2), 0);
+  EXPECT_LT(
+    model.cost(occupied_waypoint, goal2, {GridAstarModel3D::VecWithCost(occupied_waypoint)}, goal2),
+    0);
 
   const GridAstarModel3D::Vec start3(10, 20, 0);
   cm[start3] = 99;
   const GridAstarModel3D::Vec waypoint3(10, 20, 3);
   const GridAstarModel3D::Vec goal3(10, 20, 6);
-  // The cost between start3 and waypoint3 is larger than the cost between waypoint3 and goal3 because start3
-  // has a penalty.
-  EXPECT_GT(model.cost(start3, waypoint3, {GridAstarModel3D::VecWithCost(start3)}, waypoint3),
-            model.cost(waypoint3, goal3, {GridAstarModel3D::VecWithCost(waypoint3)}, goal3));
+  // The cost between start3 and waypoint3 is larger than the cost between
+  // waypoint3 and goal3 because start3 has a penalty.
+  EXPECT_GT(
+    model.cost(start3, waypoint3, {GridAstarModel3D::VecWithCost(start3)}, waypoint3),
+    model.cost(waypoint3, goal3, {GridAstarModel3D::VecWithCost(waypoint3)}, goal3));
 }
 }  // namespace planner_3d
 }  // namespace planner_cspace
 
-int main(int argc, char** argv)
+int main(int argc, char ** argv)
 {
   testing::InitGoogleTest(&argc, argv);
 

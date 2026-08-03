@@ -27,13 +27,13 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <map>
-#include <cmath>
-
 #include <gtest/gtest.h>
 
-#include <planner_cspace/planner_3d/costmap_bbf.h>
-#include <planner_cspace/bbf.h>
+#include <cmath>
+#include <map>
+
+#include "planner_cspace/bbf.h"
+#include "planner_cspace/planner_3d/costmap_bbf.h"
 
 namespace planner_cspace
 {
@@ -46,11 +46,10 @@ TEST(CostmapBBFImpl, ForEach)
   bbf.reset(CostmapBBFImpl::Vec(w, h, 1));
   bool called[w][h];
   for (int i = 0; i < w; i++)
-    for (int j = 0; j < h; j++)
-      called[i][j] = false;
+    for (int j = 0; j < h; j++) called[i][j] = false;
 
-  const auto cb = [&called, w, h](const CostmapBBFImpl::Vec& p, bbf::BinaryBayesFilter& /* bbf */)
-  {
+  const auto cb = [&called, w, h](
+                    const CostmapBBFImpl::Vec & p, bbf::BinaryBayesFilter & /* bbf */) {
     ASSERT_LT(p[0], w);
     ASSERT_LT(p[1], h);
     ASSERT_GE(p[0], 0);
@@ -63,8 +62,7 @@ TEST(CostmapBBFImpl, ForEach)
   int cnt_called = 0;
   for (int i = 0; i < w; i++)
     for (int j = 0; j < h; j++)
-      if (called[i][j])
-        cnt_called++;
+      if (called[i][j]) cnt_called++;
 
   ASSERT_EQ(w * h, cnt_called);
 }
@@ -72,30 +70,26 @@ TEST(CostmapBBFImpl, Update)
 {
   const float odds_hit = bbf::probabilityToOdds(0.8);
   const float odds_miss = bbf::probabilityToOdds(0.3);
-  const char costmap0[3][3] =
-      {
-          {10, 100, 100},
-          {100, 100, 100},
-          {100, 100, 100},
-      };
-  const char costmap1[3][3] =
-      {
-          {0, -1, 0},
-          {100, 0, 0},
-          {0, 0, 100},
-      };
-  const float expected_odds[3][3] =
-      {
-          {bbf::MIN_ODDS, bbf::MIN_ODDS * odds_hit, bbf::MIN_ODDS * odds_hit * odds_miss},
-          {bbf::MIN_ODDS * odds_hit * odds_hit, bbf::MIN_ODDS * odds_hit * odds_miss, bbf::MIN_ODDS},
-          {bbf::MIN_ODDS * odds_hit * odds_miss, bbf::MIN_ODDS, bbf::MIN_ODDS},
-      };
-  const char expected_cost[3][3] =
-      {
-          {0, 26, 8},
-          {68, 8, 0},
-          {8, 0, 0},
-      };
+  const char costmap0[3][3] = {
+    {10, 100, 100},
+    {100, 100, 100},
+    {100, 100, 100},
+  };
+  const char costmap1[3][3] = {
+    {0, -1, 0},
+    {100, 0, 0},
+    {0, 0, 100},
+  };
+  const float expected_odds[3][3] = {
+    {bbf::MIN_ODDS, bbf::MIN_ODDS * odds_hit, bbf::MIN_ODDS * odds_hit * odds_miss},
+    {bbf::MIN_ODDS * odds_hit * odds_hit, bbf::MIN_ODDS * odds_hit * odds_miss, bbf::MIN_ODDS},
+    {bbf::MIN_ODDS * odds_hit * odds_miss, bbf::MIN_ODDS, bbf::MIN_ODDS},
+  };
+  const char expected_cost[3][3] = {
+    {0, 26, 8},
+    {68, 8, 0},
+    {8, 0, 0},
+  };
   BlockMemGridmap<char, 3, 2> cm;
 
   CostmapBBFImpl bbf;
@@ -104,30 +98,27 @@ TEST(CostmapBBFImpl, Update)
 
   cm.reset(CostmapBBFImpl::Vec(3, 3, 1));
   for (int i = 0; i < 3; ++i)
-    for (int j = 0; j < 3; ++j)
-      cm[CostmapBBFImpl::Vec(i, j, 0)] = costmap0[i][j];
+    for (int j = 0; j < 3; ++j) cm[CostmapBBFImpl::Vec(i, j, 0)] = costmap0[i][j];
 
   bbf.remember(&cm, CostmapBBFImpl::Vec(0, 0, 0), odds_hit, odds_miss, 1, 2);
 
   for (int i = 0; i < 3; ++i)
-    for (int j = 0; j < 3; ++j)
-      cm[CostmapBBFImpl::Vec(i, j, 0)] = costmap1[i][j];
+    for (int j = 0; j < 3; ++j) cm[CostmapBBFImpl::Vec(i, j, 0)] = costmap1[i][j];
 
   bbf.remember(&cm, CostmapBBFImpl::Vec(0, 0, 0), odds_hit, odds_miss, 1, 2);
 
-  const auto cb = [expected_odds](const CostmapBBFImpl::Vec& p, bbf::BinaryBayesFilter& b)
-  {
+  const auto cb = [expected_odds](const CostmapBBFImpl::Vec & p, bbf::BinaryBayesFilter & b) {
     EXPECT_FLOAT_EQ(expected_odds[p[0]][p[1]], b.get()) << "at " << p[0] << ", " << p[1];
   };
   bbf.forEach(cb);
   bbf.updateCostmap();
   for (int i = 0; i < 3; ++i)
     for (int j = 0; j < 3; ++j)
-      EXPECT_EQ(expected_cost[i][j], bbf.getCost(CostmapBBFImpl::Vec(i, j, 0))) << "at " << i << ", " << j;
+      EXPECT_EQ(expected_cost[i][j], bbf.getCost(CostmapBBFImpl::Vec(i, j, 0)))
+        << "at " << i << ", " << j;
 
   bbf.clear();
-  const auto cb_cleared = [](const CostmapBBFImpl::Vec& p, bbf::BinaryBayesFilter& b)
-  {
+  const auto cb_cleared = [](const CostmapBBFImpl::Vec & p, bbf::BinaryBayesFilter & b) {
     EXPECT_FLOAT_EQ(bbf::MIN_ODDS, b.get()) << "at " << p[0] << ", " << p[1];
   };
   bbf.forEach(cb_cleared);
@@ -138,7 +129,7 @@ TEST(CostmapBBFImpl, Update)
 }  // namespace planner_3d
 }  // namespace planner_cspace
 
-int main(int argc, char** argv)
+int main(int argc, char ** argv)
 {
   testing::InitGoogleTest(&argc, argv);
 

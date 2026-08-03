@@ -27,16 +27,15 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <ros/ros.h>
-#include <geometry_msgs/Twist.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
+#include <geometry_msgs/Twist.h>
 #include <nav_msgs/Odometry.h>
+#include <neonavigation_common/compatibility.h>
+#include <ros/ros.h>
 #include <tf2/utils.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
-
-#include <neonavigation_common/compatibility.h>
 
 class DummyRobotNode
 {
@@ -57,24 +56,21 @@ protected:
   tf2_ros::TransformBroadcaster tfb_;
   tf2_ros::TransformListener tfl_;
 
-  void cbTwist(const geometry_msgs::Twist::ConstPtr& msg)
+  void cbTwist(const geometry_msgs::Twist::ConstPtr & msg)
   {
     v_ = msg->linear.x;
     w_ = msg->angular.z;
   }
-  void cbInit(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg)
+  void cbInit(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr & msg)
   {
     geometry_msgs::PoseStamped pose_in, pose_out;
     pose_in.header = msg->header;
     pose_in.pose = msg->pose.pose;
-    try
-    {
-      geometry_msgs::TransformStamped trans =
-          tfbuf_.lookupTransform("odom", pose_in.header.frame_id, pose_in.header.stamp, ros::Duration(1.0));
+    try {
+      geometry_msgs::TransformStamped trans = tfbuf_.lookupTransform(
+        "odom", pose_in.header.frame_id, pose_in.header.stamp, ros::Duration(1.0));
       tf2::doTransform(pose_in, pose_out, trans);
-    }
-    catch (tf2::TransformException& e)
-    {
+    } catch (tf2::TransformException & e) {
       ROS_WARN("%s", e.what());
       return;
     }
@@ -87,10 +83,7 @@ protected:
   }
 
 public:
-  DummyRobotNode()
-    : nh_()
-    , pnh_("~")
-    , tfl_(tfbuf_)
+  DummyRobotNode() : nh_(), pnh_("~"), tfl_(tfbuf_)
   {
     neonavigation_common::compat::checkCompatMode();
     pnh_.param("initial_x", x_, 0.0);
@@ -108,8 +101,7 @@ public:
     const float dt = 0.01;
     ros::Rate rate(1.0 / dt);
 
-    while (ros::ok())
-    {
+    while (ros::ok()) {
       ros::spinOnce();
       rate.sleep();
       const ros::Time current_time = ros::Time::now();
@@ -140,7 +132,7 @@ public:
   }
 };
 
-int main(int argc, char* argv[])
+int main(int argc, char * argv[])
 {
   ros::init(argc, argv, "dummy_robot");
 

@@ -34,43 +34,40 @@
 #endif
 #endif
 
-#include <functional>
-#include <limits>
-#include <memory>
-#include <string>
-
-#include <ros/ros.h>
-
+#include <actionlib/server/simple_action_server.h>
 #include <costmap_cspace_msgs/CSpace3D.h>
 #include <costmap_cspace_msgs/CSpace3DUpdate.h>
 #include <diagnostic_updater/diagnostic_updater.h>
 #include <dynamic_reconfigure/server.h>
 #include <geometry_msgs/PoseArray.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <move_base_msgs/MoveBaseAction.h>
 #include <nav_msgs/GetPlan.h>
 #include <nav_msgs/OccupancyGrid.h>
 #include <nav_msgs/Path.h>
-#include <neonavigation_metrics_msgs/Metrics.h>
-#include <planner_cspace_msgs/PlannerStatus.h>
-#include <sensor_msgs/PointCloud.h>
-#include <std_msgs/Empty.h>
-#include <std_srvs/Empty.h>
-#include <trajectory_tracker_msgs/PathWithVelocity.h>
-#include <trajectory_tracker_msgs/converter.h>
-
-#include <ros/console.h>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-#include <tf2_ros/transform_listener.h>
-
-#include <actionlib/server/simple_action_server.h>
-#include <move_base_msgs/MoveBaseAction.h>
-#include <planner_cspace_msgs/MoveWithToleranceAction.h>
-
 #include <neonavigation_common/compatibility.h>
-
+#include <neonavigation_metrics_msgs/Metrics.h>
 #include <planner_cspace/Planner3DConfig.h>
 #include <planner_cspace/jump_detector.h>
 #include <planner_cspace/planner_3d/planner_3d_core.h>
+#include <planner_cspace_msgs/MoveWithToleranceAction.h>
+#include <planner_cspace_msgs/PlannerStatus.h>
+#include <ros/console.h>
+#include <ros/ros.h>
+#include <sensor_msgs/PointCloud.h>
+#include <std_msgs/Empty.h>
+#include <std_srvs/Empty.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <tf2_ros/transform_listener.h>
+#include <trajectory_tracker_msgs/PathWithVelocity.h>
+#include <trajectory_tracker_msgs/converter.h>
+
+#include <functional>
+#include <limits>
+#include <memory>
+#include <sq_ros1_compat/logger.hpp>
+#include <sq_ros1_compat/msg_ptr.hpp>
+#include <string>
 
 namespace planner_cspace
 {
@@ -84,7 +81,8 @@ class Planner3dNode
 {
 protected:
   using Planner3DActionServer = actionlib::SimpleActionServer<move_base_msgs::MoveBaseAction>;
-  using Planner3DTolerantActionServer = actionlib::SimpleActionServer<planner_cspace_msgs::MoveWithToleranceAction>;
+  using Planner3DTolerantActionServer =
+    actionlib::SimpleActionServer<planner_cspace_msgs::MoveWithToleranceAction>;
 
   ros::NodeHandle nh_;
   ros::NodeHandle pnh_;
@@ -126,47 +124,38 @@ protected:
   bool trigger_plan_by_costmap_update_;
 
   // --- Outputs of the planning logic --------------------------------------
-  void publishPath(const nav_msgs::Path& path)
+  void publishPath(const nav_msgs::Path & path)
   {
-    if (use_path_with_velocity_)
-    {
-      pub_path_velocity_.publish(
-          trajectory_tracker_msgs::toPathWithVelocity(
-              path, std::numeric_limits<double>::quiet_NaN()));
-    }
-    else
-    {
+    if (use_path_with_velocity_) {
+      pub_path_velocity_.publish(trajectory_tracker_msgs::toPathWithVelocity(
+        path, std::numeric_limits<double>::quiet_NaN()));
+    } else {
       pub_path_.publish(path);
     }
   }
-  void publishPathPoses(const geometry_msgs::PoseArray& poses)
-  {
-    pub_path_poses_.publish(poses);
-  }
-  void publishPreservedPathPoses(const nav_msgs::Path& path)
+  void publishPathPoses(const geometry_msgs::PoseArray & poses) { pub_path_poses_.publish(poses); }
+  void publishPreservedPathPoses(const nav_msgs::Path & path)
   {
     pub_preserved_path_poses_.publish(path);
   }
-  void publishStartAndEnd(const geometry_msgs::PoseStamped& start, const geometry_msgs::PoseStamped& end)
+  void publishStartAndEnd(
+    const geometry_msgs::PoseStamped & start, const geometry_msgs::PoseStamped & end)
   {
     pub_end_.publish(end);
     pub_start_.publish(start);
   }
   void publishDebugMaps()
   {
-    if (pub_distance_map_.getNumSubscribers() > 0)
-    {
+    if (pub_distance_map_.getNumSubscribers() > 0) {
       pub_distance_map_.publish(planner_.generateDistanceMapMsg());
     }
-    if (pub_hysteresis_map_.getNumSubscribers() > 0)
-    {
+    if (pub_hysteresis_map_.getNumSubscribers() > 0) {
       pub_hysteresis_map_.publish(planner_.generateHysteresisMapMsg());
     }
   }
   void publishRememberedMap()
   {
-    if (pub_remembered_map_.getNumSubscribers() > 0)
-    {
+    if (pub_remembered_map_.getNumSubscribers() > 0) {
       pub_remembered_map_.publish(planner_.generateRememberedMapMsg());
     }
   }
@@ -177,8 +166,8 @@ protected:
   }
   void onGoalReachedInContinuousMode()
   {
-    act_tolerant_->setSucceeded(planner_cspace_msgs::MoveWithToleranceResult(),
-                                "Goal reached (Continuous movement mode).");
+    act_tolerant_->setSucceeded(
+      planner_cspace_msgs::MoveWithToleranceResult(), "Goal reached (Continuous movement mode).");
     goal_tolerant_ = nullptr;
   }
 
@@ -186,30 +175,25 @@ protected:
   // Pushes the tolerances of the active tolerant move goal to the logic.
   void updateGoalTolerance()
   {
-    if (act_tolerant_->isActive() && goal_tolerant_)
-    {
+    if (act_tolerant_->isActive() && goal_tolerant_) {
       Planner3dCore::GoalTolerance tolerance;
       tolerance.lin = goal_tolerant_->goal_tolerance_lin;
       tolerance.ang = goal_tolerant_->goal_tolerance_ang;
       tolerance.ang_finish = goal_tolerant_->goal_tolerance_ang_finish;
       tolerance.continuous_movement_mode = goal_tolerant_->continuous_movement_mode;
       planner_.setGoalTolerance(tolerance);
-    }
-    else
-    {
+    } else {
       planner_.clearGoalTolerance();
     }
   }
   void publishActionFeedback()
   {
-    if (act_->isActive())
-    {
+    if (act_->isActive()) {
       move_base_msgs::MoveBaseFeedback feedback;
       feedback.base_position = planner_.start();
       act_->publishFeedback(feedback);
     }
-    if (act_tolerant_->isActive())
-    {
+    if (act_tolerant_->isActive()) {
       planner_cspace_msgs::MoveWithToleranceFeedback feedback;
       feedback.base_position = planner_.start();
       act_tolerant_->publishFeedback(feedback);
@@ -217,26 +201,23 @@ protected:
   }
 
   // --- Subscriber/service/action callbacks --------------------------------
-  bool cbForget(std_srvs::EmptyRequest& /* req */,
-                std_srvs::EmptyResponse& /* res */)
+  bool cbForget(std_srvs::EmptyRequest & /* req */, std_srvs::EmptyResponse & /* res */)
   {
     planner_.forgetRememberedCostmap();
     return true;
   }
-  void cbTemporaryEscape(const std_msgs::Empty::ConstPtr&)
+  void cbTemporaryEscape(const std_msgs::Empty::ConstPtr &)
   {
     updateGoalTolerance();
     planner_.triggerTemporaryEscape();
   }
-  bool cbMakePlan(nav_msgs::GetPlan::Request& req,
-                  nav_msgs::GetPlan::Response& res)
+  bool cbMakePlan(nav_msgs::GetPlan::Request & req, nav_msgs::GetPlan::Response & res)
   {
     return planner_.makePlanOnDemand(req.start, req.goal, req.tolerance, res.plan);
   }
-  void cbGoal(const geometry_msgs::PoseStamped::ConstPtr& msg)
+  void cbGoal(const geometry_msgs::PoseStamped::ConstPtr & msg)
   {
-    if (act_->isActive() || act_tolerant_->isActive())
-    {
+    if (act_->isActive() || act_tolerant_->isActive()) {
       ROS_ERROR("Setting new goal is ignored since planner_3d is proceeding the action.");
       return;
     }
@@ -245,8 +226,7 @@ protected:
   void cbPreempt()
   {
     ROS_WARN("Preempting the current goal.");
-    if (act_->isActive())
-      act_->setPreempted(move_base_msgs::MoveBaseResult(), "Preempted.");
+    if (act_->isActive()) act_->setPreempted(move_base_msgs::MoveBaseResult(), "Preempted.");
 
     if (act_tolerant_->isActive())
       act_tolerant_->setPreempted(planner_cspace_msgs::MoveWithToleranceResult(), "Preempted.");
@@ -254,18 +234,17 @@ protected:
     updateGoalTolerance();
     planner_.clearGoal();
   }
-  bool setGoal(const geometry_msgs::PoseStamped& msg)
+  bool setGoal(const geometry_msgs::PoseStamped & msg)
   {
     updateGoalTolerance();
-    switch (planner_.setGoal(msg))
-    {
+    switch (planner_.setGoal(msg)) {
       case Planner3dCore::SetGoalResult::REJECTED:
         return false;
       case Planner3dCore::SetGoalResult::CLEARED:
-        if (act_->isActive())
-          act_->setSucceeded(move_base_msgs::MoveBaseResult(), "Goal cleared.");
+        if (act_->isActive()) act_->setSucceeded(move_base_msgs::MoveBaseResult(), "Goal cleared.");
         if (act_tolerant_->isActive())
-          act_tolerant_->setSucceeded(planner_cspace_msgs::MoveWithToleranceResult(), "Goal cleared.");
+          act_tolerant_->setSucceeded(
+            planner_cspace_msgs::MoveWithToleranceResult(), "Goal cleared.");
         updateGoalTolerance();
         break;
       default:
@@ -275,9 +254,9 @@ protected:
   }
   void cbAction()
   {
-    if (act_tolerant_->isActive())
-    {
-      ROS_ERROR("Setting new goal is ignored since planner_3d is proceeding by tolerant_move action.");
+    if (act_tolerant_->isActive()) {
+      ROS_ERROR(
+        "Setting new goal is ignored since planner_3d is proceeding by tolerant_move action.");
       return;
     }
 
@@ -287,58 +266,57 @@ protected:
   }
   void cbTolerantAction()
   {
-    if (act_->isActive())
-    {
+    if (act_->isActive()) {
       ROS_ERROR("Setting new goal is ignored since planner_3d is proceeding by move_base action.");
       return;
     }
 
     goal_tolerant_ = act_tolerant_->acceptNewGoal();
     if (!setGoal(goal_tolerant_->target_pose))
-      act_tolerant_->setAborted(planner_cspace_msgs::MoveWithToleranceResult(), "Given goal is invalid.");
+      act_tolerant_->setAborted(
+        planner_cspace_msgs::MoveWithToleranceResult(), "Given goal is invalid.");
   }
-  void cbNoMapUpdateTimer(const ros::TimerEvent& e)
+  void cbNoMapUpdateTimer(const ros::TimerEvent & e)
   {
     planPath(e.current_real);
     no_map_update_timer_ =
-        nh_.createTimer(costmap_watchdog_, &Planner3dNode::cbNoMapUpdateTimer, this, true);
+      nh_.createTimer(costmap_watchdog_, &Planner3dNode::cbNoMapUpdateTimer, this, true);
   }
-  void cbMapUpdate(const costmap_cspace_msgs::CSpace3DUpdate::ConstPtr& msg)
+  void cbMapUpdate(const costmap_cspace_msgs::CSpace3DUpdate::ConstPtr & msg)
   {
-    if (!planner_.hasMap())
-      return;
+    applyMapUpdate(sq_ros1_compat::to_std(msg));
+  }
+  void applyMapUpdate(const std::shared_ptr<const costmap_cspace_msgs::CSpace3DUpdate> & msg)
+  {
+    if (!planner_.hasMap()) return;
     ROS_DEBUG("Map updated");
     updateGoalTolerance();
-    if (trigger_plan_by_costmap_update_)
-    {
+    if (trigger_plan_by_costmap_update_) {
       no_map_update_timer_.stop();
       updateStart();
       planner_.applyCostmapUpdate(msg);
       planPath(planner_.lastCostmapStamp());
-      if (costmap_watchdog_ > ros::Duration(0))
-      {
+      if (costmap_watchdog_ > ros::Duration(0)) {
         no_map_update_timer_ =
-            nh_.createTimer(costmap_watchdog_, &Planner3dNode::cbNoMapUpdateTimer, this, true);
+          nh_.createTimer(costmap_watchdog_, &Planner3dNode::cbNoMapUpdateTimer, this, true);
       }
-    }
-    else
-    {
+    } else {
       planner_.applyCostmapUpdate(msg);
     }
   }
-  void cbMap(const costmap_cspace_msgs::CSpace3D::ConstPtr& msg)
+  void cbMap(const costmap_cspace_msgs::CSpace3D::ConstPtr & msg)
   {
     updateGoalTolerance();
-    const costmap_cspace_msgs::CSpace3DUpdate::ConstPtr map_update_retained = planner_.setMap(msg);
+    const std::shared_ptr<const costmap_cspace_msgs::CSpace3DUpdate> map_update_retained =
+      planner_.setMap(sq_ros1_compat::to_std(msg));
     jump_.setMapFrame(planner_.mapHeader().frame_id);
-    if (map_update_retained)
-    {
+    if (map_update_retained) {
       ROS_INFO("Applying retained map update");
-      cbMapUpdate(map_update_retained);
+      applyMapUpdate(map_update_retained);
     }
     planner_.clearRetainedMapUpdate();
   }
-  void cbParameter(const Planner3DConfig& config, const uint32_t /* level */)
+  void cbParameter(const Planner3DConfig & config, const uint32_t /* level */)
   {
     Planner3dCore::Parameters p;
     p.freq = config.freq;
@@ -395,11 +373,10 @@ protected:
     trigger_plan_by_costmap_update_ = config.trigger_plan_by_costmap_update;
     no_map_update_timer_.stop();
   }
-  void diagnoseStatus(diagnostic_updater::DiagnosticStatusWrapper& stat)
+  void diagnoseStatus(diagnostic_updater::DiagnosticStatusWrapper & stat)
   {
-    const planner_cspace_msgs::PlannerStatus& status = planner_.status();
-    switch (status.error)
-    {
+    const planner_cspace_msgs::PlannerStatus & status = planner_.status();
+    switch (status.error) {
       case planner_cspace_msgs::PlannerStatus::GOING_WELL:
         stat.summary(diagnostic_msgs::DiagnosticStatus::OK, "Going well.");
         break;
@@ -436,14 +413,11 @@ protected:
     start.pose.position.x = 0;
     start.pose.position.y = 0;
     start.pose.position.z = 0;
-    try
-    {
-      geometry_msgs::TransformStamped trans =
-          tfbuf_.lookupTransform(planner_.mapHeader().frame_id, robot_frame_, ros::Time(), ros::Duration(0.1));
+    try {
+      geometry_msgs::TransformStamped trans = tfbuf_.lookupTransform(
+        planner_.mapHeader().frame_id, robot_frame_, ros::Time(), ros::Duration(0.1));
       tf2::doTransform(start, start, trans);
-    }
-    catch (tf2::TransformException& e)
-    {
+    } catch (tf2::TransformException & e) {
       planner_.clearStart();
       return;
     }
@@ -452,35 +426,32 @@ protected:
 
 public:
   Planner3dNode()
-    : nh_()
-    , pnh_("~")
-    , tfl_(tfbuf_)
-    , parameter_server_(pnh_)
-    , jump_(tfbuf_)
-    , freq_(4.0f)
-    , costmap_watchdog_(0)
-    , trigger_plan_by_costmap_update_(false)
+  : nh_(),
+    pnh_("~"),
+    tfl_(tfbuf_),
+    parameter_server_(pnh_),
+    jump_(tfbuf_, sq_ros1_compat::get_logger("planner_3d")),
+    planner_(sq_ros1_compat::get_logger("planner_3d")),
+    freq_(4.0f),
+    costmap_watchdog_(0),
+    trigger_plan_by_costmap_update_(false)
   {
     neonavigation_common::compat::checkCompatMode();
     sub_map_ = neonavigation_common::compat::subscribe(
-        nh_, "costmap",
-        pnh_, "costmap", 1, &Planner3dNode::cbMap, this);
+      nh_, "costmap", pnh_, "costmap", 1, &Planner3dNode::cbMap, this);
     sub_map_update_ = neonavigation_common::compat::subscribe(
-        nh_, "costmap_update",
-        pnh_, "costmap_update", 1, &Planner3dNode::cbMapUpdate, this);
+      nh_, "costmap_update", pnh_, "costmap_update", 1, &Planner3dNode::cbMapUpdate, this);
     sub_goal_ = neonavigation_common::compat::subscribe(
-        nh_, "move_base_simple/goal",
-        pnh_, "goal", 1, &Planner3dNode::cbGoal, this);
-    sub_temporary_escape_trigger_ = pnh_.subscribe(
-        "temporary_escape", 1, &Planner3dNode::cbTemporaryEscape, this);
+      nh_, "move_base_simple/goal", pnh_, "goal", 1, &Planner3dNode::cbGoal, this);
+    sub_temporary_escape_trigger_ =
+      pnh_.subscribe("temporary_escape", 1, &Planner3dNode::cbTemporaryEscape, this);
     pub_start_ = pnh_.advertise<geometry_msgs::PoseStamped>("path_start", 1, true);
     pub_end_ = pnh_.advertise<geometry_msgs::PoseStamped>("path_end", 1, true);
     pub_goal_ = pnh_.advertise<geometry_msgs::PoseStamped>("current_goal", 1, true);
     pub_status_ = pnh_.advertise<planner_cspace_msgs::PlannerStatus>("status", 1, true);
     pub_metrics_ = pnh_.advertise<neonavigation_metrics_msgs::Metrics>("metrics", 1, false);
     srs_forget_ = neonavigation_common::compat::advertiseService(
-        nh_, "forget_planning_cost",
-        pnh_, "forget", &Planner3dNode::cbForget, this);
+      nh_, "forget_planning_cost", pnh_, "forget", &Planner3dNode::cbForget, this);
     srs_make_plan_ = pnh_.advertiseService("make_plan", &Planner3dNode::cbMakePlan, this);
 
     // Debug outputs
@@ -492,22 +463,19 @@ public:
     act_->registerGoalCallback(boost::bind(&Planner3dNode::cbAction, this));
     act_->registerPreemptCallback(boost::bind(&Planner3dNode::cbPreempt, this));
 
-    act_tolerant_.reset(new Planner3DTolerantActionServer(ros::NodeHandle(), "tolerant_move", false));
+    act_tolerant_.reset(
+      new Planner3DTolerantActionServer(ros::NodeHandle(), "tolerant_move", false));
     act_tolerant_->registerGoalCallback(boost::bind(&Planner3dNode::cbTolerantAction, this));
     act_tolerant_->registerPreemptCallback(boost::bind(&Planner3dNode::cbPreempt, this));
     goal_tolerant_ = nullptr;
 
     pnh_.param("use_path_with_velocity", use_path_with_velocity_, false);
-    if (use_path_with_velocity_)
-    {
-      pub_path_velocity_ = nh_.advertise<trajectory_tracker_msgs::PathWithVelocity>(
-          "path_velocity", 1, true);
-    }
-    else
-    {
-      pub_path_ = neonavigation_common::compat::advertise<nav_msgs::Path>(
-          nh_, "path",
-          pnh_, "path", 1, true);
+    if (use_path_with_velocity_) {
+      pub_path_velocity_ =
+        nh_.advertise<trajectory_tracker_msgs::PathWithVelocity>("path_velocity", 1, true);
+    } else {
+      pub_path_ =
+        neonavigation_common::compat::advertise<nav_msgs::Path>(nh_, "path", pnh_, "path", 1, true);
     }
     pub_path_poses_ = pnh_.advertise<geometry_msgs::PoseArray>("path_poses", 1, true);
     pub_preserved_path_poses_ = pnh_.advertise<nav_msgs::Path>("preserved_path_poses", 1, true);
@@ -539,38 +507,36 @@ public:
 
     bool fast_map_update;
     pnh_.param("fast_map_update", fast_map_update, false);
-    if (fast_map_update)
-    {
+    if (fast_map_update) {
       ROS_WARN("planner_3d: Experimental fast_map_update is enabled. ");
     }
-    if (pnh_.hasParam("debug_mode"))
-    {
+    if (pnh_.hasParam("debug_mode")) {
       ROS_ERROR(
-          "planner_3d: ~/debug_mode parameter and ~/debug topic are deprecated. "
-          "Use ~/distance_map, ~/hysteresis_map, and ~/remembered_map topics instead.");
+        "planner_3d: ~/debug_mode parameter and ~/debug topic are deprecated. "
+        "Use ~/distance_map, ~/hysteresis_map, and ~/remembered_map topics instead.");
     }
 
     bool print_planning_duration;
     pnh_.param("print_planning_duration", print_planning_duration, false);
-    if (print_planning_duration)
-    {
-      if (ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug))
-      {
+    if (print_planning_duration) {
+      if (ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug)) {
         ros::console::notifyLoggerLevelsChanged();
       }
     }
 
     Planner3dCore::Callbacks cb;
     cb.publish_path = std::bind(&Planner3dNode::publishPath, this, std::placeholders::_1);
-    cb.publish_path_poses = std::bind(&Planner3dNode::publishPathPoses, this, std::placeholders::_1);
+    cb.publish_path_poses =
+      std::bind(&Planner3dNode::publishPathPoses, this, std::placeholders::_1);
     cb.publish_preserved_path_poses =
-        std::bind(&Planner3dNode::publishPreservedPathPoses, this, std::placeholders::_1);
-    cb.publish_start_and_end =
-        std::bind(&Planner3dNode::publishStartAndEnd, this, std::placeholders::_1, std::placeholders::_2);
+      std::bind(&Planner3dNode::publishPreservedPathPoses, this, std::placeholders::_1);
+    cb.publish_start_and_end = std::bind(
+      &Planner3dNode::publishStartAndEnd, this, std::placeholders::_1, std::placeholders::_2);
     cb.publish_debug_maps = std::bind(&Planner3dNode::publishDebugMaps, this);
     cb.publish_remembered_map = std::bind(&Planner3dNode::publishRememberedMap, this);
     cb.publish_status = std::bind(&Planner3dNode::publishStatus, this);
-    cb.goal_reached_in_continuous_mode = std::bind(&Planner3dNode::onGoalReachedInContinuousMode, this);
+    cb.goal_reached_in_continuous_mode =
+      std::bind(&Planner3dNode::onGoalReachedInContinuousMode, this);
     planner_.setCallbacks(cb);
     planner_.initialize(sp);
 
@@ -584,38 +550,34 @@ public:
     parameter_server_.setCallback(boost::bind(&Planner3dNode::cbParameter, this, _1, _2));
   }
 
-  void planPath(const ros::Time& now)
+  void planPath(const ros::Time & now)
   {
     updateGoalTolerance();
     const bool has_costmap = planner_.preparePlanCycle(now);
 
-    if (planner_.isReadyToPlan() && has_costmap)
-    {
+    if (planner_.isReadyToPlan() && has_costmap) {
       publishActionFeedback();
-      switch (planner_.runPlanCycle(now))
-      {
+      switch (planner_.runPlanCycle(now)) {
         case Planner3dCore::PlanCycleResult::GOAL_REACHED:
           if (act_->isActive())
             act_->setSucceeded(move_base_msgs::MoveBaseResult(), "Goal reached.");
           if (act_tolerant_->isActive())
-            act_tolerant_->setSucceeded(planner_cspace_msgs::MoveWithToleranceResult(), "Goal reached.");
+            act_tolerant_->setSucceeded(
+              planner_cspace_msgs::MoveWithToleranceResult(), "Goal reached.");
           updateGoalTolerance();
           break;
         case Planner3dCore::PlanCycleResult::ABORT_MAX_RETRY:
           if (act_->isActive())
-            act_->setAborted(
-                move_base_msgs::MoveBaseResult(), "Goal is in Rock");
+            act_->setAborted(move_base_msgs::MoveBaseResult(), "Goal is in Rock");
           if (act_tolerant_->isActive())
             act_tolerant_->setAborted(
-                planner_cspace_msgs::MoveWithToleranceResult(), "Goal is in Rock");
+              planner_cspace_msgs::MoveWithToleranceResult(), "Goal is in Rock");
           updateGoalTolerance();
           return;
         default:
           break;
       }
-    }
-    else if (!planner_.hasGoal())
-    {
+    } else if (!planner_.hasGoal()) {
       planner_.handleNoGoal();
     }
     pub_goal_.publish(planner_.currentGoalStamped());
@@ -625,39 +587,33 @@ public:
     pub_metrics_.publish(planner_.collectMetrics(now));
   }
 
-  void waitUntil(const ros::Time& next_replan_time)
+  void waitUntil(const ros::Time & next_replan_time)
   {
-    while (ros::ok())
-    {
+    while (ros::ok()) {
       const ros::Time prev_map_update_stamp = planner_.lastCostmapStamp();
       ros::spinOnce();
       const bool costmap_updated = planner_.lastCostmapStamp() != prev_map_update_stamp;
 
-      if (planner_.hasMap())
-      {
+      if (planner_.hasMap()) {
         updateStart();
 
-        if (jump_.detectJump())
-        {
+        if (jump_.detectJump()) {
           planner_.clearRememberedCostmap();
           // Robot pose jumped.
           return;
         }
 
-        if (costmap_updated && planner_.isPreviousPathBlocked())
-        {
+        if (costmap_updated && planner_.isPreviousPathBlocked()) {
           // Obstacle on the path.
           return;
         }
 
-        if (planner_.checkSwitchbackArrival())
-        {
+        if (planner_.checkSwitchbackArrival()) {
           // robot has arrived at the switchback point
           return;
         }
       }
-      if (ros::Time::now() > next_replan_time)
-      {
+      if (ros::Time::now() > next_replan_time) {
         return;
       }
       ros::Duration(0.01).sleep();
@@ -670,29 +626,23 @@ public:
 
     ros::Time next_replan_time = ros::Time::now();
     ros::Rate r(100);
-    while (ros::ok())
-    {
-      if (trigger_plan_by_costmap_update_)
-      {
-        if (jump_.detectJump())
-        {
+    while (ros::ok()) {
+      if (trigger_plan_by_costmap_update_) {
+        if (jump_.detectJump()) {
           planner_.clearRememberedCostmap();
         }
         ros::spinOnce();
         r.sleep();
-      }
-      else
-      {
+      } else {
         waitUntil(next_replan_time);
         const ros::Time now = ros::Time::now();
         planPath(now);
-        if (planner_.isPathSwitchback())
-        {
+        if (planner_.isPathSwitchback()) {
           next_replan_time = now + ros::Duration(planner_.swWait());
-          ROS_INFO("Planned path has switchback. Planner will stop until: %f at the latest.", next_replan_time.toSec());
-        }
-        else
-        {
+          ROS_INFO(
+            "Planned path has switchback. Planner will stop until: %f at the latest.",
+            next_replan_time.toSec());
+        } else {
           next_replan_time = now + ros::Duration(1.0 / freq_);
         }
       }
@@ -702,7 +652,7 @@ public:
 }  // namespace planner_3d
 }  // namespace planner_cspace
 
-int main(int argc, char* argv[])
+int main(int argc, char * argv[])
 {
   ros::init(argc, argv, "planner_3d");
 

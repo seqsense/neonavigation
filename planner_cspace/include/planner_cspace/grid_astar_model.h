@@ -27,13 +27,13 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PLANNER_CSPACE_GRID_ASTAR_MODEL_H
-#define PLANNER_CSPACE_GRID_ASTAR_MODEL_H
+#ifndef PLANNER_CSPACE__GRID_ASTAR_MODEL_H_
+#define PLANNER_CSPACE__GRID_ASTAR_MODEL_H_
 
 #include <memory>
 #include <vector>
 
-#include <planner_cspace/cyclic_vec.h>
+#include "planner_cspace/cyclic_vec.h"
 
 namespace planner_cspace
 {
@@ -50,20 +50,16 @@ public:
   public:
     Vec v_;
     float c_;
-    explicit VecWithCost(const Vec& v, const float c = 0.0)
-      : v_(v)
-      , c_(c)
-    {
-    }
+    explicit VecWithCost(const Vec & v, const float c = 0.0) : v_(v), c_(c) {}
   };
 
   virtual float cost(
-      const Vec& cur, const Vec& next, const std::vector<VecWithCost>& start, const Vec& goal) const = 0;
-  virtual float costEstim(
-      const Vec& cur, const Vec& next) const = 0;
-  virtual const std::vector<Vec>& searchGrids(
-      const Vec& cur, const std::vector<VecWithCost>& start, const Vec& goal) const = 0;
+    const Vec & cur, const Vec & next, const std::vector<VecWithCost> & start,
+    const Vec & goal) const = 0;
+  virtual float costEstim(const Vec & cur, const Vec & next) const = 0;
+  virtual const std::vector<Vec> & searchGrids(
+    const Vec & cur, const std::vector<VecWithCost> & start, const Vec & goal) const = 0;
 };
 }  // namespace planner_cspace
 
-#endif  // PLANNER_CSPACE_GRID_ASTAR_MODEL_H
+#endif  // PLANNER_CSPACE__GRID_ASTAR_MODEL_H_

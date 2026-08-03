@@ -27,24 +27,21 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <actionlib/client/simple_action_client.h>
+#include <gtest/gtest.h>
+#include <move_base_msgs/MoveBaseAction.h>
+#include <planner_cspace/action_test_base.h>
+#include <planner_cspace_msgs/MoveWithToleranceAction.h>
+#include <planner_cspace_msgs/PlannerStatus.h>
+#include <ros/ros.h>
+#include <tf2_ros/transform_listener.h>
+
 #include <limits>
 #include <memory>
 #include <string>
 
-#include <gtest/gtest.h>
-
-#include <actionlib/client/simple_action_client.h>
-#include <move_base_msgs/MoveBaseAction.h>
-#include <planner_cspace_msgs/MoveWithToleranceAction.h>
-#include <planner_cspace_msgs/PlannerStatus.h>
-#include <tf2_ros/transform_listener.h>
-
-#include <ros/ros.h>
-
-#include <planner_cspace/action_test_base.h>
-
 class TolerantActionTest
-  : public ActionTestBase<planner_cspace_msgs::MoveWithToleranceAction, ACTION_TOPIC_TOLERANT_MOVE>
+: public ActionTestBase<planner_cspace_msgs::MoveWithToleranceAction, ACTION_TOPIC_TOLERANT_MOVE>
 {
 protected:
   planner_cspace_msgs::MoveWithToleranceGoal createGoalInFree()
@@ -66,17 +63,15 @@ protected:
     return goal;
   }
 
-  double getDistBetweenRobotAndGoal(const planner_cspace_msgs::MoveWithToleranceGoal& goal)
+  double getDistBetweenRobotAndGoal(const planner_cspace_msgs::MoveWithToleranceGoal & goal)
   {
-    try
-    {
+    try {
       const geometry_msgs::TransformStamped map_to_robot =
-          tfbuf_.lookupTransform("map", "base_link", ros::Time(), ros::Duration(0.1));
-      return std::hypot(map_to_robot.transform.translation.x - goal.target_pose.pose.position.x,
-                        map_to_robot.transform.translation.y - goal.target_pose.pose.position.y);
-    }
-    catch (std::exception&)
-    {
+        tfbuf_.lookupTransform("map", "base_link", ros::Time(), ros::Duration(0.1));
+      return std::hypot(
+        map_to_robot.transform.translation.x - goal.target_pose.pose.position.x,
+        map_to_robot.transform.translation.y - goal.target_pose.pose.position.y);
+    } catch (std::exception &) {
       return std::numeric_limits<double>::max();
     }
   }
@@ -92,19 +87,16 @@ TEST_F(TolerantActionTest, GoalWithTolerance)
   const planner_cspace_msgs::MoveWithToleranceGoal goal = createGoalInFree();
   move_base_->sendGoal(goal);
 
-  while (ros::ok() && move_base_->getState().state_ != actionlib::SimpleClientGoalState::ACTIVE)
-  {
+  while (ros::ok() && move_base_->getState().state_ != actionlib::SimpleClientGoalState::ACTIVE) {
     ASSERT_LT(ros::Time::now(), deadline)
-        << "Action didn't get active: " << move_base_->getState().toString()
-        << " " << statusString();
+      << "Action didn't get active: " << move_base_->getState().toString() << " " << statusString();
     ros::spinOnce();
   }
 
-  while (ros::ok() && move_base_->getState().state_ != actionlib::SimpleClientGoalState::SUCCEEDED)
-  {
+  while (ros::ok() &&
+         move_base_->getState().state_ != actionlib::SimpleClientGoalState::SUCCEEDED) {
     ASSERT_LT(ros::Time::now(), deadline)
-        << "Action didn't succeeded: " << move_base_->getState().toString()
-        << " " << statusString();
+      << "Action didn't succeeded: " << move_base_->getState().toString() << " " << statusString();
     ros::spinOnce();
   }
 
@@ -116,17 +108,16 @@ TEST_F(TolerantActionTest, GoalWithTolerance)
   // Navigation still continues after ActionClient succeeded.
   EXPECT_EQ(planner_status_->status, planner_cspace_msgs::PlannerStatus::DOING);
 
-  while (ros::ok() && planner_status_->status != planner_cspace_msgs::PlannerStatus::DONE)
-  {
+  while (ros::ok() && planner_status_->status != planner_cspace_msgs::PlannerStatus::DONE) {
     ASSERT_LT(ros::Time::now(), deadline)
-        << "Navigation didn't finished: " << move_base_->getState().toString()
-        << " " << statusString();
+      << "Navigation didn't finished: " << move_base_->getState().toString() << " "
+      << statusString();
     ros::spinOnce();
   }
   EXPECT_LT(getDistBetweenRobotAndGoal(goal), 0.05);
 }
 
-int main(int argc, char** argv)
+int main(int argc, char ** argv)
 {
   testing::InitGoogleTest(&argc, argv);
   ros::init(argc, argv, "test_tolerant_action");

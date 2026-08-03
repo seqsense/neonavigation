@@ -27,12 +27,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <gtest/gtest.h>
+
 #include <cmath>
 #include <cstddef>
 
-#include <planner_cspace/cyclic_vec.h>
-
-#include <gtest/gtest.h>
+#include "planner_cspace/cyclic_vec.h"
 
 namespace planner_cspace
 {
@@ -42,8 +42,7 @@ TEST(CyclicVec, InitFloat)
   CyclicVecFloat<3, 2> v(1.0f, 2.0f, 3.0f);
   const CyclicVecFloat<3, 2> vc(1.0f, 2.0f, 3.0f);
 
-  for (size_t i = 0; i < 3; ++i)
-  {
+  for (size_t i = 0; i < 3; ++i) {
     ASSERT_EQ(v[i], val[i]);
     ASSERT_EQ(vc[i], val[i]);
   }
@@ -55,8 +54,7 @@ TEST(CyclicVec, InitInt)
   CyclicVecInt<3, 2> v(1, 2, 3);
   const CyclicVecInt<3, 2> vc(1, 2, 3);
 
-  for (size_t i = 0; i < 3; ++i)
-  {
+  for (size_t i = 0; i < 3; ++i) {
     ASSERT_EQ(v[i], val[i]);
     ASSERT_EQ(vc[i], val[i]);
   }
@@ -131,7 +129,7 @@ TEST(CyclicVec, Cycle)
 }
 }  // namespace planner_cspace
 
-int main(int argc, char** argv)
+int main(int argc, char ** argv)
 {
   testing::InitGoogleTest(&argc, argv);
 

@@ -27,15 +27,15 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PLANNER_CSPACE_DISTANCE_MAP_UTILS_H
-#define PLANNER_CSPACE_DISTANCE_MAP_UTILS_H
+#ifndef PLANNER_CSPACE__DISTANCE_MAP_UTILS_H_
+#define PLANNER_CSPACE__DISTANCE_MAP_UTILS_H_
 
 #include <limits>
 #include <string>
 
-#include <planner_cspace/grid_astar.h>
-#include <planner_cspace/planner_3d/distance_map.h>
-#include <planner_cspace/planner_3d/grid_astar_model.h>
+#include "planner_cspace/grid_astar.h"
+#include "planner_cspace/planner_3d/distance_map.h"
+#include "planner_cspace/planner_3d/grid_astar_model.h"
 
 namespace planner_cspace
 {
@@ -51,25 +51,19 @@ inline std::string xyStr(const float x, const float y)
 }
 
 inline void debugOutput(
-    const DistanceMap& dm,
-    const Astar::Gridmap<char, 0x80>& cm_rough,
-    const Astar::Vec& s, const Astar::Vec& e)
+  const DistanceMap & dm, const Astar::Gridmap<char, 0x80> & cm_rough, const Astar::Vec & s,
+  const Astar::Vec & e)
 {
-  for (int y = 0; y < cm_rough.size()[1]; y++)
-  {
-    for (int x = 0; x < cm_rough.size()[0]; x++)
-    {
+  for (int y = 0; y < cm_rough.size()[1]; y++) {
+    for (int x = 0; x < cm_rough.size()[0]; x++) {
       const Astar::Vec pos(x, y, 0);
       const float d = dm[pos];
 
       const char type = (pos == s ? 's' : (pos == e ? 'e' : ' '));
-      if (d == std::numeric_limits<float>::max())
-      {
+      if (d == std::numeric_limits<float>::max()) {
         fprintf(stderr, "xxx%c ", type);
         continue;
-      }
-      else if (cm_rough[pos] == 100)
-      {
+      } else if (cm_rough[pos] == 100) {
         fprintf(stderr, "***%c ", type);
         continue;
       }
@@ -77,8 +71,7 @@ inline void debugOutput(
     }
     fprintf(stderr, "\n");
   }
-  for (int x = 0; x < cm_rough.size()[0]; x++)
-  {
+  for (int x = 0; x < cm_rough.size()[0]; x++) {
     fprintf(stderr, "---- ");
   }
   fprintf(stderr, "\n");
@@ -87,4 +80,4 @@ inline void debugOutput(
 }  // namespace planner_3d
 }  // namespace planner_cspace
 
-#endif  // PLANNER_CSPACE_DISTANCE_MAP_UTILS_H
+#endif  // PLANNER_CSPACE__DISTANCE_MAP_UTILS_H_

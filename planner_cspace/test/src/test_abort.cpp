@@ -27,20 +27,17 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <memory>
-#include <string>
-
-#include <gtest/gtest.h>
-
 #include <actionlib/client/simple_action_client.h>
+#include <gtest/gtest.h>
 #include <move_base_msgs/MoveBaseAction.h>
+#include <planner_cspace/action_test_base.h>
 #include <planner_cspace_msgs/PlannerStatus.h>
 #include <ros/ros.h>
 
-#include <planner_cspace/action_test_base.h>
+#include <memory>
+#include <string>
 
-class AbortTest
-  : public ActionTestBase<move_base_msgs::MoveBaseAction, ACTION_TOPIC_MOVE_BASE>
+class AbortTest : public ActionTestBase<move_base_msgs::MoveBaseAction, ACTION_TOPIC_MOVE_BASE>
 {
 protected:
   move_base_msgs::MoveBaseGoal createGoalInRock()
@@ -82,62 +79,48 @@ TEST_F(AbortTest, AbortByGoalInRock)
   ros::Duration(0.5).sleep();
   // Send a goal which is in Rock
   move_base_->sendGoal(createGoalInRock());
-  while (move_base_->getState().state_ !=
-         actionlib::SimpleClientGoalState::ACTIVE)
-  {
+  while (move_base_->getState().state_ != actionlib::SimpleClientGoalState::ACTIVE) {
     wait.sleep();
     ASSERT_LT(ros::Time::now(), deadline)
-        << "Action didn't get active: " << move_base_->getState().toString()
-        << " " << statusString();
+      << "Action didn't get active: " << move_base_->getState().toString() << " " << statusString();
   }
 
   // Try to replan
-  while (move_base_->getState().state_ ==
-         actionlib::SimpleClientGoalState::ACTIVE)
-  {
+  while (move_base_->getState().state_ == actionlib::SimpleClientGoalState::ACTIVE) {
     wait.sleep();
     ASSERT_LT(ros::Time::now(), deadline)
-        << "Action didn't get inactive: " << move_base_->getState().toString()
-        << " " << statusString();
+      << "Action didn't get inactive: " << move_base_->getState().toString() << " "
+      << statusString();
   }
   wait.sleep();
 
   ASSERT_TRUE(planner_status_);
 
   // Abort after exceeding max_retry_num
-  ASSERT_EQ(actionlib::SimpleClientGoalState::ABORTED,
-            move_base_->getState().state_);
-  ASSERT_EQ(planner_cspace_msgs::PlannerStatus::PATH_NOT_FOUND,
-            planner_status_->error);
+  ASSERT_EQ(actionlib::SimpleClientGoalState::ABORTED, move_base_->getState().state_);
+  ASSERT_EQ(planner_cspace_msgs::PlannerStatus::PATH_NOT_FOUND, planner_status_->error);
 
   // Send another goal which is not in Rock
   move_base_->sendGoal(createGoalInFree());
-  while (move_base_->getState().state_ !=
-         actionlib::SimpleClientGoalState::ACTIVE)
-  {
+  while (move_base_->getState().state_ != actionlib::SimpleClientGoalState::ACTIVE) {
     wait.sleep();
     ASSERT_LT(ros::Time::now(), deadline)
-        << "Action didn't get active: " << move_base_->getState().toString()
-        << " " << statusString();
+      << "Action didn't get active: " << move_base_->getState().toString() << " " << statusString();
   }
-  while (move_base_->getState().state_ ==
-         actionlib::SimpleClientGoalState::ACTIVE)
-  {
+  while (move_base_->getState().state_ == actionlib::SimpleClientGoalState::ACTIVE) {
     wait.sleep();
     ASSERT_LT(ros::Time::now(), deadline)
-        << "Action didn't get inactive: " << move_base_->getState().toString()
-        << " " << statusString();
+      << "Action didn't get inactive: " << move_base_->getState().toString() << " "
+      << statusString();
   }
   wait.sleep();
 
   // Succeed
-  ASSERT_EQ(actionlib::SimpleClientGoalState::SUCCEEDED,
-            move_base_->getState().state_);
-  ASSERT_EQ(planner_cspace_msgs::PlannerStatus::GOING_WELL,
-            planner_status_->error);
+  ASSERT_EQ(actionlib::SimpleClientGoalState::SUCCEEDED, move_base_->getState().state_);
+  ASSERT_EQ(planner_cspace_msgs::PlannerStatus::GOING_WELL, planner_status_->error);
 }
 
-int main(int argc, char** argv)
+int main(int argc, char ** argv)
 {
   testing::InitGoogleTest(&argc, argv);
   ros::init(argc, argv, "test_abort");

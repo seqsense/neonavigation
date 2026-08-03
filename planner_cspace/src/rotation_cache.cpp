@@ -27,23 +27,23 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "planner_cspace/planner_3d/rotation_cache.h"
+
 #include <cmath>
 #include <memory>
 #include <utility>
 #include <vector>
 
-#include <planner_cspace/cyclic_vec.h>
-#include <planner_cspace/planner_3d/rotation_cache.h>
+#include "planner_cspace/cyclic_vec.h"
 
 namespace planner_cspace
 {
 namespace planner_3d
 {
-void RotationCache::Page::reset(const CyclicVecInt<3, 2>& size)
+void RotationCache::Page::reset(const CyclicVecInt<3, 2> & size)
 {
   size_t ser_size = 1;
-  for (int i = 0; i < 3; i++)
-    ser_size *= size[i];
+  for (int i = 0; i < 3; i++) ser_size *= size[i];
 
   size_ = size;
   ser_size_ = ser_size;
@@ -53,30 +53,23 @@ void RotationCache::Page::reset(const CyclicVecInt<3, 2>& size)
 }
 
 void RotationCache::reset(
-    const float linear_resolution,
-    const float angular_resolution,
-    const int range)
+  const float linear_resolution, const float angular_resolution, const int range)
 {
   const int angle = std::lround(M_PI * 2 / angular_resolution);
 
   pages_.resize(angle);
-  for (int i = 0; i < angle; i++)
-  {
-    Page& r = pages_[i];
+  for (int i = 0; i < angle; i++) {
+    Page & r = pages_[i];
     r.reset(CyclicVecInt<3, 2>(range * 2 + 1, range * 2 + 1, angle));
 
     CyclicVecInt<3, 2> d;
 
-    for (d[0] = 0; d[0] <= range * 2; d[0]++)
-    {
-      for (d[1] = 0; d[1] <= range * 2; d[1]++)
-      {
-        for (d[2] = 0; d[2] < angle; d[2]++)
-        {
+    for (d[0] = 0; d[0] <= range * 2; d[0]++) {
+      for (d[1] = 0; d[1] <= range * 2; d[1]++) {
+        for (d[2] = 0; d[2] < angle; d[2]++) {
           auto v = CyclicVecFloat<3, 2>(
-              (d[0] - range) * linear_resolution,
-              (d[1] - range) * linear_resolution,
-              d[2] * angular_resolution);
+            (d[0] - range) * linear_resolution, (d[1] - range) * linear_resolution,
+            d[2] * angular_resolution);
           v.rotate(-i * angular_resolution);
           r.motion(d) = v;
 
@@ -84,8 +77,7 @@ void RotationCache::reset(
           const float cos_v = std::cos(v[2]);
           const float r1 = v[1] + v[0] * cos_v / sin_v;
           const float r2 = std::copysign(
-              std::sqrt(std::pow(v[0], 2) + std::pow(v[0] * cos_v / sin_v, 2)),
-              v[0] * sin_v);
+            std::sqrt(std::pow(v[0], 2) + std::pow(v[0] * cos_v / sin_v, 2)), v[0] * sin_v);
           r.radiuses(d) = std::pair<float, float>(r1, r2);
         }
       }

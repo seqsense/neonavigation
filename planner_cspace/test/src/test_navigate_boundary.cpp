@@ -27,20 +27,18 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <cstddef>
-#include <memory>
-
-#include <ros/ros.h>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-#include <tf2_ros/transform_broadcaster.h>
 #include <actionlib/client/simple_action_client.h>
-
+#include <gtest/gtest.h>
 #include <move_base_msgs/MoveBaseAction.h>
 #include <nav_msgs/Path.h>
 #include <planner_cspace_msgs/PlannerStatus.h>
+#include <ros/ros.h>
 #include <std_msgs/Empty.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <tf2_ros/transform_broadcaster.h>
 
-#include <gtest/gtest.h>
+#include <cstddef>
+#include <memory>
 
 class NavigateBoundary : public ::testing::Test
 {
@@ -59,8 +57,7 @@ protected:
   NavigateBoundary()
   {
     move_base_ = std::make_shared<ActionClient>("/move_base");
-    if (!move_base_->waitForServer(ros::Duration(10.0)))
-    {
+    if (!move_base_->waitForServer(ros::Duration(10.0))) {
       ROS_ERROR("Failed to connect move_base action");
       exit(EXIT_FAILURE);
     }
@@ -94,33 +91,23 @@ protected:
     move_base_->sendGoal(goal);
     ros::Duration(0.5).sleep();
   }
-  void cbPath(const nav_msgs::Path::ConstPtr& msg)
-  {
-    path_ = msg;
-  }
-  void cbStatus(const planner_cspace_msgs::PlannerStatus::ConstPtr& msg)
-  {
-    status_ = msg;
-  }
+  void cbPath(const nav_msgs::Path::ConstPtr & msg) { path_ = msg; }
+  void cbStatus(const planner_cspace_msgs::PlannerStatus::ConstPtr & msg) { status_ = msg; }
 };
 
 TEST_F(NavigateBoundary, StartPositionScan)
 {
   // map width/height is 32px * 0.1m = 3.2m
-  for (double x = -10; x < 13; x += 2.0)
-  {
-    for (double y = -10; y < 13; y += 2.0)
-    {
+  for (double x = -10; x < 13; x += 2.0) {
+    for (double y = -10; y < 13; y += 2.0) {
       publishTransform(x, y);
 
       path_ = nullptr;
       status_ = nullptr;
-      for (int i = 0; i < 100; ++i)
-      {
+      for (int i = 0; i < 100; ++i) {
         ros::Duration(0.05).sleep();
         ros::spinOnce();
-        if (path_ && status_)
-          break;
+        if (path_ && status_) break;
       }
       // Planner must publish at least empty path if alive.
       ASSERT_TRUE(static_cast<bool>(path_));
@@ -135,23 +122,19 @@ TEST_F(NavigateBoundary, StartPositionScanWithTemporaryEscape)
   ros::Publisher pub_trigger = nh_.advertise<std_msgs::Empty>("/planner_3d/temporary_escape", 1);
 
   // map width/height is 32px * 0.1m = 3.2m
-  for (double x = -10; x < 13; x += 2.0)
-  {
-    for (double y = -10; y < 13; y += 2.0)
-    {
+  for (double x = -10; x < 13; x += 2.0) {
+    for (double y = -10; y < 13; y += 2.0) {
       publishTransform(x, y);
 
       path_ = nullptr;
       status_ = nullptr;
-      for (int i = 0; i < 10; ++i)
-      {
+      for (int i = 0; i < 10; ++i) {
         std_msgs::Empty msg;
         pub_trigger.publish(msg);
 
         ros::Duration(0.2).sleep();
         ros::spinOnce();
-        if (path_ && status_)
-          break;
+        if (path_ && status_) break;
       }
       // Planner must publish at least empty path if alive.
       ASSERT_TRUE(static_cast<bool>(path_));
@@ -161,7 +144,7 @@ TEST_F(NavigateBoundary, StartPositionScanWithTemporaryEscape)
   }
 }
 
-int main(int argc, char** argv)
+int main(int argc, char ** argv)
 {
   testing::InitGoogleTest(&argc, argv);
   ros::init(argc, argv, "test_navigate_boundary");
