@@ -15,15 +15,21 @@
   <!-- ROS 1 interface layer (roscpp nodes, actionlib, dynamic_reconfigure). -->
   <depend condition="$ROS_VERSION == 1">roscpp</depend>
   <depend condition="$ROS_VERSION == 1">actionlib</depend>
-  <depend condition="$ROS_VERSION == 1">diagnostic_updater</depend>
   <depend condition="$ROS_VERSION == 1">dynamic_reconfigure</depend>
   <depend condition="$ROS_VERSION == 1">move_base_msgs</depend>
-  <depend condition="$ROS_VERSION == 1">std_srvs</depend>
   <!-- Provides the rclcpp-style shim used by the hybrid logic library on ROS 1. -->
   <depend condition="$ROS_VERSION == 1">sq_ros1_rclcpp_compat</depend>
 
-  <!-- ROS 2 build of the hybridized planning logic libraries. -->
+  <!-- ROS 2 interface layer (rclcpp components, rclcpp_action). -->
   <depend condition="$ROS_VERSION == 2">rclcpp</depend>
+  <depend condition="$ROS_VERSION == 2">rclcpp_action</depend>
+  <depend condition="$ROS_VERSION == 2">rclcpp_components</depend>
+  <!-- move_base_msgs does not exist on ROS 2; the move_base action uses
+       nav2_msgs/action/NavigateToPose there. -->
+  <depend condition="$ROS_VERSION == 2">nav2_msgs</depend>
+
+  <depend>diagnostic_updater</depend>
+  <depend>std_srvs</depend>
 
   <depend>geometry_msgs</depend>
   <depend>nav_msgs</depend>

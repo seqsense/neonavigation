@@ -80,7 +80,7 @@ if($ENV{ROS_VERSION} EQUAL 1)
   target_link_libraries(planner_3d_core ${catkin_LIBRARIES} ${OpenMP_CXX_FLAGS})
   add_dependencies(planner_3d_core ${catkin_EXPORTED_TARGETS})
 
-  add_executable(planner_3d src/planner_3d.cpp)
+  add_executable(planner_3d src/ros1_planner_3d.cpp)
   target_link_libraries(planner_3d planner_3d_core ${catkin_LIBRARIES} ${OpenMP_CXX_FLAGS})
   add_dependencies(planner_3d ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg)
   set_property(TARGET planner_3d PROPERTY PUBLIC_HEADER
@@ -101,16 +101,16 @@ if($ENV{ROS_VERSION} EQUAL 1)
   target_link_libraries(planner_2dof_serial_joints_core ${catkin_LIBRARIES} ${OpenMP_CXX_FLAGS})
   add_dependencies(planner_2dof_serial_joints_core ${catkin_EXPORTED_TARGETS})
 
-  add_executable(planner_2dof_serial_joints src/planner_2dof_serial_joints.cpp)
+  add_executable(planner_2dof_serial_joints src/ros1_planner_2dof_serial_joints.cpp)
   target_link_libraries(planner_2dof_serial_joints
     planner_2dof_serial_joints_core ${catkin_LIBRARIES} ${OpenMP_CXX_FLAGS})
   add_dependencies(planner_2dof_serial_joints ${catkin_EXPORTED_TARGETS})
 
-  add_executable(dummy_robot src/dummy_robot.cpp)
+  add_executable(dummy_robot src/ros1_dummy_robot.cpp)
   target_link_libraries(dummy_robot ${catkin_LIBRARIES})
   add_dependencies(dummy_robot ${catkin_EXPORTED_TARGETS})
 
-  add_executable(patrol src/patrol.cpp)
+  add_executable(patrol src/ros1_patrol.cpp)
   target_link_libraries(patrol ${catkin_LIBRARIES})
   add_dependencies(patrol ${catkin_EXPORTED_TARGETS})
 
@@ -172,8 +172,34 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
     src/grid_astar_model_2dof_joints.cpp)
   target_link_libraries(planner_2dof_serial_joints_core ${OpenMP_CXX_FLAGS})
 
-  # The ROS 2 interface nodes are added by a later migration step; only the
-  # logic libraries and their ROS-independent unit tests are built here.
+  # ROS 2 interface nodes. Each is registered as a component and also gets a
+  # standalone executable with the same name as the ROS 1 one.
+  ament_auto_add_library(planner_3d_component SHARED
+    src/ros2_planner_3d_node.cpp)
+  target_link_libraries(planner_3d_component planner_3d_core ${OpenMP_CXX_FLAGS})
+  rclcpp_components_register_node(planner_3d_component
+    PLUGIN "planner_cspace::planner_3d::Planner3dNode"
+    EXECUTABLE planner_3d)
+
+  ament_auto_add_library(planner_2dof_serial_joints_component SHARED
+    src/ros2_planner_2dof_serial_joints_node.cpp)
+  target_link_libraries(planner_2dof_serial_joints_component
+    planner_2dof_serial_joints_core ${OpenMP_CXX_FLAGS})
+  rclcpp_components_register_node(planner_2dof_serial_joints_component
+    PLUGIN "planner_cspace::planner_2dof_serial_joints::Planner2dofSerialJointsNode"
+    EXECUTABLE planner_2dof_serial_joints)
+
+  ament_auto_add_library(dummy_robot_component SHARED
+    src/ros2_dummy_robot_node.cpp)
+  rclcpp_components_register_node(dummy_robot_component
+    PLUGIN "planner_cspace::DummyRobotNode"
+    EXECUTABLE dummy_robot)
+
+  ament_auto_add_library(patrol_component SHARED
+    src/ros2_patrol_node.cpp)
+  rclcpp_components_register_node(patrol_component
+    PLUGIN "planner_cspace::PatrolActionNode"
+    EXECUTABLE patrol)
 
   if(BUILD_TESTING)
     find_package(ament_lint_auto REQUIRED)
@@ -183,10 +209,10 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
     # ament_cmake_clang_format ignores this list, but the files are kept
     # clang-format clean so it passes anyway.
     set(AMENT_LINT_AUTO_FILE_EXCLUDE
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/dummy_robot.cpp
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/patrol.cpp
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/planner_2dof_serial_joints.cpp
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/planner_3d.cpp
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/ros1_dummy_robot.cpp
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/ros1_patrol.cpp
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/ros1_planner_2dof_serial_joints.cpp
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/ros1_planner_3d.cpp
       ${CMAKE_CURRENT_SOURCE_DIR}/test/include/planner_cspace/action_test_base.h
       ${CMAKE_CURRENT_SOURCE_DIR}/test/include/planner_cspace/planner_status.h
       ${CMAKE_CURRENT_SOURCE_DIR}/test/src/test_abort.cpp

@@ -6,7 +6,7 @@ add_executable(planner_3d_debug
   ../src/grid_astar_model_3dof.cpp
   ../src/motion_cache.cpp
   ../src/motion_primitive_builder.cpp
-  ../src/planner_3d.cpp
+  ../src/ros1_planner_3d.cpp
   ../src/planner_3d_core.cpp
   ../src/distance_map.cpp
   ../src/rotation_cache.cpp
