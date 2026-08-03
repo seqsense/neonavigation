@@ -30,14 +30,16 @@
 #ifndef COSTMAP_CSPACE_POLYGON_H
 #define COSTMAP_CSPACE_POLYGON_H
 
+#include <array>
 #include <cmath>
 #include <limits>
+#include <stdexcept>
 #include <utility>
 #include <vector>
 
 #include <ros/ros.h>
 
-#include <xmlrpcpp/XmlRpcException.h>
+#include <geometry_msgs/PolygonStamped.h>
 
 namespace costmap_cspace
 {
@@ -87,6 +89,12 @@ public:
     return std::abs(this->dist_line(a, b));
   }
 };
+// ROS-neutral representation of the footprint vertices.
+// The ROS interface layer is responsible for converting its own parameter
+// representation (XmlRpc array on ROS 1, flat [x0, y0, x1, y1, ...] array on
+// ROS 2) into this type before handing it over to the logic.
+using PolygonPoints = std::vector<std::array<double, 2>>;
+
 class Polygon
 {
 public:
@@ -95,27 +103,18 @@ public:
   Polygon()
   {
   }
-  explicit Polygon(const XmlRpc::XmlRpcValue footprint_xml_const)
+  explicit Polygon(const PolygonPoints& points)
   {
-    XmlRpc::XmlRpcValue footprint_xml = footprint_xml_const;
-    if (footprint_xml.getType() != XmlRpc::XmlRpcValue::TypeArray || footprint_xml.size() < 3)
+    if (points.size() < 3)
     {
-      throw std::runtime_error("Invalid footprint xml.");
+      throw std::runtime_error("Invalid footprint. At least three vertices are required.");
     }
 
-    for (int i = 0; i < footprint_xml.size(); i++)
+    for (const auto& point : points)
     {
       Vec p;
-      try
-      {
-        p[0] = static_cast<double>(footprint_xml[i][0]);
-        p[1] = static_cast<double>(footprint_xml[i][1]);
-      }
-      catch (XmlRpc::XmlRpcException& e)
-      {
-        throw std::runtime_error(("Invalid footprint xml." + e.getMessage()).c_str());
-      }
-
+      p[0] = point[0];
+      p[1] = point[1];
       v.push_back(p);
     }
     v.push_back(v.front());

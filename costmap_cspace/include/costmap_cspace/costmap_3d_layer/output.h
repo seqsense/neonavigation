@@ -54,7 +54,7 @@ protected:
   UpdatedRegion region_prev_;
 
 public:
-  void loadConfig(XmlRpc::XmlRpcValue /* config */)
+  void loadConfig(const Costmap3dLayerConfig& /* config */)
   {
   }
   void setHandler(CALLBACK cb)

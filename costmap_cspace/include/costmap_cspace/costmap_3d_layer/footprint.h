@@ -42,8 +42,6 @@
 #include <geometry_msgs/PolygonStamped.h>
 #include <nav_msgs/OccupancyGrid.h>
 
-#include <xmlrpcpp/XmlRpcValue.h>
-
 #include <costmap_cspace/costmap_3d_layer/base.h>
 #include <costmap_cspace/cspace3_cache.h>
 #include <costmap_cspace/polygon.h>
@@ -81,17 +79,14 @@ public:
     , range_max_(0)
   {
   }
-  void loadConfig(XmlRpc::XmlRpcValue config)
+  void loadConfig(const Costmap3dLayerConfig& config)
   {
-    const int linear_spread_min_cost =
-        config.hasMember("linear_spread_min_cost") ? static_cast<int>(config["linear_spread_min_cost"]) : 0;
     setExpansion(
-        static_cast<double>(config["linear_expand"]),
-        static_cast<double>(config["linear_spread"]),
-        linear_spread_min_cost);
-    setFootprint(costmap_cspace::Polygon(config["footprint"]));
-    if (config.hasMember("keep_unknown"))
-      setKeepUnknown(config["keep_unknown"]);
+        config.linear_expand,
+        config.linear_spread,
+        config.linear_spread_min_cost);
+    setFootprint(config.footprint);
+    setKeepUnknown(config.keep_unknown);
   }
   void setKeepUnknown(const bool keep_unknown)
   {

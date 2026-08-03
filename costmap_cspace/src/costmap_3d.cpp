@@ -32,15 +32,120 @@
 #include <nav_msgs/OccupancyGrid.h>
 #include <sensor_msgs/PointCloud.h>
 
+#include <memory>
+#include <stdexcept>
 #include <string>
-#include <utility>
 #include <vector>
+
+#include <xmlrpcpp/XmlRpcException.h>
 
 #include <costmap_cspace_msgs/CSpace3D.h>
 #include <costmap_cspace_msgs/CSpace3DUpdate.h>
 
-#include <costmap_cspace/costmap_3d.h>
+#include <costmap_cspace/costmap_3d_handler.h>
 #include <neonavigation_common/compatibility.h>
+
+namespace
+{
+// Converts the XmlRpc representation of the "footprint" parameter, an array of
+// [x, y] pairs, into the ROS-neutral polygon used by the costmap logic.
+costmap_cspace::Polygon parseFootprint(XmlRpc::XmlRpcValue footprint_xml)
+{
+  if (footprint_xml.getType() != XmlRpc::XmlRpcValue::TypeArray || footprint_xml.size() < 3)
+  {
+    throw std::runtime_error("Invalid footprint xml.");
+  }
+
+  costmap_cspace::PolygonPoints points;
+  for (int i = 0; i < footprint_xml.size(); i++)
+  {
+    try
+    {
+      costmap_cspace::PolygonPoints::value_type point;
+      point[0] = static_cast<double>(footprint_xml[i][0]);
+      point[1] = static_cast<double>(footprint_xml[i][1]);
+      points.push_back(point);
+    }
+    catch (XmlRpc::XmlRpcException& e)
+    {
+      throw std::runtime_error("Invalid footprint xml." + e.getMessage());
+    }
+  }
+  return costmap_cspace::Polygon(points);
+}
+
+// Converts the XmlRpc representation of one entry of the "layers" or
+// "static_layers" parameter into the ROS-neutral layer spec.
+costmap_cspace::Costmap3dLayerSpec parseLayer(
+    XmlRpc::XmlRpcValue layer_xml,
+    const costmap_cspace::Polygon& default_footprint,
+    const std::string& kind)
+{
+  costmap_cspace::Costmap3dLayerSpec spec;
+  spec.name = static_cast<std::string>(layer_xml["name"]);
+
+  if (layer_xml["overlay_mode"].getType() == XmlRpc::XmlRpcValue::TypeString)
+    spec.overlay_mode = costmap_cspace::getMapOverlayModeFromString(
+        static_cast<std::string>(layer_xml["overlay_mode"]));
+  else
+    ROS_WARN("overlay_mode of the %s is not specified. Using MAX mode.", kind.c_str());
+
+  if (layer_xml["type"].getType() == XmlRpc::XmlRpcValue::TypeString)
+    spec.type = static_cast<std::string>(layer_xml["type"]);
+
+  if (layer_xml.hasMember("footprint"))
+    spec.config.footprint = parseFootprint(layer_xml["footprint"]);
+  else
+    spec.config.footprint = default_footprint;
+
+  if (layer_xml.hasMember("linear_expand"))
+    spec.config.linear_expand = static_cast<double>(layer_xml["linear_expand"]);
+  if (layer_xml.hasMember("linear_spread"))
+    spec.config.linear_spread = static_cast<double>(layer_xml["linear_spread"]);
+  if (layer_xml.hasMember("linear_spread_min_cost"))
+    spec.config.linear_spread_min_cost = static_cast<int>(layer_xml["linear_spread_min_cost"]);
+  if (layer_xml.hasMember("keep_unknown"))
+    spec.config.keep_unknown = static_cast<bool>(layer_xml["keep_unknown"]);
+  if (layer_xml.hasMember("unknown_cost"))
+    spec.config.unknown_cost = static_cast<int>(layer_xml["unknown_cost"]);
+
+  return spec;
+}
+
+std::vector<costmap_cspace::Costmap3dLayerSpec> parseLayers(
+    XmlRpc::XmlRpcValue layers_xml,
+    const costmap_cspace::Polygon& default_footprint,
+    const std::string& param_name,
+    const std::string& kind)
+{
+  if (layers_xml.getType() != XmlRpc::XmlRpcValue::TypeArray || layers_xml.size() < 1)
+  {
+    ROS_FATAL("%s parameter must contain at least one layer config.", param_name.c_str());
+    ROS_ERROR(
+        "Migration from old version:\n"
+        "---  # Old\n"
+        "%s:\n"
+        "  YOUR_LAYER_NAME:\n"
+        "    type: LAYER_TYPE\n"
+        "    parameters: values\n"
+        "---  # New\n"
+        "%s:\n"
+        "  - name: YOUR_LAYER_NAME\n"
+        "    type: LAYER_TYPE\n"
+        "    parameters: values\n"
+        "---\n",
+        param_name.c_str(), param_name.c_str());
+    throw std::runtime_error("layers parameter must contain at least one layer config.");
+  }
+
+  std::vector<costmap_cspace::Costmap3dLayerSpec> specs;
+  for (int i = 0; i < layers_xml.size(); ++i)
+  {
+    specs.push_back(parseLayer(layers_xml[i], default_footprint, kind));
+  }
+  return specs;
+}
+}  // namespace
 
 class Costmap3DOFNode
 {
@@ -55,52 +160,17 @@ protected:
   ros::Publisher pub_debug_;
   ros::Timer timer_footprint_;
 
-  costmap_cspace::Costmap3d::Ptr costmap_;
-  std::vector<
-      std::pair<nav_msgs::OccupancyGrid::ConstPtr,
-                costmap_cspace::Costmap3dLayerBase::Ptr>>
-      map_buffer_;
+  std::unique_ptr<costmap_cspace::Costmap3dHandler> handler_;
 
-  void cbMap(
-      const nav_msgs::OccupancyGrid::ConstPtr& msg,
-      const costmap_cspace::Costmap3dLayerBase::Ptr map)
+  void cbMap(const nav_msgs::OccupancyGrid::ConstPtr& msg)
   {
-    if (map->getAngularGrid() <= 0)
-    {
-      ROS_ERROR("ang_resolution is not set.");
-      std::runtime_error("ang_resolution is not set.");
-    }
-    ROS_INFO("2D costmap received");
-
-    map->setBaseMap(msg);
-    ROS_DEBUG("C-Space costmap generated");
-
-    if (map_buffer_.size() > 0)
-    {
-      for (auto& map : map_buffer_)
-        cbMapOverlay(map.first, map.second);
-      ROS_INFO("%ld buffered costmaps processed", map_buffer_.size());
-      map_buffer_.clear();
-    }
+    handler_->setBaseMap(msg);
   }
   void cbMapOverlay(
       const nav_msgs::OccupancyGrid::ConstPtr& msg,
-      const costmap_cspace::Costmap3dLayerBase::Ptr map)
+      const costmap_cspace::Costmap3dLayerBase::Ptr layer)
   {
-    ROS_DEBUG("Overlay 2D costmap received");
-
-    auto map_msg = map->getMap();
-    if (map_msg->info.width < 1 ||
-        map_msg->info.height < 1)
-    {
-      map_buffer_.push_back(
-          std::pair<nav_msgs::OccupancyGrid::ConstPtr,
-                    costmap_cspace::Costmap3dLayerBase::Ptr>(msg, map));
-      return;
-    }
-
-    map->processMapOverlay(msg, true);
-    ROS_DEBUG("C-Space costmap updated");
+    handler_->processMapOverlay(msg, layer);
   }
   bool cbUpdateStatic(
       const costmap_cspace::CSpace3DMsg::Ptr& map)
@@ -134,25 +204,7 @@ protected:
   {
     if (pub_debug_.getNumSubscribers() == 0)
       return;
-    sensor_msgs::PointCloud pc;
-    pc.header = map.header;
-    pc.header.stamp = ros::Time::now();
-    for (size_t yaw = 0; yaw < map.info.angle; yaw++)
-    {
-      for (unsigned int i = 0; i < map.info.width * map.info.height; i++)
-      {
-        int gx = i % map.info.width;
-        int gy = i / map.info.width;
-        if (map.data[i + yaw * map.info.width * map.info.height] < 100)
-          continue;
-        geometry_msgs::Point32 p;
-        p.x = gx * map.info.linear_resolution + map.info.origin.position.x;
-        p.y = gy * map.info.linear_resolution + map.info.origin.position.y;
-        p.z = yaw * 0.1;
-        pc.points.push_back(p);
-      }
-    }
-    pub_debug_.publish(pc);
+    pub_debug_.publish(costmap_cspace::Costmap3dHandler::generateDebugPointCloud(map));
   }
   void cbPublishFootprint(const ros::TimerEvent& /* event */, const geometry_msgs::PolygonStamped msg)
   {
@@ -161,20 +213,66 @@ protected:
     pub_footprint_.publish(footprint);
   }
 
-  static costmap_cspace::MapOverlayMode getMapOverlayModeFromString(
-      const std::string overlay_mode_str)
+  costmap_cspace::Costmap3dConfig loadConfig()
   {
-    if (overlay_mode_str == "overwrite")
+    costmap_cspace::Costmap3dConfig config;
+
+    pnh_.param("ang_resolution", config.ang_resolution, 16);
+
+    XmlRpc::XmlRpcValue footprint_xml;
+    if (!pnh_.hasParam("footprint"))
     {
-      return costmap_cspace::MapOverlayMode::OVERWRITE;
+      ROS_FATAL("Footprint doesn't specified");
+      throw std::runtime_error("Footprint doesn't specified.");
     }
-    else if (overlay_mode_str == "max")
+    pnh_.getParam("footprint", footprint_xml);
+    try
     {
-      return costmap_cspace::MapOverlayMode::MAX;
+      config.footprint = parseFootprint(footprint_xml);
     }
-    ROS_FATAL("Unknown overlay_mode \"%s\"", overlay_mode_str.c_str());
-    throw std::runtime_error("Unknown overlay_mode.");
-  };
+    catch (const std::exception& e)
+    {
+      ROS_FATAL("Invalid footprint");
+      throw e;
+    }
+
+    pnh_.param("linear_expand", config.linear_expand, 0.2f);
+    pnh_.param("linear_spread", config.linear_spread, 0.5f);
+    pnh_.param("linear_spread_min_cost", config.linear_spread_min_cost, 0);
+
+    if (pnh_.hasParam("static_layers"))
+    {
+      XmlRpc::XmlRpcValue layers_xml;
+      pnh_.getParam("static_layers", layers_xml);
+      config.static_layers = parseLayers(
+          layers_xml, config.footprint, "static_layers", "static layer");
+    }
+
+    if (pnh_.hasParam("layers"))
+    {
+      XmlRpc::XmlRpcValue layers_xml;
+      pnh_.getParam("layers", layers_xml);
+      config.layers = parseLayers(layers_xml, config.footprint, "layers", "layer");
+    }
+    else
+    {
+      // Single layer mode for backward-compatibility
+      std::string overlay_mode_str;
+      pnh_.param("overlay_mode", overlay_mode_str, std::string("max"));
+      costmap_cspace::Costmap3dLayerSpec spec;
+      spec.overlay_mode = costmap_cspace::getMapOverlayModeFromString(overlay_mode_str);
+      ROS_INFO("costmap_3d: %s mode", overlay_mode_str.c_str());
+
+      spec.name = "map_overlay";
+      spec.type = "Costmap3dLayerFootprint";
+      spec.config.footprint = config.footprint;
+      spec.config.linear_expand = config.linear_expand;
+      spec.config.linear_spread = config.linear_spread;
+      config.layers.push_back(spec);
+    }
+
+    return config;
+  }
 
 public:
   Costmap3DOFNode()
@@ -191,196 +289,23 @@ public:
     pub_footprint_ = pnh_.advertise<geometry_msgs::PolygonStamped>("footprint", 2, true);
     pub_debug_ = pnh_.advertise<sensor_msgs::PointCloud>("debug", 1, true);
 
-    int ang_resolution;
-    pnh_.param("ang_resolution", ang_resolution, 16);
-
-    XmlRpc::XmlRpcValue footprint_xml;
-    if (!pnh_.hasParam("footprint"))
-    {
-      ROS_FATAL("Footprint doesn't specified");
-      throw std::runtime_error("Footprint doesn't specified.");
-    }
-    pnh_.getParam("footprint", footprint_xml);
-    costmap_cspace::Polygon footprint;
-    try
-    {
-      footprint = costmap_cspace::Polygon(footprint_xml);
-    }
-    catch (const std::exception& e)
-    {
-      ROS_FATAL("Invalid footprint");
-      throw e;
-    }
-
-    costmap_.reset(new costmap_cspace::Costmap3d(ang_resolution));
-
-    auto root_layer = costmap_->addRootLayer<costmap_cspace::Costmap3dLayerFootprint>();
-    float linear_expand;
-    float linear_spread;
-    pnh_.param("linear_expand", linear_expand, 0.2f);
-    pnh_.param("linear_spread", linear_spread, 0.5f);
-    int linear_spread_min_cost;
-    pnh_.param("linear_spread_min_cost", linear_spread_min_cost, 0);
-    root_layer->setExpansion(linear_expand, linear_spread, linear_spread_min_cost);
-    root_layer->setFootprint(footprint);
-
-    if (pnh_.hasParam("static_layers"))
-    {
-      XmlRpc::XmlRpcValue layers_xml;
-      pnh_.getParam("static_layers", layers_xml);
-
-      if (layers_xml.getType() != XmlRpc::XmlRpcValue::TypeArray || layers_xml.size() < 1)
-      {
-        ROS_FATAL("static_layers parameter must contain at least one layer config.");
-        ROS_ERROR(
-            "Migration from old version:\n"
-            "---  # Old\n"
-            "static_layers:\n"
-            "  YOUR_LAYER_NAME:\n"
-            "    type: LAYER_TYPE\n"
-            "    parameters: values\n"
-            "---  # New\n"
-            "static_layers:\n"
-            "  - name: YOUR_LAYER_NAME\n"
-            "    type: LAYER_TYPE\n"
-            "    parameters: values\n"
-            "---\n");
-        throw std::runtime_error("layers parameter must contain at least one layer config.");
-      }
-      for (int i = 0; i < layers_xml.size(); ++i)
-      {
-        auto layer_xml = std::pair<std::string, XmlRpc::XmlRpcValue>(
-            layers_xml[i]["name"], layers_xml[i]);
-        ROS_INFO("New static layer: %s", layer_xml.first.c_str());
-
-        costmap_cspace::MapOverlayMode overlay_mode(costmap_cspace::MapOverlayMode::MAX);
-        if (layer_xml.second["overlay_mode"].getType() == XmlRpc::XmlRpcValue::TypeString)
-          overlay_mode = getMapOverlayModeFromString(
-              layer_xml.second["overlay_mode"]);
-        else
-          ROS_WARN("overlay_mode of the static layer is not specified. Using MAX mode.");
-
-        std::string type;
-        if (layer_xml.second["type"].getType() == XmlRpc::XmlRpcValue::TypeString)
-          type = std::string(layer_xml.second["type"]);
-        else
-        {
-          ROS_FATAL("Layer type is not specified.");
-          throw std::runtime_error("Layer type is not specified.");
-        }
-
-        if (!layer_xml.second.hasMember("footprint"))
-          layer_xml.second["footprint"] = footprint_xml;
-
-        costmap_cspace::Costmap3dLayerBase::Ptr layer =
-            costmap_cspace::Costmap3dLayerClassLoader::loadClass(type);
-        costmap_->addLayer(layer, overlay_mode);
-        layer->loadConfig(layer_xml.second);
-
-        sub_map_overlay_.push_back(nh_.subscribe<nav_msgs::OccupancyGrid>(
-            layer_xml.first, 1,
-            boost::bind(&Costmap3DOFNode::cbMapOverlay, this, _1, layer)));
-      }
-    }
-
-    auto static_output_layer = costmap_->addLayer<costmap_cspace::Costmap3dStaticLayerOutput>();
-    static_output_layer->setHandler(boost::bind(&Costmap3DOFNode::cbUpdateStatic, this, _1));
+    handler_.reset(new costmap_cspace::Costmap3dHandler(loadConfig()));
+    handler_->setStaticOutputCallback(
+        boost::bind(&Costmap3DOFNode::cbUpdateStatic, this, _1));
+    handler_->setUpdateOutputCallback(
+        boost::bind(&Costmap3DOFNode::cbUpdate, this, _1, _2));
 
     sub_map_ = nh_.subscribe<nav_msgs::OccupancyGrid>(
         "map", 1,
-        boost::bind(&Costmap3DOFNode::cbMap, this, _1, root_layer));
-
-    if (pnh_.hasParam("layers"))
+        boost::bind(&Costmap3DOFNode::cbMap, this, _1));
+    for (const costmap_cspace::Costmap3dHandler::OverlayLayer& overlay : handler_->getOverlayLayers())
     {
-      XmlRpc::XmlRpcValue layers_xml;
-      pnh_.getParam("layers", layers_xml);
-
-      if (layers_xml.getType() != XmlRpc::XmlRpcValue::TypeArray || layers_xml.size() < 1)
-      {
-        ROS_FATAL("layers parameter must contain at least one layer config.");
-        ROS_ERROR(
-            "Migration from old version:\n"
-            "---  # Old\n"
-            "layers:\n"
-            "  YOUR_LAYER_NAME:\n"
-            "    type: LAYER_TYPE\n"
-            "    parameters: values\n"
-            "---  # New\n"
-            "layers:\n"
-            "  - name: YOUR_LAYER_NAME\n"
-            "    type: LAYER_TYPE\n"
-            "    parameters: values\n"
-            "---\n");
-        throw std::runtime_error("layers parameter must contain at least one layer config.");
-      }
-      for (int i = 0; i < layers_xml.size(); ++i)
-      {
-        auto layer_xml = std::pair<std::string, XmlRpc::XmlRpcValue>(
-            layers_xml[i]["name"], layers_xml[i]);
-        ROS_INFO("New layer: %s", layer_xml.first.c_str());
-
-        costmap_cspace::MapOverlayMode overlay_mode(costmap_cspace::MapOverlayMode::MAX);
-        if (layer_xml.second["overlay_mode"].getType() == XmlRpc::XmlRpcValue::TypeString)
-          overlay_mode = getMapOverlayModeFromString(
-              layer_xml.second["overlay_mode"]);
-        else
-          ROS_WARN("overlay_mode of the layer is not specified. Using MAX mode.");
-
-        std::string type;
-        if (layer_xml.second["type"].getType() == XmlRpc::XmlRpcValue::TypeString)
-          type = std::string(layer_xml.second["type"]);
-        else
-        {
-          ROS_FATAL("Layer type is not specified.");
-          throw std::runtime_error("Layer type is not specified.");
-        }
-
-        if (!layer_xml.second.hasMember("footprint"))
-          layer_xml.second["footprint"] = footprint_xml;
-
-        costmap_cspace::Costmap3dLayerBase::Ptr layer =
-            costmap_cspace::Costmap3dLayerClassLoader::loadClass(type);
-        costmap_->addLayer(layer, overlay_mode);
-        layer->loadConfig(layer_xml.second);
-
-        sub_map_overlay_.push_back(nh_.subscribe<nav_msgs::OccupancyGrid>(
-            layer_xml.first, 1,
-            boost::bind(&Costmap3DOFNode::cbMapOverlay, this, _1, layer)));
-      }
-    }
-    else
-    {
-      // Single layer mode for backward-compatibility
-      costmap_cspace::MapOverlayMode overlay_mode;
-      std::string overlay_mode_str;
-      pnh_.param("overlay_mode", overlay_mode_str, std::string("max"));
-      if (overlay_mode_str.compare("overwrite") == 0)
-        overlay_mode = costmap_cspace::MapOverlayMode::OVERWRITE;
-      else if (overlay_mode_str.compare("max") == 0)
-        overlay_mode = costmap_cspace::MapOverlayMode::MAX;
-      else
-      {
-        ROS_FATAL("Unknown overlay_mode \"%s\"", overlay_mode_str.c_str());
-        throw std::runtime_error("Unknown overlay_mode.");
-      }
-      ROS_INFO("costmap_3d: %s mode", overlay_mode_str.c_str());
-
-      XmlRpc::XmlRpcValue layer_xml;
-      layer_xml["footprint"] = footprint_xml;
-      layer_xml["linear_expand"] = linear_expand;
-      layer_xml["linear_spread"] = linear_spread;
-
-      auto layer = costmap_->addLayer<costmap_cspace::Costmap3dLayerFootprint>(overlay_mode);
-      layer->loadConfig(layer_xml);
       sub_map_overlay_.push_back(nh_.subscribe<nav_msgs::OccupancyGrid>(
-          "map_overlay", 1,
-          boost::bind(&Costmap3DOFNode::cbMapOverlay, this, _1, layer)));
+          overlay.name, 1,
+          boost::bind(&Costmap3DOFNode::cbMapOverlay, this, _1, overlay.layer)));
     }
 
-    auto update_output_layer = costmap_->addLayer<costmap_cspace::Costmap3dUpdateLayerOutput>();
-    update_output_layer->setHandler(boost::bind(&Costmap3DOFNode::cbUpdate, this, _1, _2));
-
-    const geometry_msgs::PolygonStamped footprint_msg = footprint.toMsg();
+    const geometry_msgs::PolygonStamped footprint_msg = handler_->getFootprintMsg();
     timer_footprint_ = nh_.createTimer(
         ros::Duration(1.0),
         boost::bind(&Costmap3DOFNode::cbPublishFootprint, this, _1, footprint_msg));

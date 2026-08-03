@@ -54,12 +54,9 @@ public:
     : unknown_cost_(-1)
   {
   }
-  void loadConfig(XmlRpc::XmlRpcValue config)
+  void loadConfig(const Costmap3dLayerConfig& config)
   {
-    if (config.hasMember("unknown_cost"))
-    {
-      unknown_cost_ = static_cast<int>(config["unknown_cost"]);
-    }
+    unknown_cost_ = static_cast<int8_t>(config.unknown_cost);
   }
   void setMapMetaData(const costmap_cspace_msgs::MapMetaData3D& /* info */)
   {

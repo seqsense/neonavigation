@@ -44,6 +44,8 @@
 #include <costmap_cspace_msgs/CSpace3D.h>
 #include <costmap_cspace_msgs/CSpace3DUpdate.h>
 
+#include <costmap_cspace/polygon.h>
+
 namespace costmap_cspace
 {
 class CSpace3DMsg : public costmap_cspace_msgs::CSpace3D
@@ -97,6 +99,21 @@ enum MapOverlayMode
 {
   OVERWRITE,
   MAX
+};
+
+// ROS-neutral configuration of a single costmap layer.
+// The ROS interface layer parses its own parameter representation into this
+// struct; the layer implementations never see a ROS parameter type.
+// Every member has the same default value as the one applied by the layer
+// implementations when the corresponding parameter was omitted.
+struct Costmap3dLayerConfig
+{
+  Polygon footprint;
+  double linear_expand = 0.0;
+  double linear_spread = 0.0;
+  int linear_spread_min_cost = 0;
+  bool keep_unknown = false;
+  int unknown_cost = -1;
 };
 
 class UpdatedRegion
@@ -277,7 +294,7 @@ public:
   {
   }
 
-  virtual void loadConfig(XmlRpc::XmlRpcValue config) = 0;
+  virtual void loadConfig(const Costmap3dLayerConfig& config) = 0;
   virtual void setMapMetaData(const costmap_cspace_msgs::MapMetaData3D& info) = 0;
 
   void setAngleResolution(

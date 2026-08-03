@@ -31,7 +31,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include_directories(include ${catkin_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/include/costmap_cspace)
 
-add_library(costmap_3d_layers src/costmap_3d_layers.cpp)
+add_library(costmap_3d_layers
+  src/costmap_3d_layers.cpp
+  src/costmap_3d_handler.cpp
+)
 target_link_libraries(costmap_3d_layers ${catkin_LIBRARIES})
 add_dependencies(costmap_3d_layers ${catkin_EXPORTED_TARGETS})
 
