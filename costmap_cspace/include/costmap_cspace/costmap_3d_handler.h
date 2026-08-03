@@ -36,14 +36,16 @@
 #include <utility>
 #include <vector>
 
-#include <geometry_msgs/PolygonStamped.h>
-#include <nav_msgs/OccupancyGrid.h>
-#include <sensor_msgs/PointCloud.h>
+#include "geometry_msgs/msg/polygon_stamped.hpp"
+#include "nav_msgs/msg/occupancy_grid.hpp"
+#include "sensor_msgs/msg/point_cloud.hpp"
 
-#include <costmap_cspace_msgs/CSpace3D.h>
-#include <costmap_cspace_msgs/CSpace3DUpdate.h>
+#include "costmap_cspace_msgs/msg/c_space3_d.hpp"
+#include "costmap_cspace_msgs/msg/c_space3_d_update.hpp"
 
-#include <costmap_cspace/costmap_3d.h>
+#include "rclcpp/rclcpp.hpp"
+
+#include "costmap_cspace/costmap_3d.h"
 
 namespace costmap_cspace
 {
@@ -94,9 +96,10 @@ public:
   using StaticOutputCallback =
       std::function<bool(const CSpace3DMsg::Ptr&)>;
   using UpdateOutputCallback =
-      std::function<bool(const CSpace3DMsg::Ptr&, const costmap_cspace_msgs::CSpace3DUpdate::Ptr&)>;
+      std::function<bool(const CSpace3DMsg::Ptr&,
+                         const std::shared_ptr<costmap_cspace_msgs::msg::CSpace3DUpdate>&)>;
 
-  explicit Costmap3dHandler(const Costmap3dConfig& config);
+  Costmap3dHandler(const Costmap3dConfig& config, const rclcpp::Logger& logger);
 
   void setStaticOutputCallback(StaticOutputCallback cb);
   void setUpdateOutputCallback(UpdateOutputCallback cb);
@@ -105,7 +108,7 @@ public:
   {
     return overlay_layers_;
   }
-  const geometry_msgs::PolygonStamped& getFootprintMsg() const
+  const geometry_msgs::msg::PolygonStamped& getFootprintMsg() const
   {
     return footprint_msg_;
   }
@@ -116,27 +119,30 @@ public:
 
   // Sets the base (static) map of the chain and flushes the overlay maps
   // which arrived before the base map was available.
-  void setBaseMap(const nav_msgs::OccupancyGrid::ConstPtr& msg);
+  void setBaseMap(const std::shared_ptr<const nav_msgs::msg::OccupancyGrid>& msg);
   // Applies an overlay map to the given layer. The map is buffered when the
   // base map has not been received yet.
   void processMapOverlay(
-      const nav_msgs::OccupancyGrid::ConstPtr& msg,
+      const std::shared_ptr<const nav_msgs::msg::OccupancyGrid>& msg,
       const Costmap3dLayerBase::Ptr& layer);
 
   // Builds the point cloud visualizing the occupied cells of the costmap.
-  static sensor_msgs::PointCloud generateDebugPointCloud(const costmap_cspace_msgs::CSpace3D& map);
+  static sensor_msgs::msg::PointCloud generateDebugPointCloud(
+      const costmap_cspace_msgs::msg::CSpace3D& map);
 
 protected:
+  rclcpp::Logger logger_;
+
   Costmap3d::Ptr costmap_;
   Costmap3dLayerFootprint::Ptr root_layer_;
   Costmap3dStaticLayerOutput::Ptr static_output_layer_;
   Costmap3dUpdateLayerOutput::Ptr update_output_layer_;
   std::vector<OverlayLayer> overlay_layers_;
   std::vector<
-      std::pair<nav_msgs::OccupancyGrid::ConstPtr,
+      std::pair<std::shared_ptr<const nav_msgs::msg::OccupancyGrid>,
                 Costmap3dLayerBase::Ptr>>
       map_buffer_;
-  geometry_msgs::PolygonStamped footprint_msg_;
+  geometry_msgs::msg::PolygonStamped footprint_msg_;
 
   void addOverlayLayer(const Costmap3dLayerSpec& spec);
 };

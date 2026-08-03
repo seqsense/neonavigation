@@ -42,6 +42,9 @@
 #include <costmap_cspace_msgs/CSpace3D.h>
 #include <costmap_cspace_msgs/CSpace3DUpdate.h>
 
+#include <sq_ros1_compat/logger.hpp>
+#include <sq_ros1_compat/msg_ptr.hpp>
+
 #include <costmap_cspace/costmap_3d_handler.h>
 #include <neonavigation_common/compatibility.h>
 
@@ -164,13 +167,13 @@ protected:
 
   void cbMap(const nav_msgs::OccupancyGrid::ConstPtr& msg)
   {
-    handler_->setBaseMap(msg);
+    handler_->setBaseMap(sq_ros1_compat::to_std(msg));
   }
   void cbMapOverlay(
       const nav_msgs::OccupancyGrid::ConstPtr& msg,
       const costmap_cspace::Costmap3dLayerBase::Ptr layer)
   {
-    handler_->processMapOverlay(msg, layer);
+    handler_->processMapOverlay(sq_ros1_compat::to_std(msg), layer);
   }
   bool cbUpdateStatic(
       const costmap_cspace::CSpace3DMsg::Ptr& map)
@@ -181,7 +184,7 @@ protected:
   }
   bool cbUpdate(
       const costmap_cspace::CSpace3DMsg::Ptr& map,
-      const costmap_cspace_msgs::CSpace3DUpdate::Ptr& update)
+      const std::shared_ptr<costmap_cspace_msgs::CSpace3DUpdate>& update)
   {
     if (update)
     {
@@ -289,7 +292,8 @@ public:
     pub_footprint_ = pnh_.advertise<geometry_msgs::PolygonStamped>("footprint", 2, true);
     pub_debug_ = pnh_.advertise<sensor_msgs::PointCloud>("debug", 1, true);
 
-    handler_.reset(new costmap_cspace::Costmap3dHandler(loadConfig()));
+    handler_.reset(new costmap_cspace::Costmap3dHandler(
+        loadConfig(), sq_ros1_compat::get_logger("costmap_3d")));
     handler_->setStaticOutputCallback(
         boost::bind(&Costmap3DOFNode::cbUpdateStatic, this, _1));
     handler_->setUpdateOutputCallback(

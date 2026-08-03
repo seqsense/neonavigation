@@ -30,18 +30,17 @@
 #ifndef COSTMAP_CSPACE_COSTMAP_3D_H
 #define COSTMAP_CSPACE_COSTMAP_3D_H
 
+#include <cassert>
 #include <memory>
 #include <vector>
 
-#include <ros/ros.h>
+#include "costmap_cspace/costmap_3d_layer/footprint.h"
+#include "costmap_cspace/costmap_3d_layer/plain.h"
+#include "costmap_cspace/costmap_3d_layer/output.h"
+#include "costmap_cspace/costmap_3d_layer/stop_propagation.h"
+#include "costmap_cspace/costmap_3d_layer/unknown_handle.h"
 
-#include <costmap_cspace/costmap_3d_layer/footprint.h>
-#include <costmap_cspace/costmap_3d_layer/plain.h>
-#include <costmap_cspace/costmap_3d_layer/output.h>
-#include <costmap_cspace/costmap_3d_layer/stop_propagation.h>
-#include <costmap_cspace/costmap_3d_layer/unknown_handle.h>
-
-#include <costmap_cspace/costmap_3d_layer/class_loader.h>
+#include "costmap_cspace/costmap_3d_layer/class_loader.h"
 
 namespace costmap_cspace
 {
@@ -58,7 +57,7 @@ public:
   {
     ang_resolution_ = ang_resolution;
 
-    ROS_ASSERT(ang_resolution_ > 0);
+    assert(ang_resolution_ > 0);
   }
   template <typename T>
   typename T::Ptr addRootLayer()

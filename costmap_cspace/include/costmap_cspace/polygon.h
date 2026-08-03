@@ -31,15 +31,15 @@
 #define COSTMAP_CSPACE_POLYGON_H
 
 #include <array>
+#include <cassert>
 #include <cmath>
 #include <limits>
 #include <stdexcept>
 #include <utility>
 #include <vector>
 
-#include <ros/ros.h>
-
-#include <geometry_msgs/PolygonStamped.h>
+#include "geometry_msgs/msg/point32.hpp"
+#include "geometry_msgs/msg/polygon_stamped.hpp"
 
 namespace costmap_cspace
 {
@@ -49,12 +49,12 @@ public:
   float c[2];
   float& operator[](const int& i)
   {
-    ROS_ASSERT(i < 2);
+    assert(i < 2);
     return c[i];
   }
   const float& operator[](const int& i) const
   {
-    ROS_ASSERT(i < 2);
+    assert(i < 2);
     return c[i];
   }
   Vec operator-(const Vec& a) const
@@ -119,15 +119,15 @@ public:
     }
     v.push_back(v.front());
   }
-  geometry_msgs::PolygonStamped toMsg() const
+  geometry_msgs::msg::PolygonStamped toMsg() const
   {
-    geometry_msgs::PolygonStamped msg;
+    geometry_msgs::msg::PolygonStamped msg;
 
     msg.polygon.points.clear();
     msg.header.frame_id = "base_link";
     for (const auto& p : v)
     {
-      geometry_msgs::Point32 point;
+      geometry_msgs::msg::Point32 point;
       point.x = p[0];
       point.y = p[1];
       point.z = 0;

@@ -30,9 +30,9 @@
 #ifndef COSTMAP_CSPACE_POINTCLOUD_ACCUMULATOR_H
 #define COSTMAP_CSPACE_POINTCLOUD_ACCUMULATOR_H
 
-#include <ros/ros.h>
-
 #include <list>
+
+#include "rclcpp/rclcpp.hpp"
 
 namespace costmap_cspace
 {
@@ -43,25 +43,29 @@ public:
   class Points : public T
   {
   public:
-    ros::Time stamp_;
+    rclcpp::Time stamp_;
 
-    Points(const T& points, const ros::Time& stamp)
+    Points(const T& points, const rclcpp::Time& stamp)
       : T(points)
       , stamp_(stamp)
     {
     }
   };
 
+  // rclcpp::Duration has no default constructor, so time_to_hold_ is
+  // explicitly zero-initialized here and later set through reset().
   PointcloudAccumulator()
+    : time_to_hold_(0, 0)
   {
   }
 
-  explicit PointcloudAccumulator(const ros::Duration& duration)
+  explicit PointcloudAccumulator(const rclcpp::Duration& duration)
+    : time_to_hold_(0, 0)
   {
     reset(duration);
   }
 
-  void reset(const ros::Duration& duration)
+  void reset(const rclcpp::Duration& duration)
   {
     time_to_hold_ = duration;
     clear();
@@ -105,7 +109,7 @@ public:
   }
 
 protected:
-  ros::Duration time_to_hold_;
+  rclcpp::Duration time_to_hold_;
   std::list<Points> points_;
 };
 

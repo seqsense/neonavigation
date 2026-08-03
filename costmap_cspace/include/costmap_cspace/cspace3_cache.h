@@ -30,9 +30,9 @@
 #ifndef COSTMAP_CSPACE_CSPACE3_CACHE_H
 #define COSTMAP_CSPACE_CSPACE3_CACHE_H
 
+#include <cassert>
+#include <cstring>
 #include <memory>
-
-#include <ros/ros.h>
 
 namespace costmap_cspace
 {
@@ -64,7 +64,7 @@ public:
     center_[2] = 0;
     array_size_ = size_[0] * size_[1] * size_[2];
     c_.reset(new char[array_size_]);
-    memset(c_.get(), 0, array_size_ * sizeof(char));
+    std::memset(c_.get(), 0, array_size_ * sizeof(char));
     stride_[0] = 1;
     stride_[1] = size_[0];
     stride_[2] = size_[0] * size_[1];
@@ -73,14 +73,14 @@ public:
   char& e(const int& x, const int& y, const int& yaw)
   {
     const size_t addr = yaw * stride_[2] + (y + center_[1]) * stride_[1] + (x + center_[0]);
-    ROS_ASSERT(addr < array_size_);
+    assert(addr < array_size_);
 
     return c_[addr];
   }
   const char& e(const int& x, const int& y, const int& yaw) const
   {
     const size_t addr = yaw * stride_[2] + (y + center_[1]) * stride_[1] + (x + center_[0]);
-    ROS_ASSERT(addr < array_size_);
+    assert(addr < array_size_);
 
     return c_[addr];
   }

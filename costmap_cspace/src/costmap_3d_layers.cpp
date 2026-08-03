@@ -27,12 +27,10 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <ros/ros.h>
-
 #include <string>
 #include <vector>
 
-#include <costmap_cspace/costmap_3d.h>
+#include "costmap_cspace/costmap_3d.h"
 
 COSTMAP_3D_LAYER_CLASS_LOADER_ENABLE();
 

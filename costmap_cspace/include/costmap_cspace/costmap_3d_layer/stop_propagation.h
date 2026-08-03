@@ -32,12 +32,16 @@
 
 #include <memory>
 
-#include <geometry_msgs/PolygonStamped.h>
-#include <nav_msgs/OccupancyGrid.h>
-#include <costmap_cspace_msgs/CSpace3D.h>
-#include <costmap_cspace_msgs/CSpace3DUpdate.h>
+#include "geometry_msgs/msg/polygon_stamped.hpp"
+#include "nav_msgs/msg/occupancy_grid.hpp"
 
-#include <costmap_cspace/costmap_3d_layer/base.h>
+#include "costmap_cspace_msgs/msg/c_space3_d.hpp"
+#include "costmap_cspace_msgs/msg/c_space3_d_update.hpp"
+#include "costmap_cspace_msgs/msg/map_meta_data3_d.hpp"
+
+#include "rclcpp/rclcpp.hpp"
+
+#include "costmap_cspace/costmap_3d_layer/base.h"
 
 namespace costmap_cspace
 {
@@ -50,7 +54,7 @@ public:
   void loadConfig(const Costmap3dLayerConfig& /* config */)
   {
   }
-  void setMapMetaData(const costmap_cspace_msgs::MapMetaData3D& /* info */)
+  void setMapMetaData(const costmap_cspace_msgs::msg::MapMetaData3D& /* info */)
   {
   }
 
@@ -62,13 +66,14 @@ protected:
   bool updateChain(const bool /* output */)
   {
     region_ = UpdatedRegion(
-        0, 0, 0, map_->info.width, map_->info.height, map_->info.angle, ros::Time(0));
+        0, 0, 0, map_->info.width, map_->info.height, map_->info.angle,
+        rclcpp::Time(0, 0, RCL_ROS_TIME));
     for (auto& c : map_overlay_->data)
       c = -1;
     return false;
   }
   void updateCSpace(
-      const nav_msgs::OccupancyGrid::ConstPtr& /* map */,
+      const std::shared_ptr<const nav_msgs::msg::OccupancyGrid>& /* map */,
       const UpdatedRegion& /* region */)
   {
   }
