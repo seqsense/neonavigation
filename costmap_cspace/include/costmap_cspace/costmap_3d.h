@@ -27,20 +27,19 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef COSTMAP_CSPACE_COSTMAP_3D_H
-#define COSTMAP_CSPACE_COSTMAP_3D_H
+#ifndef COSTMAP_CSPACE__COSTMAP_3D_H_
+#define COSTMAP_CSPACE__COSTMAP_3D_H_
 
 #include <cassert>
 #include <memory>
 #include <vector>
 
+#include "costmap_cspace/costmap_3d_layer/class_loader.h"
 #include "costmap_cspace/costmap_3d_layer/footprint.h"
-#include "costmap_cspace/costmap_3d_layer/plain.h"
 #include "costmap_cspace/costmap_3d_layer/output.h"
+#include "costmap_cspace/costmap_3d_layer/plain.h"
 #include "costmap_cspace/costmap_3d_layer/stop_propagation.h"
 #include "costmap_cspace/costmap_3d_layer/unknown_handle.h"
-
-#include "costmap_cspace/costmap_3d_layer/class_loader.h"
 
 namespace costmap_cspace
 {
@@ -62,8 +61,7 @@ public:
   template <typename T>
   typename T::Ptr addRootLayer()
   {
-    typename T::Ptr
-        costmap_base(new T);
+    typename T::Ptr costmap_base(new T);
 
     costmap_base->setAngleResolution(ang_resolution_);
 
@@ -75,8 +73,7 @@ public:
     return costmap_base;
   }
   template <typename T>
-  typename T::Ptr addLayer(
-      const MapOverlayMode overlay_mode = MapOverlayMode::MAX)
+  typename T::Ptr addLayer(const MapOverlayMode overlay_mode = MapOverlayMode::MAX)
   {
     typename T::Ptr costmap_overlay(new T);
     costmap_overlay->setAngleResolution(ang_resolution_);
@@ -88,8 +85,8 @@ public:
     return costmap_overlay;
   }
   Costmap3dLayerBase::Ptr addLayer(
-      Costmap3dLayerBase::Ptr costmap_overlay,
-      const MapOverlayMode overlay_mode = MapOverlayMode::MAX)
+    Costmap3dLayerBase::Ptr costmap_overlay,
+    const MapOverlayMode overlay_mode = MapOverlayMode::MAX)
   {
     costmap_overlay->setAngleResolution(ang_resolution_);
     costmap_overlay->setOverlayMode(overlay_mode);
@@ -99,11 +96,8 @@ public:
 
     return costmap_overlay;
   }
-  Costmap3dLayerBase::Ptr getRootLayer()
-  {
-    return costmaps_.front();
-  }
+  Costmap3dLayerBase::Ptr getRootLayer() { return costmaps_.front(); }
 };
 }  // namespace costmap_cspace
 
-#endif  // COSTMAP_CSPACE_COSTMAP_3D_H
+#endif  // COSTMAP_CSPACE__COSTMAP_3D_H_

@@ -27,20 +27,19 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <ros/ros.h>
+#include <costmap_cspace/pointcloud_accumulator.h>
 #include <laser_geometry/laser_geometry.h>
 #include <nav_msgs/OccupancyGrid.h>
-#include <sensor_msgs/point_cloud2_iterator.h>
+#include <neonavigation_common/compatibility.h>
+#include <ros/ros.h>
 #include <sensor_msgs/LaserScan.h>
+#include <sensor_msgs/point_cloud2_iterator.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_sensor_msgs/tf2_sensor_msgs.h>
 
 #include <limits>
 #include <string>
-
-#include <costmap_cspace/pointcloud_accumulator.h>
-#include <neonavigation_common/compatibility.h>
 
 class LaserscanToMapNode
 {
@@ -69,10 +68,7 @@ private:
   costmap_cspace::PointcloudAccumulator<sensor_msgs::PointCloud2> accum_;
 
 public:
-  LaserscanToMapNode()
-    : nh_()
-    , pnh_("~")
-    , tfl_(tfbuf_)
+  LaserscanToMapNode() : nh_(), pnh_("~"), tfl_(tfbuf_)
   {
     neonavigation_common::compat::checkCompatMode();
     pnh_.param("z_min", z_min_, std::numeric_limits<double>::lowest());
@@ -85,8 +81,7 @@ public:
     accum_.reset(ros::Duration(accum_duration));
 
     pub_map_ = neonavigation_common::compat::advertise<nav_msgs::OccupancyGrid>(
-        nh_, "map_local",
-        pnh_, "map", 1, true);
+      nh_, "map_local", pnh_, "map", 1, true);
     sub_scan_ = nh_.subscribe("scan", 2, &LaserscanToMapNode::cbScan, this);
 
     int width_param;
@@ -107,32 +102,27 @@ public:
   }
 
 private:
-  void cbScan(const sensor_msgs::LaserScan::ConstPtr& scan)
+  void cbScan(const sensor_msgs::LaserScan::ConstPtr & scan)
   {
     sensor_msgs::PointCloud2 cloud;
     sensor_msgs::PointCloud2 cloud_global;
     projector_.projectLaser(*scan, cloud);
-    try
-    {
+    try {
       geometry_msgs::TransformStamped trans = tfbuf_.lookupTransform(
-          global_frame_, cloud.header.frame_id, cloud.header.stamp, ros::Duration(0.5));
+        global_frame_, cloud.header.frame_id, cloud.header.stamp, ros::Duration(0.5));
       tf2::doTransform(cloud, cloud_global, trans);
-    }
-    catch (tf2::TransformException& e)
-    {
+    } catch (tf2::TransformException & e) {
       ROS_WARN("%s", e.what());
     }
     accum_.push(costmap_cspace::PointcloudAccumurator<sensor_msgs::PointCloud2>::Points(
-        cloud_global, cloud_global.header.stamp));
+      cloud_global, cloud_global.header.stamp));
 
     ros::Time now = scan->header.stamp;
-    if (published_ + publish_interval_ > now)
-      return;
+    if (published_ + publish_interval_ > now) return;
     published_ = now;
 
     float robot_z;
-    try
-    {
+    try {
       tf2::Stamped<tf2::Transform> trans;
       tf2::fromMsg(tfbuf_.lookupTransform(global_frame_, robot_frame_, ros::Time(0)), trans);
 
@@ -146,30 +136,21 @@ private:
       origin_x_ = x - width_ * map.info.resolution * 0.5;
       origin_y_ = y - height_ * map.info.resolution * 0.5;
       robot_z = pos.z();
-    }
-    catch (tf2::TransformException& e)
-    {
+    } catch (tf2::TransformException & e) {
       ROS_WARN("%s", e.what());
       return;
     }
-    for (auto& cell : map.data)
-      cell = 0;
+    for (auto & cell : map.data) cell = 0;
 
-    for (auto& pc : accum_)
-    {
+    for (auto & pc : accum_) {
       auto itr_x = sensor_msgs::PointCloud2ConstIterator<float>(pc, "x");
       auto itr_y = sensor_msgs::PointCloud2ConstIterator<float>(pc, "y");
       auto itr_z = sensor_msgs::PointCloud2ConstIterator<float>(pc, "z");
-      for (; itr_x != itr_x.end(); ++itr_x, ++itr_y)
-      {
-        if (*itr_z - robot_z < z_min_ || z_max_ < *itr_z - robot_z)
-          continue;
-        unsigned int x = int(
-            (*itr_x - map.info.origin.position.x) / map.info.resolution);
-        unsigned int y = int(
-            (*itr_y - map.info.origin.position.y) / map.info.resolution);
-        if (x >= map.info.width || y >= map.info.height)
-          continue;
+      for (; itr_x != itr_x.end(); ++itr_x, ++itr_y) {
+        if (*itr_z - robot_z < z_min_ || z_max_ < *itr_z - robot_z) continue;
+        unsigned int x = int((*itr_x - map.info.origin.position.x) / map.info.resolution);
+        unsigned int y = int((*itr_y - map.info.origin.position.y) / map.info.resolution);
+        if (x >= map.info.width || y >= map.info.height) continue;
         map.data[x + y * map.info.width] = 100;
       }
     }
@@ -178,7 +159,7 @@ private:
   }
 };
 
-int main(int argc, char** argv)
+int main(int argc, char ** argv)
 {
   ros::init(argc, argv, "laserscan_to_map");
 

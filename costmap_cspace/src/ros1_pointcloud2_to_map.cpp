@@ -27,19 +27,17 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <costmap_cspace/pointcloud_accumulator.h>
+#include <nav_msgs/OccupancyGrid.h>
+#include <neonavigation_common/compatibility.h>
 #include <ros/ros.h>
-
+#include <sensor_msgs/PointCloud2.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_sensor_msgs/tf2_sensor_msgs.h>
-#include <nav_msgs/OccupancyGrid.h>
-#include <sensor_msgs/PointCloud2.h>
 
 #include <string>
 #include <vector>
-
-#include <costmap_cspace/pointcloud_accumulator.h>
-#include <neonavigation_common/compatibility.h>
 
 class Pointcloud2ToMapNode
 {
@@ -68,11 +66,7 @@ private:
   std::vector<costmap_cspace::PointcloudAccumulator<sensor_msgs::PointCloud2>> accums_;
 
 public:
-  Pointcloud2ToMapNode()
-    : nh_()
-    , pnh_("~")
-    , tfl_(tfbuf_)
-    , accums_(2)
+  Pointcloud2ToMapNode() : nh_(), pnh_("~"), tfl_(tfbuf_), accums_(2)
   {
     neonavigation_common::compat::checkCompatMode();
     pnh_.param("z_min", z_min_, 0.1);
@@ -86,14 +80,11 @@ public:
     accums_[1].reset(ros::Duration(0.0));
 
     pub_map_ = neonavigation_common::compat::advertise<nav_msgs::OccupancyGrid>(
-        nh_, "map_local",
-        pnh_, "map", 1, true);
+      nh_, "map_local", pnh_, "map", 1, true);
     sub_cloud_ = nh_.subscribe<sensor_msgs::PointCloud2>(
-        "cloud", 100,
-        boost::bind(&Pointcloud2ToMapNode::cbCloud, this, _1, false));
+      "cloud", 100, boost::bind(&Pointcloud2ToMapNode::cbCloud, this, _1, false));
     sub_cloud_single_ = nh_.subscribe<sensor_msgs::PointCloud2>(
-        "cloud_singleshot", 100,
-        boost::bind(&Pointcloud2ToMapNode::cbCloud, this, _1, true));
+      "cloud_singleshot", 100, boost::bind(&Pointcloud2ToMapNode::cbCloud, this, _1, true));
 
     int width_param;
     pnh_.param("width", width_param, 30);
@@ -113,17 +104,14 @@ public:
   }
 
 private:
-  void cbCloud(const sensor_msgs::PointCloud2::ConstPtr& cloud, const bool singleshot)
+  void cbCloud(const sensor_msgs::PointCloud2::ConstPtr & cloud, const bool singleshot)
   {
     sensor_msgs::PointCloud2 cloud_global;
     geometry_msgs::TransformStamped trans;
-    try
-    {
-      trans = tfbuf_.lookupTransform(global_frame_, cloud->header.frame_id,
-                                     cloud->header.stamp, ros::Duration(0.5));
-    }
-    catch (tf2::TransformException& e)
-    {
+    try {
+      trans = tfbuf_.lookupTransform(
+        global_frame_, cloud->header.frame_id, cloud->header.stamp, ros::Duration(0.5));
+    } catch (tf2::TransformException & e) {
       ROS_WARN("%s", e.what());
       return;
     }
@@ -131,16 +119,14 @@ private:
 
     const int buffer = singleshot ? 1 : 0;
     accums_[buffer].push(costmap_cspace::PointcloudAccumulator<sensor_msgs::PointCloud2>::Points(
-        cloud_global, cloud_global.header.stamp));
+      cloud_global, cloud_global.header.stamp));
 
     ros::Time now = cloud->header.stamp;
-    if (published_ + publish_interval_ > now)
-      return;
+    if (published_ + publish_interval_ > now) return;
     published_ = now;
 
     float robot_z;
-    try
-    {
+    try {
       tf2::Stamped<tf2::Transform> trans;
       tf2::fromMsg(tfbuf_.lookupTransform(global_frame_, robot_frame_, ros::Time(0)), trans);
 
@@ -154,32 +140,22 @@ private:
       origin_x_ = x - width_ * map_.info.resolution * 0.5;
       origin_y_ = y - height_ * map_.info.resolution * 0.5;
       robot_z = pos.z();
-    }
-    catch (tf2::TransformException& e)
-    {
+    } catch (tf2::TransformException & e) {
       ROS_WARN("%s", e.what());
       return;
     }
-    for (auto& cell : map_.data)
-      cell = 0;
+    for (auto & cell : map_.data) cell = 0;
 
-    for (auto& accum : accums_)
-    {
-      for (auto& pc : accum)
-      {
+    for (auto & accum : accums_) {
+      for (auto & pc : accum) {
         sensor_msgs::PointCloud2Iterator<float> iter_x(pc, "x");
         sensor_msgs::PointCloud2Iterator<float> iter_y(pc, "y");
         sensor_msgs::PointCloud2Iterator<float> iter_z(pc, "z");
-        for (; iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z)
-        {
-          if (*iter_z - robot_z < z_min_ || z_max_ < *iter_z - robot_z)
-            continue;
-          unsigned int x = int(
-              (*iter_x - map_.info.origin.position.x) / map_.info.resolution);
-          unsigned int y = int(
-              (*iter_y - map_.info.origin.position.y) / map_.info.resolution);
-          if (x >= map_.info.width || y >= map_.info.height)
-            continue;
+        for (; iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z) {
+          if (*iter_z - robot_z < z_min_ || z_max_ < *iter_z - robot_z) continue;
+          unsigned int x = int((*iter_x - map_.info.origin.position.x) / map_.info.resolution);
+          unsigned int y = int((*iter_y - map_.info.origin.position.y) / map_.info.resolution);
+          if (x >= map_.info.width || y >= map_.info.height) continue;
           map_.data[x + y * map_.info.width] = 100;
         }
       }
@@ -189,7 +165,7 @@ private:
   }
 };
 
-int main(int argc, char** argv)
+int main(int argc, char ** argv)
 {
   ros::init(argc, argv, "pointcloud2_to_map");
 

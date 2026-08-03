@@ -27,8 +27,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef COSTMAP_CSPACE_POINTCLOUD_ACCUMULATOR_H
-#define COSTMAP_CSPACE_POINTCLOUD_ACCUMULATOR_H
+#ifndef COSTMAP_CSPACE__POINTCLOUD_ACCUMULATOR_H_
+#define COSTMAP_CSPACE__POINTCLOUD_ACCUMULATOR_H_
 
 #include <list>
 
@@ -45,43 +45,30 @@ public:
   public:
     rclcpp::Time stamp_;
 
-    Points(const T& points, const rclcpp::Time& stamp)
-      : T(points)
-      , stamp_(stamp)
-    {
-    }
+    Points(const T & points, const rclcpp::Time & stamp) : T(points), stamp_(stamp) {}
   };
 
   // rclcpp::Duration has no default constructor, so time_to_hold_ is
   // explicitly zero-initialized here and later set through reset().
-  PointcloudAccumulator()
-    : time_to_hold_(0, 0)
-  {
-  }
+  PointcloudAccumulator() : time_to_hold_(0, 0) {}
 
-  explicit PointcloudAccumulator(const rclcpp::Duration& duration)
-    : time_to_hold_(0, 0)
+  explicit PointcloudAccumulator(const rclcpp::Duration & duration) : time_to_hold_(0, 0)
   {
     reset(duration);
   }
 
-  void reset(const rclcpp::Duration& duration)
+  void reset(const rclcpp::Duration & duration)
   {
     time_to_hold_ = duration;
     clear();
   }
 
-  void clear()
-  {
-    points_.clear();
-  }
+  void clear() { points_.clear(); }
 
-  void push(const Points& points)
+  void push(const Points & points)
   {
-    for (auto it = points_.begin(); it != points_.end(); ++it)
-    {
-      if (it->stamp_ + time_to_hold_ < points.stamp_)
-      {
+    for (auto it = points_.begin(); it != points_.end(); ++it) {
+      if (it->stamp_ + time_to_hold_ < points.stamp_) {
         it = points_.erase(it);
         continue;
       }
@@ -90,23 +77,11 @@ public:
     points_.push_back(points);
   }
 
-  typename std::list<Points>::iterator begin()
-  {
-    return points_.begin();
-  }
-  typename std::list<Points>::iterator end()
-  {
-    return points_.end();
-  }
+  typename std::list<Points>::iterator begin() { return points_.begin(); }
+  typename std::list<Points>::iterator end() { return points_.end(); }
 
-  typename std::list<Points>::const_iterator begin() const
-  {
-    return points_.cbegin();
-  }
-  typename std::list<Points>::const_iterator end() const
-  {
-    return points_.cend();
-  }
+  typename std::list<Points>::const_iterator begin() const { return points_.cbegin(); }
+  typename std::list<Points>::const_iterator end() const { return points_.cend(); }
 
 protected:
   rclcpp::Duration time_to_hold_;
@@ -115,8 +90,8 @@ protected:
 
 // to keep backward compatibility with code base using PointcloudAccumurator
 template <typename T>
-using PointcloudAccumurator
-    [[deprecated("Use costmap_cspace::PointcloudAccumulator instead.")]] = PointcloudAccumulator<T>;
+using PointcloudAccumurator [[deprecated("Use costmap_cspace::PointcloudAccumulator instead.")]] =
+  PointcloudAccumulator<T>;
 }  // namespace costmap_cspace
 
-#endif  // COSTMAP_CSPACE_POINTCLOUD_ACCUMULATOR_H
+#endif  // COSTMAP_CSPACE__POINTCLOUD_ACCUMULATOR_H_

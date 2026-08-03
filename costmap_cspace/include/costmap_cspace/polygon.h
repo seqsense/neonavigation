@@ -27,8 +27,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef COSTMAP_CSPACE_POLYGON_H
-#define COSTMAP_CSPACE_POLYGON_H
+#ifndef COSTMAP_CSPACE__POLYGON_H_
+#define COSTMAP_CSPACE__POLYGON_H_
 
 #include <array>
 #include <cassert>
@@ -47,45 +47,34 @@ class Vec
 {
 public:
   float c[2];
-  float& operator[](const int& i)
+  float & operator[](const int & i)
   {
     assert(i < 2);
     return c[i];
   }
-  const float& operator[](const int& i) const
+  const float & operator[](const int & i) const
   {
     assert(i < 2);
     return c[i];
   }
-  Vec operator-(const Vec& a) const
+  Vec operator-(const Vec & a) const
   {
     Vec out = *this;
     out[0] -= a[0];
     out[1] -= a[1];
     return out;
   }
-  float cross(const Vec& a) const
-  {
-    return (*this)[0] * a[1] - (*this)[1] * a[0];
-  }
-  float dot(const Vec& a) const
-  {
-    return (*this)[0] * a[0] + (*this)[1] * a[1];
-  }
-  float dist(const Vec& a) const
-  {
-    return std::hypot((*this)[0] - a[0], (*this)[1] - a[1]);
-  }
-  float dist_line(const Vec& a, const Vec& b) const
+  float cross(const Vec & a) const { return (*this)[0] * a[1] - (*this)[1] * a[0]; }
+  float dot(const Vec & a) const { return (*this)[0] * a[0] + (*this)[1] * a[1]; }
+  float dist(const Vec & a) const { return std::hypot((*this)[0] - a[0], (*this)[1] - a[1]); }
+  float dist_line(const Vec & a, const Vec & b) const
   {
     return (b - a).cross((*this) - a) / b.dist(a);
   }
-  float dist_linestrip(const Vec& a, const Vec& b) const
+  float dist_linestrip(const Vec & a, const Vec & b) const
   {
-    if ((b - a).dot((*this) - a) <= 0)
-      return this->dist(a);
-    if ((a - b).dot((*this) - b) <= 0)
-      return this->dist(b);
+    if ((b - a).dot((*this) - a) <= 0) return this->dist(a);
+    if ((a - b).dot((*this) - b) <= 0) return this->dist(b);
     return std::abs(this->dist_line(a, b));
   }
 };
@@ -100,18 +89,14 @@ class Polygon
 public:
   std::vector<Vec> v;
 
-  Polygon()
+  Polygon() {}
+  explicit Polygon(const PolygonPoints & points)
   {
-  }
-  explicit Polygon(const PolygonPoints& points)
-  {
-    if (points.size() < 3)
-    {
+    if (points.size() < 3) {
       throw std::runtime_error("Invalid footprint. At least three vertices are required.");
     }
 
-    for (const auto& point : points)
-    {
+    for (const auto & point : points) {
       Vec p;
       p[0] = point[0];
       p[1] = point[1];
@@ -125,8 +110,7 @@ public:
 
     msg.polygon.points.clear();
     msg.header.frame_id = "base_link";
-    for (const auto& p : v)
-    {
+    for (const auto & p : v) {
       geometry_msgs::msg::Point32 point;
       point.x = p[0];
       point.y = p[1];
@@ -140,57 +124,48 @@ public:
   float radius() const
   {
     float radius = 0;
-    for (const auto& p : v)
-    {
+    for (const auto & p : v) {
       const auto dist = std::hypot(p[0], p[1]);
-      if (dist > radius)
-        radius = dist;
+      if (dist > radius) radius = dist;
     }
     return radius;
   }
-  void move(const float& x, const float& y, const float& yaw)
+  void move(const float & x, const float & y, const float & yaw)
   {
     float cos_v = cosf(yaw);
     float sin_v = sinf(yaw);
-    for (auto& p : v)
-    {
+    for (auto & p : v) {
       auto tmp = p;
       p[0] = cos_v * tmp[0] - sin_v * tmp[1] + x;
       p[1] = sin_v * tmp[0] + cos_v * tmp[1] + y;
     }
   }
-  bool inside(const Vec& a) const
+  bool inside(const Vec & a) const
   {
     int cn = 0;
-    for (size_t i = 0; i < v.size() - 1; i++)
-    {
-      auto& v1 = v[i];
-      auto& v2 = v[i + 1];
-      if ((v1[1] <= a[1] && a[1] < v2[1]) ||
-          (v2[1] <= a[1] && a[1] < v1[1]))
-      {
+    for (size_t i = 0; i < v.size() - 1; i++) {
+      auto & v1 = v[i];
+      auto & v2 = v[i + 1];
+      if ((v1[1] <= a[1] && a[1] < v2[1]) || (v2[1] <= a[1] && a[1] < v1[1])) {
         float lx;
         lx = v1[0] + (v2[0] - v1[0]) * (a[1] - v1[1]) / (v2[1] - v1[1]);
-        if (a[0] < lx)
-          cn++;
+        if (a[0] < lx) cn++;
       }
     }
     return ((cn & 1) == 1);
   }
-  float dist(const Vec& a) const
+  float dist(const Vec & a) const
   {
     float dist = std::numeric_limits<float>::max();
-    for (size_t i = 0; i < v.size() - 1; i++)
-    {
-      auto& v1 = v[i];
-      auto& v2 = v[i + 1];
+    for (size_t i = 0; i < v.size() - 1; i++) {
+      auto & v1 = v[i];
+      auto & v2 = v[i + 1];
       auto d = a.dist_linestrip(v1, v2);
-      if (d < dist)
-        dist = d;
+      if (d < dist) dist = d;
     }
     return dist;
   }
 };
 }  // namespace costmap_cspace
 
-#endif  // COSTMAP_CSPACE_POLYGON_H
+#endif  // COSTMAP_CSPACE__POLYGON_H_

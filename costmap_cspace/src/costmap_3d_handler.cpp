@@ -27,6 +27,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "costmap_cspace/costmap_3d_handler.h"
+
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -34,44 +36,36 @@
 
 #include "geometry_msgs/msg/point32.hpp"
 #include "nav_msgs/msg/occupancy_grid.hpp"
-#include "sensor_msgs/msg/point_cloud.hpp"
-
 #include "rclcpp/rclcpp.hpp"
-
-#include "costmap_cspace/costmap_3d_handler.h"
+#include "sensor_msgs/msg/point_cloud.hpp"
 
 namespace costmap_cspace
 {
-MapOverlayMode getMapOverlayModeFromString(const std::string& overlay_mode_str)
+MapOverlayMode getMapOverlayModeFromString(const std::string & overlay_mode_str)
 {
-  if (overlay_mode_str == "overwrite")
-  {
+  if (overlay_mode_str == "overwrite") {
     return MapOverlayMode::OVERWRITE;
-  }
-  else if (overlay_mode_str == "max")
-  {
+  } else if (overlay_mode_str == "max") {
     return MapOverlayMode::MAX;
   }
   RCLCPP_ERROR(
-      rclcpp::get_logger("costmap_cspace"),
-      "Unknown overlay_mode \"%s\"", overlay_mode_str.c_str());
+    rclcpp::get_logger("costmap_cspace"), "Unknown overlay_mode \"%s\"", overlay_mode_str.c_str());
   throw std::runtime_error("Unknown overlay_mode.");
 }
 
-Costmap3dHandler::Costmap3dHandler(const Costmap3dConfig& config, const rclcpp::Logger& logger)
-  : logger_(logger)
+Costmap3dHandler::Costmap3dHandler(const Costmap3dConfig & config, const rclcpp::Logger & logger)
+: logger_(logger)
 {
   costmap_.reset(new Costmap3d(config.ang_resolution));
 
   root_layer_ = costmap_->addRootLayer<Costmap3dLayerFootprint>();
   root_layer_->setLogger(logger_);
   root_layer_->setExpansion(
-      config.linear_expand, config.linear_spread, config.linear_spread_min_cost);
+    config.linear_expand, config.linear_spread, config.linear_spread_min_cost);
   root_layer_->setFootprint(config.footprint);
   footprint_msg_ = config.footprint.toMsg();
 
-  for (const Costmap3dLayerSpec& spec : config.static_layers)
-  {
+  for (const Costmap3dLayerSpec & spec : config.static_layers) {
     RCLCPP_INFO(logger_, "New static layer: %s", spec.name.c_str());
     addOverlayLayer(spec);
   }
@@ -79,8 +73,7 @@ Costmap3dHandler::Costmap3dHandler(const Costmap3dConfig& config, const rclcpp::
   static_output_layer_ = costmap_->addLayer<Costmap3dStaticLayerOutput>();
   static_output_layer_->setLogger(logger_);
 
-  for (const Costmap3dLayerSpec& spec : config.layers)
-  {
+  for (const Costmap3dLayerSpec & spec : config.layers) {
     RCLCPP_INFO(logger_, "New layer: %s", spec.name.c_str());
     addOverlayLayer(spec);
   }
@@ -89,10 +82,9 @@ Costmap3dHandler::Costmap3dHandler(const Costmap3dConfig& config, const rclcpp::
   update_output_layer_->setLogger(logger_);
 }
 
-void Costmap3dHandler::addOverlayLayer(const Costmap3dLayerSpec& spec)
+void Costmap3dHandler::addOverlayLayer(const Costmap3dLayerSpec & spec)
 {
-  if (spec.type.empty())
-  {
+  if (spec.type.empty()) {
     RCLCPP_ERROR(logger_, "Layer type is not specified.");
     throw std::runtime_error("Layer type is not specified.");
   }
@@ -106,22 +98,19 @@ void Costmap3dHandler::addOverlayLayer(const Costmap3dLayerSpec& spec)
 
 void Costmap3dHandler::setStaticOutputCallback(StaticOutputCallback cb)
 {
-  if (!cb)
-    return;
+  if (!cb) return;
   static_output_layer_->setHandler(cb);
 }
 
 void Costmap3dHandler::setUpdateOutputCallback(UpdateOutputCallback cb)
 {
-  if (!cb)
-    return;
+  if (!cb) return;
   update_output_layer_->setHandler(cb);
 }
 
-void Costmap3dHandler::setBaseMap(const std::shared_ptr<const nav_msgs::msg::OccupancyGrid>& msg)
+void Costmap3dHandler::setBaseMap(const std::shared_ptr<const nav_msgs::msg::OccupancyGrid> & msg)
 {
-  if (root_layer_->getAngularGrid() <= 0)
-  {
+  if (root_layer_->getAngularGrid() <= 0) {
     RCLCPP_ERROR(logger_, "ang_resolution is not set.");
     std::runtime_error("ang_resolution is not set.");
   }
@@ -130,31 +119,27 @@ void Costmap3dHandler::setBaseMap(const std::shared_ptr<const nav_msgs::msg::Occ
   root_layer_->setBaseMap(msg);
   RCLCPP_DEBUG(logger_, "C-Space costmap generated");
 
-  if (map_buffer_.size() > 0)
-  {
+  if (map_buffer_.size() > 0) {
     const size_t buffered = map_buffer_.size();
     // processMapOverlay() may push the map back to the buffer, so iterate on a copy.
     const auto map_buffer = map_buffer_;
     map_buffer_.clear();
-    for (const auto& map : map_buffer)
-      processMapOverlay(map.first, map.second);
+    for (const auto & map : map_buffer) processMapOverlay(map.first, map.second);
     RCLCPP_INFO(logger_, "%ld buffered costmaps processed", buffered);
   }
 }
 
 void Costmap3dHandler::processMapOverlay(
-    const std::shared_ptr<const nav_msgs::msg::OccupancyGrid>& msg,
-    const Costmap3dLayerBase::Ptr& layer)
+  const std::shared_ptr<const nav_msgs::msg::OccupancyGrid> & msg,
+  const Costmap3dLayerBase::Ptr & layer)
 {
   RCLCPP_DEBUG(logger_, "Overlay 2D costmap received");
 
   auto map_msg = layer->getMap();
-  if (map_msg->info.width < 1 ||
-      map_msg->info.height < 1)
-  {
+  if (map_msg->info.width < 1 || map_msg->info.height < 1) {
     map_buffer_.push_back(
-        std::pair<std::shared_ptr<const nav_msgs::msg::OccupancyGrid>,
-                  Costmap3dLayerBase::Ptr>(msg, layer));
+      std::pair<std::shared_ptr<const nav_msgs::msg::OccupancyGrid>, Costmap3dLayerBase::Ptr>(
+        msg, layer));
     return;
   }
 
@@ -163,19 +148,16 @@ void Costmap3dHandler::processMapOverlay(
 }
 
 sensor_msgs::msg::PointCloud Costmap3dHandler::generateDebugPointCloud(
-    const costmap_cspace_msgs::msg::CSpace3D& map)
+  const costmap_cspace_msgs::msg::CSpace3D & map)
 {
   sensor_msgs::msg::PointCloud pc;
   pc.header = map.header;
   pc.header.stamp = rclcpp::Clock(RCL_ROS_TIME).now();
-  for (size_t yaw = 0; yaw < map.info.angle; yaw++)
-  {
-    for (unsigned int i = 0; i < map.info.width * map.info.height; i++)
-    {
+  for (size_t yaw = 0; yaw < map.info.angle; yaw++) {
+    for (unsigned int i = 0; i < map.info.width * map.info.height; i++) {
       int gx = i % map.info.width;
       int gy = i / map.info.width;
-      if (map.data[i + yaw * map.info.width * map.info.height] < 100)
-        continue;
+      if (map.data[i + yaw * map.info.width * map.info.height] < 100) continue;
       geometry_msgs::msg::Point32 p;
       p.x = gx * map.info.linear_resolution + map.info.origin.position.x;
       p.y = gy * map.info.linear_resolution + map.info.origin.position.y;
