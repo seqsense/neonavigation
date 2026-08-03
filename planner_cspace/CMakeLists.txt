@@ -36,6 +36,7 @@ generate_dynamic_reconfigure_options(
 
 catkin_package(
   INCLUDE_DIRS include
+  LIBRARIES planner_3d_core planner_2dof_serial_joints_core
   CATKIN_DEPENDS ${CATKIN_DEPENDS}
 )
 
@@ -47,17 +48,22 @@ add_compile_options(-funroll-loops -finline-functions ${OpenMP_CXX_FLAGS})
 include_directories(include ${catkin_INCLUDE_DIRS})
 
 
-add_executable(planner_3d
+# ROS-independent path planning logic of planner_3d.
+add_library(planner_3d_core
   src/costmap_bbf.cpp
   src/grid_astar_model_3dof.cpp
   src/motion_cache.cpp
   src/motion_primitive_builder.cpp
-  src/planner_3d.cpp
+  src/planner_3d_core.cpp
   src/distance_map.cpp
   src/rotation_cache.cpp
   src/start_pose_predictor.cpp
 )
-target_link_libraries(planner_3d ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${OpenMP_CXX_FLAGS})
+target_link_libraries(planner_3d_core ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${OpenMP_CXX_FLAGS})
+add_dependencies(planner_3d_core ${catkin_EXPORTED_TARGETS})
+
+add_executable(planner_3d src/planner_3d.cpp)
+target_link_libraries(planner_3d planner_3d_core ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${OpenMP_CXX_FLAGS})
 add_dependencies(planner_3d ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg)
 set_property(TARGET planner_3d PROPERTY PUBLIC_HEADER
   include/planner_cspace/bbf.h
@@ -69,11 +75,17 @@ set_property(TARGET planner_3d PROPERTY PUBLIC_HEADER
   include/planner_cspace/reservable_priority_queue.h
 )
 
-add_executable(planner_2dof_serial_joints
-  src/planner_2dof_serial_joints.cpp
+# ROS-independent path planning logic of planner_2dof_serial_joints.
+add_library(planner_2dof_serial_joints_core
+  src/planner_2dof_serial_joints_core.cpp
   src/grid_astar_model_2dof_joints.cpp
 )
-target_link_libraries(planner_2dof_serial_joints ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${OpenMP_CXX_FLAGS})
+target_link_libraries(planner_2dof_serial_joints_core ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${OpenMP_CXX_FLAGS})
+add_dependencies(planner_2dof_serial_joints_core ${catkin_EXPORTED_TARGETS})
+
+add_executable(planner_2dof_serial_joints src/planner_2dof_serial_joints.cpp)
+target_link_libraries(planner_2dof_serial_joints
+  planner_2dof_serial_joints_core ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${OpenMP_CXX_FLAGS})
 add_dependencies(planner_2dof_serial_joints ${catkin_EXPORTED_TARGETS})
 
 add_executable(dummy_robot src/dummy_robot.cpp)
@@ -98,9 +110,15 @@ install(TARGETS
     dummy_robot
     patrol
     planner_2dof_serial_joints
+    planner_2dof_serial_joints_core
     planner_3d
+    planner_3d_core
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
   PUBLIC_HEADER DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+)
+
+install(DIRECTORY include/${PROJECT_NAME}/
+  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
 )

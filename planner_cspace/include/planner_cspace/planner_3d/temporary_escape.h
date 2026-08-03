@@ -43,12 +43,12 @@ enum class TemporaryEscapeStatus
   ESCAPING_WITHOUT_IMPROVEMENT,
 };
 
-bool isEscaping(const TemporaryEscapeStatus r)
+inline bool isEscaping(const TemporaryEscapeStatus r)
 {
   return r != TemporaryEscapeStatus::NOT_ESCAPING;
 }
 
-uint8_t temporaryEscapeStatus2PlannerErrorStatus(const TemporaryEscapeStatus r)
+inline uint8_t temporaryEscapeStatus2PlannerErrorStatus(const TemporaryEscapeStatus r)
 {
   switch (r)
   {
@@ -62,7 +62,7 @@ uint8_t temporaryEscapeStatus2PlannerErrorStatus(const TemporaryEscapeStatus r)
   }
 }
 
-TemporaryEscapeStatus operator|(const TemporaryEscapeStatus& a, const TemporaryEscapeStatus& b)
+inline TemporaryEscapeStatus operator|(const TemporaryEscapeStatus& a, const TemporaryEscapeStatus& b)
 {
   // Return worst one
   return a > b ? a : b;
