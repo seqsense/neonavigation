@@ -161,6 +161,32 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
     ament_target_dependencies(test_${PROJECT_NAME}_pointcloud_accumulator
       rclcpp sensor_msgs)
     target_include_directories(test_${PROJECT_NAME}_pointcloud_accumulator PRIVATE include)
+
+    # ROS 2-only integration tests of the interface nodes. The ROS 1 package
+    # had no rostest, so these have no ROS 1 counterpart; they live under
+    # test_ros2/ to keep the shared unit tests in test/ untouched.
+    find_package(launch_testing_ament_cmake REQUIRED)
+
+    # Covers the flattened layer/footprint parameter representation of the
+    # costmap_3d node and its costmap / costmap_update / footprint outputs.
+    # The binary owns its main() / rclcpp::init, so it is built as a plain
+    # executable and started as a node by the launch harness.
+    ament_add_gtest_executable(ros2_test_costmap_3d
+      test_ros2/src/ros2_test_costmap_3d.cpp)
+    ament_target_dependencies(ros2_test_costmap_3d
+      rclcpp costmap_cspace_msgs geometry_msgs nav_msgs)
+    install(TARGETS ros2_test_costmap_3d DESTINATION lib/${PROJECT_NAME})
+
+    # Covers the pub/sub path of laserscan_to_map, pointcloud2_to_map and
+    # largemap_to_map.
+    ament_add_gtest_executable(ros2_test_map_converters
+      test_ros2/src/ros2_test_map_converters.cpp)
+    ament_target_dependencies(ros2_test_map_converters
+      rclcpp nav_msgs sensor_msgs)
+    install(TARGETS ros2_test_map_converters DESTINATION lib/${PROJECT_NAME})
+
+    add_launch_test(test_ros2/test/test_costmap_3d_launch.py TIMEOUT 120)
+    add_launch_test(test_ros2/test/test_map_converters_launch.py TIMEOUT 120)
   endif()
 
   ament_auto_package()
