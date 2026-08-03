@@ -27,9 +27,8 @@ if($ENV{ROS_VERSION} EQUAL 1)
     find_package(std_srvs REQUIRED)
     add_subdirectory(test)
 
-    find_package(roslint REQUIRED)
-    roslint_cpp()
-    roslint_add_test()
+    # Style checks are unified on the ROS2 side (ament_lint_auto); roslint is
+    # intentionally not used any more.
   endif()
 
 
@@ -46,6 +45,22 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
   # never compiled on ROS 2. The ROS 2 build therefore just installs and exports
   # the headers so downstream packages can resolve the dependency.
   find_package(ament_cmake REQUIRED)
+
+  if(BUILD_TESTING)
+    find_package(ament_lint_auto REQUIRED)
+    # Both C++ files here (compatibility.h and its gtest) are ROS 1 only and are
+    # never compiled by this branch, but they are kept in the linter walk rather
+    # than listed in AMENT_LINT_AUTO_FILE_EXCLUDE: they satisfy the ament rules
+    # after clang-format, and excluding them would leave cpplint with zero files
+    # to check, which it reports as a failure ("No files found").
+    # CPP_FORMATTER=clang_format: exclude uncrustify, keep clang_format + cpplint.
+    list(APPEND AMENT_LINT_AUTO_EXCLUDE ament_cmake_uncrustify)
+    # The neonavigation BSD headers are not recognized by ament_copyright's
+    # full-text templates (license=<unknown>), so the copyright linter is
+    # excluded. Existing license text is kept as-is.
+    list(APPEND AMENT_LINT_AUTO_EXCLUDE ament_cmake_copyright)
+    ament_lint_auto_find_test_dependencies()
+  endif()
 
   install(DIRECTORY include/
     DESTINATION include
