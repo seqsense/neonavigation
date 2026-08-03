@@ -90,7 +90,7 @@ protected:
     cyclic_vec_type_conversion_rule::convert(first, e_[i]);
     setElements(i + 1, rest...);
   }
-  void setElements(const int i) noexcept
+  void setElements([[maybe_unused]] const int i) noexcept
   {
     assert(i == DIM);
   }
@@ -113,7 +113,7 @@ protected:
     else if (e_[i] >= res / 2)
       e_[i] -= res;
   }
-  void cycleElements(const int i)
+  void cycleElements([[maybe_unused]] const int i)
   {
     assert(i == DIM);
   }
@@ -133,7 +133,7 @@ protected:
     if (e_[i] < 0)
       e_[i] += res;
   }
-  void cycleUnsignedElements(const int i)
+  void cycleUnsignedElements([[maybe_unused]] const int i)
   {
     assert(i == DIM);
   }

@@ -105,27 +105,27 @@ public:
 class CostmapBBFNoOp : public CostmapBBF
 {
 public:
-  inline void reset(const Vec& size)
+  inline void reset(const Vec& /* size */)
   {
   }
   inline void clear()
   {
   }
-  inline char getCost(const Vec& p) const
+  inline char getCost(const Vec& /* p */) const
   {
     return 0;
   }
   inline void remember(
-      const BlockMemGridmapBase<char, 3, 2>* const costmap,
-      const Vec& center,
-      const float remember_hit_odds, const float remember_miss_odds,
-      const int range_min, const int range_max)
+      const BlockMemGridmapBase<char, 3, 2>* const /* costmap */,
+      const Vec& /* center */,
+      const float /* remember_hit_odds */, const float /* remember_miss_odds */,
+      const int /* range_min */, const int /* range_max */)
   {
   }
   inline void updateCostmap()
   {
   }
-  inline void forEach(const std::function<void(const Vec&, bbf::BinaryBayesFilter&)> cb)
+  inline void forEach(const std::function<void(const Vec&, bbf::BinaryBayesFilter&)> /* cb */)
   {
   }
 };

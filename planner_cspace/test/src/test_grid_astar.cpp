@@ -75,7 +75,7 @@ TEST(GridAstar, ParallelSearch)
     {
       return 1.0;
     }
-    float costEstim(const Vec& s, const Vec& e) const final
+    float costEstim(const Vec& /* s */, const Vec& /* e */) const final
     {
       return 0.0;
     }
@@ -131,7 +131,7 @@ TEST(GridAstar, TimeoutAbort)
     {
       return 1.0;
     }
-    float costEstim(const Vec& s, const Vec& e) const final
+    float costEstim(const Vec& /* s */, const Vec& /* e */) const final
     {
       return 0.0;
     }
@@ -205,7 +205,7 @@ TEST(GridAstar, SearchWithMultipleStarts)
     {
       return 1.0;
     }
-    float costEstim(const Vec& s, const Vec& e) const final
+    float costEstim(const Vec& /* s */, const Vec& /* e */) const final
     {
       return 0.0;
     }

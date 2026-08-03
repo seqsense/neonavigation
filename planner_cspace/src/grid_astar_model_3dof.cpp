@@ -168,7 +168,8 @@ float GridAstarModel3D::euclidCostRough(const Vec& v) const
   return std::sqrt(rootsum) * euclid_cost_coef_[0];
 }
 float GridAstarModel3D::cost(
-    const Vec& cur, const Vec& next, const std::vector<VecWithCost>& start, const Vec& goal) const
+    const Vec& cur, const Vec& next, const std::vector<VecWithCost>& /* start */,
+    const Vec& /* goal */) const
 {
   if ((cm_[cur] > 99) || (cm_[next] > 99))
   {
@@ -323,7 +324,7 @@ float GridAstarModel3D::costEstim(
 const std::vector<GridAstarModel3D::Vec>& GridAstarModel3D::searchGrids(
     const Vec& p,
     const std::vector<VecWithCost>& ss,
-    const Vec& es) const
+    const Vec& /* es */) const
 {
   const float local_range_sq = local_range_ * local_range_;
   for (const VecWithCost& s : ss)
@@ -344,7 +345,8 @@ std::list<GridAstarModel3D::Vecf> GridAstarModel3D::interpolatePath(const std::l
 }
 
 float GridAstarModel2D::cost(
-    const Vec& cur, const Vec& next, const std::vector<VecWithCost>& start, const Vec& goal) const
+    const Vec& cur, const Vec& next, const std::vector<VecWithCost>& /* start */,
+    const Vec& /* goal */) const
 {
   Vec d = next - cur;
   d[2] = 0;
@@ -378,7 +380,7 @@ float GridAstarModel2D::costEstim(
   return cost;
 }
 const std::vector<GridAstarModel3D::Vec>& GridAstarModel2D::searchGrids(
-    const Vec& cur, const std::vector<VecWithCost>& start, const Vec& goal) const
+    const Vec& /* cur */, const std::vector<VecWithCost>& /* start */, const Vec& /* goal */) const
 {
   return base_->search_list_rough_;
 }

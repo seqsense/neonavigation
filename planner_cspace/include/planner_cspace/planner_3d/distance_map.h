@@ -107,7 +107,7 @@ public:
   {
     return g_.operator[](pos);
   }
-  inline const float operator[](const Astar::Vec& pos) const
+  inline float operator[](const Astar::Vec& pos) const
   {
     return g_.operator[](pos);
   }

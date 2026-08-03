@@ -56,7 +56,7 @@ protected:
     pub_map_update_ = nh_.advertise<costmap_cspace_msgs::CSpace3DUpdate>("costmap_update", 1);
   }
 
-  void cbStatus(const planner_cspace_msgs::PlannerStatus::ConstPtr& msg)
+  void cbStatus(const planner_cspace_msgs::PlannerStatus::ConstPtr& /* msg */)
   {
     ++cnt_status_;
   }

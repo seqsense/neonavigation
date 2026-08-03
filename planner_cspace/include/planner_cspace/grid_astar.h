@@ -120,7 +120,7 @@ public:
     {
       return p1_;
     }
-    const float getCost() const
+    float getCost() const
     {
       return cost_;
     }

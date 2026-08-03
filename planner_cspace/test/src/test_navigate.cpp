@@ -813,8 +813,7 @@ TEST_F(Navigate, CrowdEscapeOnPathNotFound)
   ros::Time check_until = deadline;
   while (ros::ok())
   {
-    const size_t data_size = map_local_->data.size();
-    for (int x = 0; x < map_local_->info.width; ++x)
+    for (size_t x = 0; x < map_local_->info.width; ++x)
     {
       const size_t y = 1.1 / map_->info.resolution;
       map_local_->data[x + y * map_local_->info.width] = 100;
@@ -881,9 +880,8 @@ TEST_F(Navigate, CrowdEscapeOnGoalIsInRock)
   ros::Time check_until = deadline;
   while (ros::ok())
   {
-    const size_t data_size = map_local_->data.size();
-    const size_t gx = path.poses[0].pose.position.x / map_->info.resolution;
-    const size_t gy = path.poses[0].pose.position.y / map_->info.resolution;
+    const int gx = path.poses[0].pose.position.x / map_->info.resolution;
+    const int gy = path.poses[0].pose.position.y / map_->info.resolution;
     for (int x = gx - 2; x <= gx + 2; ++x)
     {
       for (int y = gy - 2; y <= gy + 2; ++y)
@@ -948,13 +946,12 @@ TEST_F(Navigate, CrowdEscapeButNoValidTemporaryGoal)
   tf2::fromMsg(path.poses.back().pose, goal);
 
   ros::Rate wait(10);
-  bool unreachable = false;
   const ros::Time check_until = ros::Time::now() + ros::Duration(2);
   int cnt_planning = 0;
   while (ros::ok())
   {
-    const size_t gx = path.poses[0].pose.position.x / map_->info.resolution;
-    const size_t gy = path.poses[0].pose.position.y / map_->info.resolution;
+    const int gx = path.poses[0].pose.position.x / map_->info.resolution;
+    const int gy = path.poses[0].pose.position.y / map_->info.resolution;
     map_local_->data.clear();
     map_local_->data.resize(map_local_->info.width * map_local_->info.height, 60);
     for (int x = gx - 2; x <= gx + 2; ++x)

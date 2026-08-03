@@ -250,8 +250,8 @@ protected:
   StartPosePredictor start_pose_predictor_;
   ros::Timer no_map_update_timer_;
 
-  bool cbForget(std_srvs::EmptyRequest& req,
-                std_srvs::EmptyResponse& res)
+  bool cbForget(std_srvs::EmptyRequest& /* req */,
+                std_srvs::EmptyResponse& /* res */)
   {
     ROS_WARN("Forgetting remembered costmap.");
     if (has_map_)
@@ -1956,7 +1956,8 @@ protected:
     const float range_limit = initial_2dof_cost - (local_range_ + range_) * ec_[0];
     const auto ts = boost::chrono::high_resolution_clock::now();
     const auto cb_progress =
-        [this, ts, start_grid, end_grid](const std::list<Astar::Vec>& path_grid, const SearchStats& stats) -> bool
+        [this, ts, start_grid, end_grid](
+            const std::list<Astar::Vec>& /* path_grid */, const SearchStats& stats) -> bool
     {
       const auto tnow = boost::chrono::high_resolution_clock::now();
       const auto tdiff = boost::chrono::duration<float>(tnow - ts).count();

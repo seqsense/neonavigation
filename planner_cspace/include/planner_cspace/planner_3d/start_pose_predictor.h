@@ -72,7 +72,7 @@ public:
   {
     return preserved_path_;
   }
-  const double getPreservedPathLength() const
+  double getPreservedPathLength() const
   {
     return preserved_path_length_;
   }
