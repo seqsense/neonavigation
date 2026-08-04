@@ -100,7 +100,10 @@ private:
 
 public:
   JoystickMux()
-  : nh_(""), pnh_("~"), logger_(rclcpp::get_logger("joystick_mux")), last_joy_msg_(0, RCL_ROS_TIME)
+  : nh_(""),
+    pnh_("~"),
+    logger_(rclcpp::get_logger("joystick_mux")),
+    last_joy_msg_(0, 0, RCL_ROS_TIME)
   {
     neonavigation_common::compat::checkCompatMode();
     sub_joy_ = nh_.subscribe("joy", 1, &JoystickMux::cbJoy, this);

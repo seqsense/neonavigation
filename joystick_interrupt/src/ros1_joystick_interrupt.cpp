@@ -96,14 +96,14 @@ private:
         logger_,
         "Out of range: number of buttons (%lu) must be greater than interrupt_button (%d).",
         msg->buttons.size(), interrupt_button_);
-      last_joy_msg_ = rclcpp::Time(0, RCL_ROS_TIME);
+      last_joy_msg_ = rclcpp::Time(0, 0, RCL_ROS_TIME);
       return;
     }
     if (!msg->buttons[interrupt_button_]) {
-      if (last_joy_msg_ != rclcpp::Time(0, RCL_ROS_TIME)) {
+      if (last_joy_msg_ != rclcpp::Time(0, 0, RCL_ROS_TIME)) {
         pub_twist_.publish(last_input_twist_);
       }
-      last_joy_msg_ = rclcpp::Time(0, RCL_ROS_TIME);
+      last_joy_msg_ = rclcpp::Time(0, 0, RCL_ROS_TIME);
       return;
     }
 
@@ -142,7 +142,7 @@ private:
     if (
       rclcpp::Clock(RCL_ROS_TIME).now() - last_joy_msg_ >
         rclcpp::Duration::from_seconds(timeout_) ||
-      (ros::Time::isSimTime() && last_joy_msg_ == rclcpp::Time(0, RCL_ROS_TIME))) {
+      (ros::Time::isSimTime() && last_joy_msg_ == rclcpp::Time(0, 0, RCL_ROS_TIME))) {
       pub_twist_.publish(last_input_twist_);
       status.data = true;
     } else {
@@ -156,7 +156,7 @@ public:
   : nh_(""),
     pnh_("~"),
     logger_(rclcpp::get_logger("joystick_interrupt")),
-    last_joy_msg_(0, RCL_ROS_TIME)
+    last_joy_msg_(0, 0, RCL_ROS_TIME)
   {
     neonavigation_common::compat::checkCompatMode();
     sub_joy_ = nh_.subscribe("joy", 1, &JoystickInterrupt::cbJoy, this);
@@ -181,7 +181,7 @@ public:
     pnh_.param("linear_y_axis", linear_y_axis_, -1);
     pnh_.param("linear_y_axis2", linear_y_axis2_, -1);
 
-    last_joy_msg_ = rclcpp::Time(0, RCL_ROS_TIME);
+    last_joy_msg_ = rclcpp::Time(0, 0, RCL_ROS_TIME);
 
     if (interrupt_button_ < 0) {
       RCLCPP_ERROR(logger_, "interrupt_button must be grater than -1.");
