@@ -1,0 +1,78 @@
+# ROS 2 counterpart of config/navigate.yaml.
+#
+# navigate.yaml is a ROS 1 global rosparam dump (`<node name>: {key: value}`).
+# ROS 2 needs one `ros__parameters` block per fully qualified node name, and the
+# nested XmlRpc structures used by costmap_3d have been flattened when the nodes
+# were hybridized. See neonavigation_launch/README.md and
+# costmap_cspace/README.md for the full mapping.
+#
+# The node names below must match the names used in launch/navigate.launch.py.
+
+costmap_3d:
+  ros__parameters:
+    ang_resolution: 16
+    linear_expand: 0.08
+    linear_spread: 0.3
+
+    # ROS 1: static_layers/layers were arrays of dictionaries. ROS 2 keeps the
+    # ordered layer names in a string array and every setting of a layer under
+    # the `static_layer.<name>.` / `layer.<name>.` prefix.
+    static_layers: ["unknown", "overlay0"]
+    static_layer:
+      unknown:
+        type: "Costmap3dLayerUnknownHandle"
+        unknown_cost: 100
+      overlay0:
+        type: "Costmap3dLayerPlain"
+        overlay_mode: "max"
+        linear_expand: 0.0
+        linear_spread: 0.0
+
+    layers: ["stop_propagation", "overlay2", "overlay1"]
+    layer:
+      stop_propagation:
+        type: "Costmap3dLayerStopPropagation"
+      overlay2:
+        type: "Costmap3dLayerPlain"
+        overlay_mode: "max"
+        linear_expand: 0.08
+        linear_spread: 0.0
+        keep_unknown: true
+      overlay1:
+        type: "Costmap3dLayerFootprint"
+        overlay_mode: "max"
+        linear_expand: 0.15
+        linear_spread: 0.3
+        keep_unknown: true
+
+planner_3d:
+  ros__parameters:
+    num_threads: 2
+    freq: 2.0
+    freq_min: 0.5
+    local_range: 2.0
+    remember_updates: true
+    hist_ignore_range: 0.0
+    hist_ignore_range_max: 1.5
+    esc_range: 1.0
+    esc_range_min_ratio: 0.5
+    temporary_escape_tolerance_lin: 0.2
+    keep_a_part_of_previous_path: true
+
+# trajectory_tracker, named "spur" by the launch files (as on ROS 1).
+spur:
+  ros__parameters:
+    hz: 30.0
+    k_dist: 16.0
+    k_ang: 10.0
+    k_avel: 4.0
+    dist_lim: 0.5
+    goal_tolerance_dist: 0.05
+    goal_tolerance_ang: 0.05
+    stop_tolerance_dist: 0.04
+    stop_tolerance_ang: 0.04
+    no_position_control_dist: 0.05
+    limit_vel_by_avel: true
+    path_step: 1
+    look_forward: 0.0
+    curv_forward: 0.5

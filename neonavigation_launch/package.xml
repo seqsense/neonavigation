@@ -11,13 +11,34 @@
   <license>BSD</license>
   <author email="atsushi.w@ieee.org">Atsushi Watanabe</author>
 
-  <buildtool_depend>catkin</buildtool_depend>
+  <buildtool_depend condition="$ROS_VERSION == 1">catkin</buildtool_depend>
+  <buildtool_depend condition="$ROS_VERSION == 2">ament_cmake</buildtool_depend>
+  <buildtool_depend condition="$ROS_VERSION == 2">ament_cmake_auto</buildtool_depend>
 
+  <!-- Hybridized neonavigation nodes; usable from both ROS 1 and ROS 2 launch. -->
   <exec_depend>costmap_cspace</exec_depend>
-  <exec_depend>map_server</exec_depend>
   <exec_depend>planner_cspace</exec_depend>
   <exec_depend>safety_limiter</exec_depend>
-  <exec_depend>tf2_ros</exec_depend>
   <exec_depend>trajectory_tracker</exec_depend>
-  <exec_depend>trajectory_tracker_rviz_plugins</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+
+  <!-- ROS 1 only: map_server lives in the ROS 1 navigation stack, and the
+       PathWithVelocity RViz plugin has no ROS 2 counterpart (the ROS 2 RViz
+       configuration uses standard displays instead). -->
+  <exec_depend condition="$ROS_VERSION == 1">map_server</exec_depend>
+  <exec_depend condition="$ROS_VERSION == 1">trajectory_tracker_rviz_plugins</exec_depend>
+
+  <!-- ROS 2 only: map_server moved to nav2, rviz is rviz2, and the launch
+       files load the neonavigation nodes into a component container. -->
+  <exec_depend condition="$ROS_VERSION == 2">nav2_map_server</exec_depend>
+  <exec_depend condition="$ROS_VERSION == 2">rclcpp_components</exec_depend>
+  <exec_depend condition="$ROS_VERSION == 2">rviz2</exec_depend>
+
+  <test_depend condition="$ROS_VERSION == 2">ament_lint_auto</test_depend>
+  <test_depend condition="$ROS_VERSION == 2">ament_lint_common</test_depend>
+
+  <export>
+    <build_type condition="$ROS_VERSION == 1">catkin</build_type>
+    <build_type condition="$ROS_VERSION == 2">ament_cmake</build_type>
+  </export>
 </package>
