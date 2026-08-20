@@ -145,6 +145,15 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
 
   find_package(ament_cmake_auto REQUIRED)
   ament_auto_find_build_dependencies()
+
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND NOT CMAKE_CXX_COMPILER_VERSION VERSION_LESS 15)
+    # GCC 15 segfaults (ICE in the strlen pass' printf handling) while
+    # instantiating rclcpp/service.hpp with coverage instrumentation. Skip that
+    # printf analysis; it only powers the -Wformat-overflow/-Wformat-truncation
+    # diagnostics and the sprintf return-value optimization.
+    add_compile_options(
+      -fno-printf-return-value -Wno-format-overflow -Wno-format-truncation)
+  endif()
   # ament_auto does not take care of OpenMP, so request it explicitly.
   find_package(OpenMP REQUIRED)
 
@@ -255,7 +264,10 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
     ament_add_gtest(test_${PROJECT_NAME}_cyclic_vec test/src/test_cyclic_vec.cpp)
     target_include_directories(test_${PROJECT_NAME}_cyclic_vec PRIVATE include)
 
-    ament_add_gtest(test_${PROJECT_NAME}_distance_map test/src/test_distance_map.cpp)
+    # Heavy numeric test: ~75 s with coverage instrumentation on a fast host,
+    # which overruns ament_add_gtest's 60 s default.
+    ament_add_gtest(test_${PROJECT_NAME}_distance_map test/src/test_distance_map.cpp
+      TIMEOUT 300)
     target_include_directories(test_${PROJECT_NAME}_distance_map
       PRIVATE include test/include)
     target_link_libraries(test_${PROJECT_NAME}_distance_map

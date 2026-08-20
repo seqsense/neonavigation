@@ -98,6 +98,15 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
   find_package(ament_cmake_auto REQUIRED)
   ament_auto_find_build_dependencies()
 
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND NOT CMAKE_CXX_COMPILER_VERSION VERSION_LESS 15)
+    # GCC 15 segfaults (ICE in the strlen pass' printf handling) while
+    # instantiating rclcpp/service.hpp with coverage instrumentation. Skip that
+    # printf analysis; it only powers the -Wformat-overflow/-Wformat-truncation
+    # diagnostics and the sprintf return-value optimization.
+    add_compile_options(
+      -fno-printf-return-value -Wno-format-overflow -Wno-format-truncation)
+  endif()
+
   find_package(Eigen3 REQUIRED)
 
   set(CMAKE_CXX_STANDARD 17)
