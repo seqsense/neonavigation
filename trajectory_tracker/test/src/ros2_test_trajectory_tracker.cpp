@@ -37,6 +37,13 @@ using std::chrono::duration;
 using std::chrono::duration_cast;
 using std::chrono::nanoseconds;
 
+// The simulated clock is published by a separate process at a fixed wall rate,
+// so it keeps advancing even when the machine is busy and the tracker misses
+// control cycles. The budgets below only exist to catch a hang, so they are
+// scaled well past the nominal motion time; a loaded CI runner otherwise fails
+// them while the robot is still converging.
+constexpr double kTimeoutScale = 2.0;
+
 class RosRate : public rclcpp::RateBase
 {
 public:
@@ -118,7 +125,7 @@ TEST_F(TrajectoryTrackerTest, StraightStop)
   RosRate rate(50, *this);
   const rclcpp::Time start = now();
   while (rclcpp::ok()) {
-    if (now() > start + rclcpp::Duration::from_seconds(10.0)) {
+    if (now() > start + rclcpp::Duration::from_seconds(kTimeoutScale * 10.0)) {
       FAIL() << "Timeout" << std::endl
              << "Pos " << pos_ << std::endl
              << "Yaw " << yaw_ << std::endl
@@ -166,7 +173,7 @@ TEST_F(TrajectoryTrackerTest, StraightStopOvershoot)
     RosRate rate(50, *this);
     const rclcpp::Time start = now();
     while (rclcpp::ok()) {
-      if (now() > start + rclcpp::Duration::from_seconds(10.0)) {
+      if (now() > start + rclcpp::Duration::from_seconds(kTimeoutScale * 10.0)) {
         FAIL() << "Timeout" << std::endl
                << "Pos " << pos_ << std::endl
                << "Yaw " << yaw_ << std::endl
@@ -216,7 +223,8 @@ TEST_F(TrajectoryTrackerTest, StraightStopConvergence)
     RosRate rate(50, *this);
     const rclcpp::Time start = now();
     while (rclcpp::ok()) {
-      if (now() > start + rclcpp::Duration::from_seconds(5.0 + path_length / vel)) {
+      if (
+        now() > start + rclcpp::Duration::from_seconds(kTimeoutScale * (5.0 + path_length / vel))) {
         FAIL() << "Timeout" << std::endl
                << "Pos " << pos_ << std::endl
                << "Yaw " << yaw_ << std::endl
@@ -261,7 +269,7 @@ TEST_F(TrajectoryTrackerTest, StraightVelocityChange)
   RosRate rate(50, *this);
   const rclcpp::Time start = now();
   while (rclcpp::ok()) {
-    if (now() > start + rclcpp::Duration::from_seconds(10.0)) {
+    if (now() > start + rclcpp::Duration::from_seconds(kTimeoutScale * 10.0)) {
       FAIL() << "Timeout" << std::endl
              << "Pos " << pos_ << std::endl
              << "Yaw " << yaw_ << std::endl
@@ -315,7 +323,7 @@ TEST_F(TrajectoryTrackerTest, CurveFollow)
   RosRate rate(50, *this);
   const rclcpp::Time start = now();
   while (rclcpp::ok()) {
-    if (now() > start + rclcpp::Duration::from_seconds(20.0)) {
+    if (now() > start + rclcpp::Duration::from_seconds(kTimeoutScale * 20.0)) {
       FAIL() << "Timeout" << std::endl
              << "Pos " << pos_ << std::endl
              << "Yaw " << yaw_ << std::endl
@@ -373,7 +381,7 @@ TEST_F(TrajectoryTrackerTest, InPlaceTurn)
         RosRate rate(50, *this);
         const rclcpp::Time start = now();
         for (int i = 0; rclcpp::ok(); ++i) {
-          if (now() > start + rclcpp::Duration::from_seconds(10.0)) {
+          if (now() > start + rclcpp::Duration::from_seconds(kTimeoutScale * 10.0)) {
             FAIL() << condition_name.str() << "Timeout" << std::endl
                    << "Pos " << pos_ << std::endl
                    << "Yaw " << yaw_ << std::endl
@@ -433,7 +441,7 @@ TEST_F(TrajectoryTrackerTest, SwitchBack)
   RosRate rate(50, *this);
   const rclcpp::Time start = now();
   while (rclcpp::ok()) {
-    if (now() > start + rclcpp::Duration::from_seconds(10.0)) {
+    if (now() > start + rclcpp::Duration::from_seconds(kTimeoutScale * 10.0)) {
       FAIL() << "Timeout" << std::endl
              << "Pos " << pos_ << std::endl
              << "Yaw " << yaw_ << std::endl
@@ -484,7 +492,7 @@ TEST_F(TrajectoryTrackerTest, SwitchBackWithPathUpdate)
   RosRate rate(50, *this);
   const rclcpp::Time start = now();
   for (int i = 0; rclcpp::ok(); i++) {
-    if (now() > start + rclcpp::Duration::from_seconds(15.0)) {
+    if (now() > start + rclcpp::Duration::from_seconds(kTimeoutScale * 15.0)) {
       FAIL() << "Timeout" << std::endl
              << "Pos " << pos_ << std::endl
              << "Yaw " << yaw_ << std::endl
@@ -538,7 +546,7 @@ TEST_F(TrajectoryTrackerTest, FarAray)
   RosRate rate(50, *this);
   const rclcpp::Time start = now();
   while (rclcpp::ok()) {
-    if (now() > start + rclcpp::Duration::from_seconds(10.0)) {
+    if (now() > start + rclcpp::Duration::from_seconds(kTimeoutScale * 10.0)) {
       FAIL() << "Timeout" << std::endl
              << "Pos " << pos_ << std::endl
              << "Yaw " << yaw_ << std::endl
@@ -569,5 +577,10 @@ int main(int argc, char ** argv)
 {
   testing::InitGoogleTest(&argc, argv);
   rclcpp::init(argc, argv);
-  return RUN_ALL_TESTS();
+  const int ret = RUN_ALL_TESTS();
+  // Not optional: musl keeps the context's globals alive until process exit,
+  // where they are torn down in an order that crashes. Returning from main
+  // with the context still initialized segfaults after every test has passed.
+  rclcpp::shutdown();
+  return ret;
 }

@@ -112,5 +112,11 @@ int main(int argc, char ** argv)
   rclcpp::init(argc, argv);
   auto node = rclcpp::Node::make_shared("test_trajectory_tracker_frame_rate");
 
-  return RUN_ALL_TESTS();
+  const int ret = RUN_ALL_TESTS();
+  // Not optional: musl keeps the context's globals alive until process exit,
+  // where they are torn down in an order that crashes. Returning from main
+  // with the context still initialized segfaults after every test has passed.
+  node.reset();
+  rclcpp::shutdown();
+  return ret;
 }

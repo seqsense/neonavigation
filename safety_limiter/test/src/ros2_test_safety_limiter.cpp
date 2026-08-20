@@ -691,5 +691,10 @@ int main(int argc, char ** argv)
 {
   testing::InitGoogleTest(&argc, argv);
   rclcpp::init(argc, argv);
-  return RUN_ALL_TESTS();
+  const int ret = RUN_ALL_TESTS();
+  // Not optional: musl keeps the context's globals alive until process exit,
+  // where they are torn down in an order that crashes. Returning from main
+  // with the context still initialized segfaults after every test has passed.
+  rclcpp::shutdown();
+  return ret;
 }
