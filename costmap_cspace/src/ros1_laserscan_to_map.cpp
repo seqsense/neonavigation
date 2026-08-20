@@ -114,8 +114,9 @@ private:
     } catch (tf2::TransformException & e) {
       ROS_WARN("%s", e.what());
     }
-    accum_.push(costmap_cspace::PointcloudAccumurator<sensor_msgs::PointCloud2>::Points(
-      cloud_global, cloud_global.header.stamp));
+    accum_.push(
+      costmap_cspace::PointcloudAccumurator<sensor_msgs::PointCloud2>::Points(
+        cloud_global, cloud_global.header.stamp));
 
     ros::Time now = scan->header.stamp;
     if (published_ + publish_interval_ > now) return;

@@ -358,8 +358,10 @@ TEST(Path2D, EstimatedTimeOfArrivals)
   // Curve
   for (int i = 1; i <= 4; ++i) {
     const double angle = M_PI / 8 * i;
-    path.push_back(trajectory_tracker::Pose2D(
-      Eigen::Vector2d(0.2 * std::cos(angle), -0.2 + 0.2 * std::sin(angle)), -M_PI / 2 - angle, 0));
+    path.push_back(
+      trajectory_tracker::Pose2D(
+        Eigen::Vector2d(0.2 * std::cos(angle), -0.2 + 0.2 * std::sin(angle)), -M_PI / 2 - angle,
+        0));
   }
   const double linear_speed = 0.5;
   const double angular_speed = M_PI;

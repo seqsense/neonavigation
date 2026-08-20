@@ -135,8 +135,9 @@ public:
     int num_input_clouds;
     pnh_.param("num_input_clouds", num_input_clouds, 1);
     if (num_input_clouds == 1) {
-      sub_clouds_.push_back(neonavigation_common::compat::subscribe(
-        nh_, "cloud", pnh_, "cloud", 1, &SafetyLimiterNode::cbCloud, this));
+      sub_clouds_.push_back(
+        neonavigation_common::compat::subscribe(
+          nh_, "cloud", pnh_, "cloud", 1, &SafetyLimiterNode::cbCloud, this));
     } else {
       for (int i = 0; i < num_input_clouds; ++i) {
         sub_clouds_.push_back(

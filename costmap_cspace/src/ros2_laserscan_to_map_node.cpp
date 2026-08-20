@@ -133,8 +133,9 @@ void LaserscanToMapNode::cbScan(const sensor_msgs::msg::LaserScan::ConstSharedPt
   } catch (const tf2::TransformException & e) {
     RCLCPP_WARN(this->get_logger(), "%s", e.what());
   }
-  accum_.push(PointcloudAccumulator<sensor_msgs::msg::PointCloud2>::Points(
-    cloud_global, cloud_global.header.stamp));
+  accum_.push(
+    PointcloudAccumulator<sensor_msgs::msg::PointCloud2>::Points(
+      cloud_global, cloud_global.header.stamp));
 
   const rclcpp::Time now(scan->header.stamp, RCL_ROS_TIME);
   if (published_ + publish_interval_ > now) {

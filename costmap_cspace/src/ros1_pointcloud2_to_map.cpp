@@ -118,8 +118,9 @@ private:
     tf2::doTransform(*cloud, cloud_global, trans);
 
     const int buffer = singleshot ? 1 : 0;
-    accums_[buffer].push(costmap_cspace::PointcloudAccumulator<sensor_msgs::PointCloud2>::Points(
-      cloud_global, cloud_global.header.stamp));
+    accums_[buffer].push(
+      costmap_cspace::PointcloudAccumulator<sensor_msgs::PointCloud2>::Points(
+        cloud_global, cloud_global.header.stamp));
 
     ros::Time now = cloud->header.stamp;
     if (published_ + publish_interval_ > now) return;

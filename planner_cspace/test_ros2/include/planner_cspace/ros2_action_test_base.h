@@ -100,16 +100,19 @@ protected:
 
   void waitPlannerReady()
   {
-    ASSERT_TRUE(planner_cspace_testing::spinUntil(
-      node_, std::chrono::seconds(30), [this] { return action_client_->action_server_is_ready(); }))
+    ASSERT_TRUE(
+      planner_cspace_testing::spinUntil(
+        node_, std::chrono::seconds(30),
+        [this] { return action_client_->action_server_is_ready(); }))
       << "Failed to connect " << TOPIC << " action";
 
     // ROS 1 polled ~/make_plan, which returned false until planner_3d had a
     // map. A ROS 2 service cannot report a failure, so the node answers with
     // an empty plan instead and the emptiness is what is polled here.
-    ASSERT_TRUE(planner_cspace_testing::spinUntil(
-      node_, std::chrono::seconds(30), [this] { return planIsAvailable(); }, nullptr,
-      std::chrono::milliseconds(500)))
+    ASSERT_TRUE(
+      planner_cspace_testing::spinUntil(
+        node_, std::chrono::seconds(30), [this] { return planIsAvailable(); }, nullptr,
+        std::chrono::milliseconds(500)))
       << "planner_3d didn't receive map";
   }
 

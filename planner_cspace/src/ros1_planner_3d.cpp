@@ -127,8 +127,9 @@ protected:
   void publishPath(const nav_msgs::Path & path)
   {
     if (use_path_with_velocity_) {
-      pub_path_velocity_.publish(trajectory_tracker_msgs::toPathWithVelocity(
-        path, std::numeric_limits<double>::quiet_NaN()));
+      pub_path_velocity_.publish(
+        trajectory_tracker_msgs::toPathWithVelocity(
+          path, std::numeric_limits<double>::quiet_NaN()));
     } else {
       pub_path_.publish(path);
     }

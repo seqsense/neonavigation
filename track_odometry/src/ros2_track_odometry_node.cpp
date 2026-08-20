@@ -146,8 +146,9 @@ public:
       const int sync_window = this->declare_parameter("sync_window", 50);
       sync_ = std::make_shared<message_filters::Synchronizer<SyncPolicy>>(
         SyncPolicy(sync_window), *sub_odom_, *sub_imu_);
-      sync_->registerCallback(std::bind(
-        &TrackOdometryNode::cbOdomImu, this, std::placeholders::_1, std::placeholders::_2));
+      sync_->registerCallback(
+        std::bind(
+          &TrackOdometryNode::cbOdomImu, this, std::placeholders::_1, std::placeholders::_2));
 
       params.base_link_id_overwrite = this->declare_parameter("base_link_id", std::string(""));
     }

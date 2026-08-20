@@ -106,9 +106,10 @@ TEST_F(TolerantActionTest, GoalWithTolerance)
   ASSERT_TRUE(planner_status_);
   EXPECT_EQ(planner_status_->status, planner_cspace_msgs::msg::PlannerStatus::DOING);
 
-  ASSERT_TRUE(planner_cspace_testing::spinUntil(
-    node_, std::chrono::seconds(60),
-    [this] { return planner_status_->status == planner_cspace_msgs::msg::PlannerStatus::DONE; }))
+  ASSERT_TRUE(
+    planner_cspace_testing::spinUntil(
+      node_, std::chrono::seconds(60),
+      [this] { return planner_status_->status == planner_cspace_msgs::msg::PlannerStatus::DONE; }))
     << "Navigation didn't finish: " << resultString() << " " << statusString();
   EXPECT_LT(getDistBetweenRobotAndGoal(goal), 0.05);
 }

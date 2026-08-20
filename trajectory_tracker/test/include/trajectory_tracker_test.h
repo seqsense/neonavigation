@@ -165,8 +165,9 @@ public:
   }
   void initState(const Eigen::Vector2d & pos, const float yaw)
   {
-    initState(tf2::Transform(
-      tf2::Quaternion(tf2::Vector3(0, 0, 1), yaw), tf2::Vector3(pos.x(), pos.y(), 0)));
+    initState(
+      tf2::Transform(
+        tf2::Quaternion(tf2::Vector3(0, 0, 1), yaw), tf2::Vector3(pos.x(), pos.y(), 0)));
   }
   void waitUntilStart(const std::function<void()> func = nullptr)
   {

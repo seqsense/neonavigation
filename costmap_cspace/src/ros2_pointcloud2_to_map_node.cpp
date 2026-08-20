@@ -140,8 +140,9 @@ void Pointcloud2ToMapNode::cbCloud(
   tf2::doTransform(*cloud, cloud_global, trans);
 
   const int buffer = singleshot ? 1 : 0;
-  accums_[buffer].push(PointcloudAccumulator<sensor_msgs::msg::PointCloud2>::Points(
-    cloud_global, cloud_global.header.stamp));
+  accums_[buffer].push(
+    PointcloudAccumulator<sensor_msgs::msg::PointCloud2>::Points(
+      cloud_global, cloud_global.header.stamp));
 
   const rclcpp::Time now(cloud->header.stamp, RCL_ROS_TIME);
   if (published_ + publish_interval_ > now) {

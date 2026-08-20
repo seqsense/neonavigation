@@ -267,8 +267,9 @@ TrackerController::TrackingResult TrackerController::getTrackingResult(
     const auto robot_to_path_2d = path_to_robot_2d.inverse();
 
     for (size_t i = 0; i < path_.size(); i += path_step_)
-      lpath.push_back(trajectory_tracker::Pose2D(
-        robot_to_path_2d * path_[i].pos_, -robot_yaw + path_[i].yaw_, path_[i].velocity_));
+      lpath.push_back(
+        trajectory_tracker::Pose2D(
+          robot_to_path_2d * path_[i].pos_, -robot_yaw + path_[i].yaw_, path_[i].velocity_));
   } catch (tf2::TransformException & e) {
     RCLCPP_WARN(logger_, "TF exception: %s", e.what());
     return TrackingResult(trajectory_tracker_msgs::msg::TrajectoryTrackerStatus::NO_PATH);

@@ -5,9 +5,6 @@
 # not emit the ROS 2-style headers these packages include; sq_ros1_rclcpp_compat
 # is not released at all. Both are therefore built from source here.
 #
-# TODO: point neonavigation_msgs back at master once the hybrid branch is
-# merged there.
-#
 # sq_ros1_rclcpp_compat is ROS 1-only, so the ROS 2 job leaves it out of its
 # manifest-files: it is checked out but never built there.
 - git:
@@ -17,4 +14,4 @@
 - git:
     local-name: neonavigation_msgs
     uri: https://github.com/seqsense/neonavigation_msgs.git
-    version: testing-hybrid
+    version: master

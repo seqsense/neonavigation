@@ -461,8 +461,9 @@ TEST_F(TrajectoryTrackerTest, FarAray)
 {
   const double y_pos = 500.0;
 
-  initState(tf2::Transform(
-    tf2::Quaternion(tf2::Vector3(1.0, 0.0, 0.0), 0.1), tf2::Vector3(0.0, y_pos, 0.0)));
+  initState(
+    tf2::Transform(
+      tf2::Quaternion(tf2::Vector3(1.0, 0.0, 0.0), 0.1), tf2::Vector3(0.0, y_pos, 0.0)));
   std::vector<Eigen::Vector3d> poses;
   for (double x = 0.0; x < 0.5; x += 0.01) poses.push_back(Eigen::Vector3d(x, y_pos, 0.0));
   poses.push_back(Eigen::Vector3d(0.5, y_pos, 0.0));
