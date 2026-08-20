@@ -59,6 +59,13 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
     # full-text templates (license=<unknown>), so the copyright linter is
     # excluded. Existing license text is kept as-is.
     list(APPEND AMENT_LINT_AUTO_EXCLUDE ament_cmake_copyright)
+    # ros-humble-ament-clang-format depends on Alpine's clang package, but the
+    # clang-format binary lives in clang-extra-tools, so the linter cannot run
+    # there at all (jazzy's 0.17.5 packaging fixed this dependency). Formatting
+    # is checked on jazzy instead.
+    if("$ENV{ROS_DISTRO}" STREQUAL "humble")
+      list(APPEND AMENT_LINT_AUTO_EXCLUDE ament_cmake_clang_format)
+    endif()
     ament_lint_auto_find_test_dependencies()
   endif()
 

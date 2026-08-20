@@ -1,4 +1,4 @@
-name: ci
+name: ros2 ci
 on:
   pull_request:
   push:
@@ -13,26 +13,29 @@ permissions:
 
 jobs:
   test:
-    uses: alpine-ros/alpine-ros-ci-workflows/.github/workflows/ros1.yaml@main
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - alpine-version: "3.23"
+            ros-distro: jazzy
+          - alpine-version: "3.23"
+            ros-distro: humble
+    uses: alpine-ros/alpine-ros-ci-workflows/.github/workflows/ros2.yaml@main
     with:
-      # The reusable workflow still defaults to Alpine 3.20, which is on its
-      # way out; pin to 3.23 to match the ROS 2 job.
-      alpine-version: "3.23"
+      alpine-version: ${{ matrix.alpine-version }}
+      ros-distro: ${{ matrix.ros-distro }}
       enable-bot-comment: true
-      # This fork has neither access to the upstream bot-comment proxy nor a
-      # CODECOV_TOKEN, so comment through the plain GitHub API and skip the
-      # coverage upload. Restore both when merging upstream.
-      enable-codecov: false
-      # .rosinstall pulls whole repositories, and sq_ros1_rclcpp_compat carries
-      # samples/ packages that are demos this repository must not be gated on.
-      # Restrict the build to this repository's packages plus the source
-      # dependencies actually needed. The ../.. paths resolve to the
-      # container's ~/extsrc, where the rosinstall dependencies are checked out.
+      # Shared with the ROS 1 job. sq_ros1_rclcpp_compat is a ROS 1-only
+      # dependency: it gets checked out, but manifest-files below keeps it
+      # out of the build.
+      rosinstall-files: .rosinstall
+      # The neonavigation metapackage is a ROS 1 concept (catkin metapackages
+      # have no ROS 2 equivalent), so it is not built here.
       manifest-files: |
         costmap_cspace/package.xml
         joystick_interrupt/package.xml
         map_organizer/package.xml
-        neonavigation/package.xml
         neonavigation_common/package.xml
         neonavigation_launch/package.xml
         obj_to_pointcloud/package.xml
@@ -40,7 +43,6 @@ jobs:
         safety_limiter/package.xml
         track_odometry/package.xml
         trajectory_tracker/package.xml
-        ../../home/builder/extsrc/sq_ros1_rclcpp_compat/sq_ros1_rclcpp_compat/package.xml
         ../../home/builder/extsrc/neonavigation_msgs/costmap_cspace_msgs/package.xml
         ../../home/builder/extsrc/neonavigation_msgs/map_organizer_msgs/package.xml
         ../../home/builder/extsrc/neonavigation_msgs/neonavigation_metrics_msgs/package.xml
