@@ -20,6 +20,7 @@
   <depend condition="$ROS_VERSION == 1">sq_ros1_rclcpp_compat</depend>
 
   <!-- ROS 2 interface layer uses the real rclcpp and component registration. -->
+  <depend condition="$ROS_VERSION == 2">rcl_interfaces</depend>
   <depend condition="$ROS_VERSION == 2">rclcpp</depend>
   <depend condition="$ROS_VERSION == 2">rclcpp_components</depend>
 
@@ -45,6 +46,9 @@
   <test_depend condition="$ROS_VERSION == 2">launch_testing_ament_cmake</test_depend>
   <test_depend condition="$ROS_VERSION == 2">launch_testing_ros</test_depend>
   <test_depend condition="$ROS_VERSION == 2">rosgraph_msgs</test_depend>
+  <test_depend condition="$ROS_VERSION == 2">ament_index_python</test_depend>
+  <test_depend condition="$ROS_VERSION == 2">launch</test_depend>
+  <test_depend condition="$ROS_VERSION == 2">launch_ros</test_depend>
 
   <export>
     <build_type condition="$ROS_VERSION == 1">catkin</build_type>
