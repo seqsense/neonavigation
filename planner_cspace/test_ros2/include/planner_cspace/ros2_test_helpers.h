@@ -33,6 +33,7 @@
 #include <chrono>
 #include <functional>
 #include <string>
+#include <utility>
 
 #include "rclcpp/rclcpp.hpp"
 
@@ -72,6 +73,27 @@ inline bool spinUntil(
     rclcpp::sleep_for(interval);
   }
   return false;
+}
+// nav2_msgs/NavigateToPose only gained the error_msg result field after humble,
+// where the result is an empty message, so the status text can only be checked
+// on the distributions that carry it.
+// Overload ranking: the first overload is picked whenever the field exists.
+struct FallbackTag
+{
+};
+struct PreferredTag : FallbackTag
+{
+};
+
+template <typename ResultT, typename = decltype(std::declval<ResultT &>().error_msg)>
+void expectResultText(const ResultT & result, const std::string & expected, PreferredTag)
+{
+  EXPECT_EQ(expected, result.error_msg);
+}
+
+template <typename ResultT>
+void expectResultText(const ResultT &, const std::string &, FallbackTag)
+{
 }
 }  // namespace planner_cspace_testing
 

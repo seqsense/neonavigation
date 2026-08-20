@@ -51,6 +51,7 @@
 #include "geometry_msgs/msg/twist.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "nav_msgs/msg/path.hpp"
+#include "rcl_interfaces/msg/set_parameters_result.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_components/register_node_macro.hpp"
 #include "std_msgs/msg/float32.hpp"
@@ -99,10 +100,10 @@ private:
 
   std::unique_ptr<trajectory_tracker::TrackerController> controller_;
 
-  rclcpp::node_interfaces::PostSetParametersCallbackHandle::SharedPtr param_callback_handle_;
+  rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr param_callback_handle_;
 
   void declareDynamicParameters();
-  void updateParameters();
+  void updateParameters(const std::vector<rclcpp::Parameter> & changed = {});
 
   template <typename MSG_TYPE>
   void cbPath(const typename MSG_TYPE::ConstSharedPtr & msg);
@@ -133,8 +134,15 @@ TrackerNode::TrackerNode(const rclcpp::NodeOptions & options)
 
   declareDynamicParameters();
   updateParameters();
-  param_callback_handle_ = this->add_post_set_parameters_callback(
-    [this](const std::vector<rclcpp::Parameter> &) { updateParameters(); });
+  param_callback_handle_ =
+    this->add_on_set_parameters_callback([this](const std::vector<rclcpp::Parameter> & params) {
+      // This node registers no other callback, so nothing downstream can
+      // reject the change after the state has been updated here.
+      updateParameters(params);
+      rcl_interfaces::msg::SetParametersResult result;
+      result.successful = true;
+      return result;
+    });
 
   sub_path_ = this->create_subscription<nav_msgs::msg::Path>(
     "path", 2, std::bind(&TrackerNode::cbPath<nav_msgs::msg::Path>, this, std::placeholders::_1));
@@ -208,42 +216,53 @@ void TrackerNode::declareDynamicParameters()
   this->declare_parameter("goal_tolerance_ang_vel", 0.0);
 }
 
-void TrackerNode::updateParameters()
+void TrackerNode::updateParameters(const std::vector<rclcpp::Parameter> & changed)
 {
+  // Runs from an on-set callback, i.e. before the new values reach the node's
+  // parameter store, because humble's rclcpp has no post-set callback. Read
+  // the values that are about to be applied first, and fall back to the store
+  // for every parameter the change does not touch.
+  const auto param = [this, &changed](const std::string & name) {
+    for (const auto & p : changed) {
+      if (p.get_name() == name) {
+        return p;
+      }
+    }
+    return this->get_parameter(name);
+  };
   trajectory_tracker::TrackerController::Parameters params;
-  params.look_forward = this->get_parameter("look_forward").as_double();
-  params.curv_forward = this->get_parameter("curv_forward").as_double();
-  params.k[0] = this->get_parameter("k_dist").as_double();
-  params.k[1] = this->get_parameter("k_ang").as_double();
-  params.k[2] = this->get_parameter("k_avel").as_double();
-  params.gain_at_vel = this->get_parameter("gain_at_vel").as_double();
-  params.d_lim = this->get_parameter("dist_lim").as_double();
-  params.d_stop = this->get_parameter("dist_stop").as_double();
-  params.rotate_ang = this->get_parameter("rotate_ang").as_double();
-  params.vel[0] = this->get_parameter("max_vel").as_double();
-  params.vel[1] = this->get_parameter("max_angvel").as_double();
-  params.acc[0] = this->get_parameter("max_acc").as_double();
-  params.acc[1] = this->get_parameter("max_angacc").as_double();
-  params.acc_toc[0] = params.acc[0] * this->get_parameter("acc_toc_factor").as_double();
-  params.acc_toc[1] = params.acc[1] * this->get_parameter("angacc_toc_factor").as_double();
-  params.path_step = static_cast<int>(this->get_parameter("path_step").as_int());
-  params.goal_tolerance_dist = this->get_parameter("goal_tolerance_dist").as_double();
-  params.goal_tolerance_ang = this->get_parameter("goal_tolerance_ang").as_double();
-  params.stop_tolerance_dist = this->get_parameter("stop_tolerance_dist").as_double();
-  params.stop_tolerance_ang = this->get_parameter("stop_tolerance_ang").as_double();
-  params.no_pos_cntl_dist = this->get_parameter("no_position_control_dist").as_double();
-  params.min_track_path = this->get_parameter("min_tracking_path").as_double();
-  params.allow_backward = this->get_parameter("allow_backward").as_bool();
-  params.limit_vel_by_avel = this->get_parameter("limit_vel_by_avel").as_bool();
-  params.check_old_path = this->get_parameter("check_old_path").as_bool();
-  params.epsilon = this->get_parameter("epsilon").as_double();
-  params.use_time_optimal_control = this->get_parameter("use_time_optimal_control").as_bool();
-  params.time_optimal_control_future_gain =
-    this->get_parameter("time_optimal_control_future_gain").as_double();
-  params.k_ang_rotation = this->get_parameter("k_ang_rotation").as_double();
-  params.k_avel_rotation = this->get_parameter("k_avel_rotation").as_double();
-  params.goal_tolerance_lin_vel = this->get_parameter("goal_tolerance_lin_vel").as_double();
-  params.goal_tolerance_ang_vel = this->get_parameter("goal_tolerance_ang_vel").as_double();
+  params.look_forward = param("look_forward").as_double();
+  params.curv_forward = param("curv_forward").as_double();
+  params.k[0] = param("k_dist").as_double();
+  params.k[1] = param("k_ang").as_double();
+  params.k[2] = param("k_avel").as_double();
+  params.gain_at_vel = param("gain_at_vel").as_double();
+  params.d_lim = param("dist_lim").as_double();
+  params.d_stop = param("dist_stop").as_double();
+  params.rotate_ang = param("rotate_ang").as_double();
+  params.vel[0] = param("max_vel").as_double();
+  params.vel[1] = param("max_angvel").as_double();
+  params.acc[0] = param("max_acc").as_double();
+  params.acc[1] = param("max_angacc").as_double();
+  params.acc_toc[0] = params.acc[0] * param("acc_toc_factor").as_double();
+  params.acc_toc[1] = params.acc[1] * param("angacc_toc_factor").as_double();
+  params.path_step = static_cast<int>(param("path_step").as_int());
+  params.goal_tolerance_dist = param("goal_tolerance_dist").as_double();
+  params.goal_tolerance_ang = param("goal_tolerance_ang").as_double();
+  params.stop_tolerance_dist = param("stop_tolerance_dist").as_double();
+  params.stop_tolerance_ang = param("stop_tolerance_ang").as_double();
+  params.no_pos_cntl_dist = param("no_position_control_dist").as_double();
+  params.min_track_path = param("min_tracking_path").as_double();
+  params.allow_backward = param("allow_backward").as_bool();
+  params.limit_vel_by_avel = param("limit_vel_by_avel").as_bool();
+  params.check_old_path = param("check_old_path").as_bool();
+  params.epsilon = param("epsilon").as_double();
+  params.use_time_optimal_control = param("use_time_optimal_control").as_bool();
+  params.time_optimal_control_future_gain = param("time_optimal_control_future_gain").as_double();
+  params.k_ang_rotation = param("k_ang_rotation").as_double();
+  params.k_avel_rotation = param("k_avel_rotation").as_double();
+  params.goal_tolerance_lin_vel = param("goal_tolerance_lin_vel").as_double();
+  params.goal_tolerance_ang_vel = param("goal_tolerance_ang_vel").as_double();
   controller_->setParameters(params);
 }
 

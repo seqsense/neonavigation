@@ -39,6 +39,7 @@
 #include "pcl/point_cloud.h"
 #include "pcl/point_types.h"
 #include "pcl_conversions/pcl_conversions.h"
+#include "rcl_interfaces/msg/set_parameters_result.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_components/register_node_macro.hpp"
 #include "safety_limiter/safety_limiter.h"
@@ -81,7 +82,7 @@ private:
 
   std::unique_ptr<SafetyLimiter> limiter_;
 
-  rclcpp::node_interfaces::PostSetParametersCallbackHandle::SharedPtr param_callback_handle_;
+  rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr param_callback_handle_;
 
   geometry_msgs::msg::Twist twist_;
   rclcpp::Time last_cloud_stamp_;
@@ -109,7 +110,7 @@ private:
   diagnostic_updater::Updater diag_updater_;
 
   void declareDynamicParameters();
-  void updateParameters();
+  void updateParameters(const std::vector<rclcpp::Parameter> & changed = {});
   void setFootprint();
 
   void cbWatchdogReset(const std_msgs::msg::Empty::ConstSharedPtr & msg);
@@ -189,8 +190,15 @@ SafetyLimiterNode::SafetyLimiterNode(const rclcpp::NodeOptions & options)
 
   declareDynamicParameters();
   updateParameters();
-  param_callback_handle_ = this->add_post_set_parameters_callback(
-    [this](const std::vector<rclcpp::Parameter> &) { updateParameters(); });
+  param_callback_handle_ =
+    this->add_on_set_parameters_callback([this](const std::vector<rclcpp::Parameter> & params) {
+      // This node registers no other callback, so nothing downstream can
+      // reject the change after the state has been updated here.
+      updateParameters(params);
+      rcl_interfaces::msg::SetParametersResult result;
+      result.successful = true;
+      return result;
+    });
 
   diag_updater_.setHardwareID("none");
   diag_updater_.add("Collision", this, &SafetyLimiterNode::diagnoseCollision);
@@ -261,31 +269,42 @@ void SafetyLimiterNode::declareDynamicParameters()
   this->declare_parameter("allow_empty_cloud", false);
 }
 
-void SafetyLimiterNode::updateParameters()
+void SafetyLimiterNode::updateParameters(const std::vector<rclcpp::Parameter> & changed)
 {
-  hz_ = this->get_parameter("freq").as_double();
-  timeout_ = this->get_parameter("cloud_timeout").as_double();
-  disable_timeout_ = this->get_parameter("disable_timeout").as_double();
-  max_values_[0] = this->get_parameter("max_linear_vel").as_double();
-  max_values_[1] = this->get_parameter("max_angular_vel").as_double();
-  hold_ =
-    rclcpp::Duration::from_seconds(std::max(this->get_parameter("hold").as_double(), 1.0 / hz_));
+  // Runs from an on-set callback, i.e. before the new values reach the node's
+  // parameter store, because humble's rclcpp has no post-set callback. Read
+  // the values that are about to be applied first, and fall back to the store
+  // for every parameter the change does not touch.
+  const auto param = [this, &changed](const std::string & name) {
+    for (const auto & p : changed) {
+      if (p.get_name() == name) {
+        return p;
+      }
+    }
+    return this->get_parameter(name);
+  };
+  hz_ = param("freq").as_double();
+  timeout_ = param("cloud_timeout").as_double();
+  disable_timeout_ = param("disable_timeout").as_double();
+  max_values_[0] = param("max_linear_vel").as_double();
+  max_values_[1] = param("max_angular_vel").as_double();
+  hold_ = rclcpp::Duration::from_seconds(std::max(param("hold").as_double(), 1.0 / hz_));
 
   SafetyLimiter::Parameters params;
-  params.vel[0] = this->get_parameter("lin_vel").as_double();
-  params.acc[0] = this->get_parameter("lin_acc").as_double();
-  params.vel[1] = this->get_parameter("ang_vel").as_double();
-  params.acc[1] = this->get_parameter("ang_acc").as_double();
-  params.z_range[0] = this->get_parameter("z_range_min").as_double();
-  params.z_range[1] = this->get_parameter("z_range_max").as_double();
-  params.dt = this->get_parameter("dt").as_double();
-  params.d_margin = this->get_parameter("d_margin").as_double();
-  params.d_escape = this->get_parameter("d_escape").as_double();
-  params.yaw_margin = this->get_parameter("yaw_margin").as_double();
-  params.yaw_escape = this->get_parameter("yaw_escape").as_double();
-  params.downsample_grid = this->get_parameter("downsample_grid").as_double();
+  params.vel[0] = param("lin_vel").as_double();
+  params.acc[0] = param("lin_acc").as_double();
+  params.vel[1] = param("ang_vel").as_double();
+  params.acc[1] = param("ang_acc").as_double();
+  params.z_range[0] = param("z_range_min").as_double();
+  params.z_range[1] = param("z_range_max").as_double();
+  params.dt = param("dt").as_double();
+  params.d_margin = param("d_margin").as_double();
+  params.d_escape = param("d_escape").as_double();
+  params.yaw_margin = param("yaw_margin").as_double();
+  params.yaw_escape = param("yaw_escape").as_double();
+  params.downsample_grid = param("downsample_grid").as_double();
   params.hz = hz_;
-  params.allow_empty_cloud = this->get_parameter("allow_empty_cloud").as_bool();
+  params.allow_empty_cloud = param("allow_empty_cloud").as_bool();
   limiter_->setParameters(params);
 
   r_lim_ = 1.0;

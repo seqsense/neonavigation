@@ -38,6 +38,7 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "costmap_cspace_msgs/msg/c_space3_d.hpp"
@@ -56,6 +57,7 @@
 #include "planner_cspace_msgs/action/move_with_tolerance.hpp"
 #include "planner_cspace_msgs/msg/planner_status.hpp"
 #include "rcl_interfaces/msg/parameter_descriptor.hpp"
+#include "rcl_interfaces/msg/set_parameters_result.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 #include "rclcpp_components/register_node_macro.hpp"
@@ -74,6 +76,30 @@ namespace planner_3d
 {
 namespace
 {
+// nav2_msgs/NavigateToPose gained the error_code/error_msg result fields after
+// humble, whose result is just an empty message. Fill them where they exist so
+// the status text that ROS 1 passed to setSucceeded/setAborted survives; on
+// humble there is nowhere to put it and it is dropped.
+// Overload ranking: the first overload is picked whenever the fields exist.
+struct FallbackTag
+{
+};
+struct PreferredTag : FallbackTag
+{
+};
+
+template <typename ResultT, typename = decltype(std::declval<ResultT &>().error_code)>
+void setResultStatus(ResultT & result, const std::string & text, PreferredTag)
+{
+  result.error_code = ResultT::NONE;
+  result.error_msg = text;
+}
+
+template <typename ResultT>
+void setResultStatus(ResultT &, const std::string &, FallbackTag)
+{
+}
+
 rcl_interfaces::msg::ParameterDescriptor floatRange(const double from, const double to)
 {
   rcl_interfaces::msg::ParameterDescriptor desc;
@@ -119,6 +145,8 @@ float pathLength(const nav_msgs::msg::Path & path)
 //     result (empty)        -> result.error_code (always NONE) and
 //                              result.error_msg, which carries the status text
 //                              that ROS 1 passed to setSucceeded/setAborted.
+//                              humble's result has neither field, so there the
+//                              text is dropped (see setResultStatus).
 //   feedback.navigation_time is filled with the time since the goal was
 //   accepted and feedback.distance_remaining with the length of the last
 //   published path; estimated_time_remaining and number_of_recoveries have no
@@ -196,7 +224,7 @@ private:
 
   rclcpp::TimerBase::SharedPtr spin_timer_;
   rclcpp::TimerBase::SharedPtr no_map_update_timer_;
-  rclcpp::node_interfaces::PostSetParametersCallbackHandle::SharedPtr param_callback_handle_;
+  rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr param_callback_handle_;
 
   std::string robot_frame_;
   bool use_path_with_velocity_;
@@ -209,7 +237,7 @@ private:
   // --- Parameters ---------------------------------------------------------
   bool hasOverride(const std::string & name) const;
   void declareDynamicParameters();
-  void updateParameters();
+  void updateParameters(const std::vector<rclcpp::Parameter> & changed = {});
 
   // --- Outputs of the planning logic --------------------------------------
   void publishPath(const nav_msgs::msg::Path & path);
@@ -300,7 +328,7 @@ Planner3dNode::Planner3dNode(const rclcpp::NodeOptions & options)
   sp.queue_size_limit = static_cast<int>(this->declare_parameter("queue_size_limit", 0));
   robot_frame_ = sp.robot_frame;
 
-  // Declared before the post-set parameter callback is registered so that the
+  // Declared before the parameter callback is registered so that the
   // declaration itself does not re-enter updateParameters().
   use_path_with_velocity_ = this->declare_parameter("use_path_with_velocity", false);
 
@@ -344,8 +372,15 @@ Planner3dNode::Planner3dNode(const rclcpp::NodeOptions & options)
 
   // Mirrors the initial dynamic_reconfigure callback of the ROS 1 node.
   updateParameters();
-  param_callback_handle_ = this->add_post_set_parameters_callback(
-    [this](const std::vector<rclcpp::Parameter> &) { updateParameters(); });
+  param_callback_handle_ =
+    this->add_on_set_parameters_callback([this](const std::vector<rclcpp::Parameter> & params) {
+      // This node registers no other callback, so nothing downstream can
+      // reject the change after the state has been updated here.
+      updateParameters(params);
+      rcl_interfaces::msg::SetParametersResult result;
+      result.successful = true;
+      return result;
+    });
 
   diag_updater_.setHardwareID("none");
   diag_updater_.add("Path Planner Status", this, &Planner3dNode::diagnoseStatus);
@@ -483,66 +518,73 @@ void Planner3dNode::declareDynamicParameters()
   this->declare_parameter("relocation_acceptable_cost", 50, intRange(0, 99));
 }
 
-void Planner3dNode::updateParameters()
+void Planner3dNode::updateParameters(const std::vector<rclcpp::Parameter> & changed)
 {
+  // Runs from an on-set callback, i.e. before the new values reach the node's
+  // parameter store, because humble's rclcpp has no post-set callback. Read
+  // the values that are about to be applied first, and fall back to the store
+  // for every parameter the change does not touch.
+  const auto param = [this, &changed](const std::string & name) {
+    for (const auto & p : changed) {
+      if (p.get_name() == name) {
+        return p;
+      }
+    }
+    return this->get_parameter(name);
+  };
   Planner3dCore::Parameters p;
-  p.freq = this->get_parameter("freq").as_double();
-  p.freq_min = this->get_parameter("freq_min").as_double();
-  p.search_timeout_abort = this->get_parameter("search_timeout_abort").as_double();
-  p.search_range = this->get_parameter("search_range").as_double();
-  p.antialias_start = this->get_parameter("antialias_start").as_bool();
-  p.costmap_watchdog = this->get_parameter("costmap_watchdog").as_double();
-  p.max_vel = this->get_parameter("max_vel").as_double();
-  p.max_ang_vel = this->get_parameter("max_ang_vel").as_double();
-  p.min_curve_radius = this->get_parameter("min_curve_radius").as_double();
-  p.weight_decel = this->get_parameter("weight_decel").as_double();
-  p.weight_backward = this->get_parameter("weight_backward").as_double();
-  p.weight_ang_vel = this->get_parameter("weight_ang_vel").as_double();
-  p.weight_costmap = this->get_parameter("weight_costmap").as_double();
-  p.weight_costmap_turn = this->get_parameter("weight_costmap_turn").as_double();
-  p.weight_costmap_turn_heuristics =
-    this->get_parameter("weight_costmap_turn_heuristics").as_double();
-  p.weight_remembered = this->get_parameter("weight_remembered").as_double();
-  p.cost_in_place_turn = this->get_parameter("cost_in_place_turn").as_double();
-  p.turn_penalty_cost_threshold =
-    static_cast<int>(this->get_parameter("turn_penalty_cost_threshold").as_int());
-  p.hysteresis_max_dist = this->get_parameter("hysteresis_max_dist").as_double();
-  p.hysteresis_expand = this->get_parameter("hysteresis_expand").as_double();
-  p.weight_hysteresis = this->get_parameter("weight_hysteresis").as_double();
-  p.goal_tolerance_lin = this->get_parameter("goal_tolerance_lin").as_double();
-  p.goal_tolerance_ang = this->get_parameter("goal_tolerance_ang").as_double();
-  p.goal_tolerance_ang_finish = this->get_parameter("goal_tolerance_ang_finish").as_double();
-  p.temporary_escape_tolerance_lin =
-    this->get_parameter("temporary_escape_tolerance_lin").as_double();
-  p.temporary_escape_tolerance_ang =
-    this->get_parameter("temporary_escape_tolerance_ang").as_double();
-  p.overwrite_cost = this->get_parameter("overwrite_cost").as_bool();
-  p.relocation_acceptable_cost =
-    static_cast<int>(this->get_parameter("relocation_acceptable_cost").as_int());
-  p.hist_ignore_range = this->get_parameter("hist_ignore_range").as_double();
-  p.hist_ignore_range_max = this->get_parameter("hist_ignore_range_max").as_double();
-  p.remember_updates = this->get_parameter("remember_updates").as_bool();
-  p.remember_hit_prob = this->get_parameter("remember_hit_prob").as_double();
-  p.remember_miss_prob = this->get_parameter("remember_miss_prob").as_double();
-  p.local_range = this->get_parameter("local_range").as_double();
-  p.longcut_range = this->get_parameter("longcut_range").as_double();
-  p.esc_range = this->get_parameter("esc_range").as_double();
-  p.esc_range_min_ratio = this->get_parameter("esc_range_min_ratio").as_double();
-  p.tolerance_range = this->get_parameter("tolerance_range").as_double();
-  p.tolerance_angle = this->get_parameter("tolerance_angle").as_double();
-  p.find_best = this->get_parameter("find_best").as_bool();
-  p.force_goal_orientation = this->get_parameter("force_goal_orientation").as_bool();
-  p.temporary_escape = this->get_parameter("temporary_escape").as_bool();
-  p.fast_map_update = this->get_parameter("fast_map_update").as_bool();
-  p.max_retry_num = static_cast<int>(this->get_parameter("max_retry_num").as_int());
-  p.sw_wait = this->get_parameter("sw_wait").as_double();
-  p.keep_a_part_of_previous_path = this->get_parameter("keep_a_part_of_previous_path").as_bool();
-  p.dist_stop_to_previous_path = this->get_parameter("dist_stop_to_previous_path").as_double();
+  p.freq = param("freq").as_double();
+  p.freq_min = param("freq_min").as_double();
+  p.search_timeout_abort = param("search_timeout_abort").as_double();
+  p.search_range = param("search_range").as_double();
+  p.antialias_start = param("antialias_start").as_bool();
+  p.costmap_watchdog = param("costmap_watchdog").as_double();
+  p.max_vel = param("max_vel").as_double();
+  p.max_ang_vel = param("max_ang_vel").as_double();
+  p.min_curve_radius = param("min_curve_radius").as_double();
+  p.weight_decel = param("weight_decel").as_double();
+  p.weight_backward = param("weight_backward").as_double();
+  p.weight_ang_vel = param("weight_ang_vel").as_double();
+  p.weight_costmap = param("weight_costmap").as_double();
+  p.weight_costmap_turn = param("weight_costmap_turn").as_double();
+  p.weight_costmap_turn_heuristics = param("weight_costmap_turn_heuristics").as_double();
+  p.weight_remembered = param("weight_remembered").as_double();
+  p.cost_in_place_turn = param("cost_in_place_turn").as_double();
+  p.turn_penalty_cost_threshold = static_cast<int>(param("turn_penalty_cost_threshold").as_int());
+  p.hysteresis_max_dist = param("hysteresis_max_dist").as_double();
+  p.hysteresis_expand = param("hysteresis_expand").as_double();
+  p.weight_hysteresis = param("weight_hysteresis").as_double();
+  p.goal_tolerance_lin = param("goal_tolerance_lin").as_double();
+  p.goal_tolerance_ang = param("goal_tolerance_ang").as_double();
+  p.goal_tolerance_ang_finish = param("goal_tolerance_ang_finish").as_double();
+  p.temporary_escape_tolerance_lin = param("temporary_escape_tolerance_lin").as_double();
+  p.temporary_escape_tolerance_ang = param("temporary_escape_tolerance_ang").as_double();
+  p.overwrite_cost = param("overwrite_cost").as_bool();
+  p.relocation_acceptable_cost = static_cast<int>(param("relocation_acceptable_cost").as_int());
+  p.hist_ignore_range = param("hist_ignore_range").as_double();
+  p.hist_ignore_range_max = param("hist_ignore_range_max").as_double();
+  p.remember_updates = param("remember_updates").as_bool();
+  p.remember_hit_prob = param("remember_hit_prob").as_double();
+  p.remember_miss_prob = param("remember_miss_prob").as_double();
+  p.local_range = param("local_range").as_double();
+  p.longcut_range = param("longcut_range").as_double();
+  p.esc_range = param("esc_range").as_double();
+  p.esc_range_min_ratio = param("esc_range_min_ratio").as_double();
+  p.tolerance_range = param("tolerance_range").as_double();
+  p.tolerance_angle = param("tolerance_angle").as_double();
+  p.find_best = param("find_best").as_bool();
+  p.force_goal_orientation = param("force_goal_orientation").as_bool();
+  p.temporary_escape = param("temporary_escape").as_bool();
+  p.fast_map_update = param("fast_map_update").as_bool();
+  p.max_retry_num = static_cast<int>(param("max_retry_num").as_int());
+  p.sw_wait = param("sw_wait").as_double();
+  p.keep_a_part_of_previous_path = param("keep_a_part_of_previous_path").as_bool();
+  p.dist_stop_to_previous_path = param("dist_stop_to_previous_path").as_double();
   planner_.setParameters(p);
 
   freq_ = p.freq;
   costmap_watchdog_ = rclcpp::Duration::from_seconds(p.costmap_watchdog);
-  trigger_plan_by_costmap_update_ = this->get_parameter("trigger_plan_by_costmap_update").as_bool();
+  trigger_plan_by_costmap_update_ = param("trigger_plan_by_costmap_update").as_bool();
   // Drop the watchdog timer so that a changed costmap_watchdog takes effect on
   // the next costmap update (ROS 1 stopped its one-shot timer here).
   no_map_update_timer_.reset();
@@ -624,8 +666,7 @@ void Planner3dNode::finishMoveBase(const bool succeeded, const std::string & tex
     return;
   }
   auto result = std::make_shared<NavigateToPose::Result>();
-  result->error_code = NavigateToPose::Result::NONE;
-  result->error_msg = text;
+  setResultStatus(*result, text, PreferredTag{});
   if (succeeded) {
     gh_move_base_->succeed(result);
   } else {
@@ -705,8 +746,7 @@ void Planner3dNode::processCancelRequests()
       cancel_requested_move_base_ = false;
       RCLCPP_WARN(this->get_logger(), "Preempting the current goal.");
       auto result = std::make_shared<NavigateToPose::Result>();
-      result->error_code = NavigateToPose::Result::NONE;
-      result->error_msg = "Preempted.";
+      setResultStatus(*result, "Preempted.", PreferredTag{});
       gh_move_base_->canceled(result);
       gh_move_base_.reset();
       updateGoalTolerance();

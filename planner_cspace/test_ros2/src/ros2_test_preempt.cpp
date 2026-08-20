@@ -86,11 +86,13 @@ TEST_F(PreemptTest, Preempt)
   // actionlib reported PREEMPTED here; rclcpp_action reports CANCELED because
   // the goal was terminated by an accepted cancel request.
   ASSERT_EQ(rclcpp_action::ResultCode::CANCELED, resultCode()) << resultString();
-  ASSERT_EQ("Preempted.", result()->result->error_msg);
+  planner_cspace_testing::expectResultText(
+    *result()->result, "Preempted.", planner_cspace_testing::PreferredTag{});
 
-  ASSERT_TRUE(planner_cspace_testing::spinUntil(
-    node_, std::chrono::seconds(10),
-    [this] { return planner_status_->status == planner_cspace_msgs::msg::PlannerStatus::DONE; }))
+  ASSERT_TRUE(
+    planner_cspace_testing::spinUntil(
+      node_, std::chrono::seconds(10),
+      [this] { return planner_status_->status == planner_cspace_msgs::msg::PlannerStatus::DONE; }))
     << "Planner didn't stop: " << statusString();
   ASSERT_EQ(planner_cspace_msgs::msg::PlannerStatus::GOING_WELL, planner_status_->error);
   ASSERT_EQ(planner_cspace_msgs::msg::PlannerStatus::DONE, planner_status_->status);
@@ -115,7 +117,8 @@ TEST_F(PreemptTest, PreemptByNewGoal)
   // ROS 2 has no terminal state for "replaced by a newer goal", so the node
   // aborts the old goal and puts the ROS 1 status text into error_msg.
   ASSERT_EQ(rclcpp_action::ResultCode::ABORTED, first->result->code);
-  ASSERT_EQ("Preempted.", first->result->result->error_msg);
+  planner_cspace_testing::expectResultText(
+    *first->result->result, "Preempted.", planner_cspace_testing::PreferredTag{});
 
   // The new goal keeps running.
   ASSERT_TRUE(cancelAndWait(std::chrono::seconds(30)))
