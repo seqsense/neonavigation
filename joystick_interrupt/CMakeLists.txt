@@ -66,6 +66,15 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
   find_package(ament_cmake_auto REQUIRED)
   ament_auto_find_build_dependencies()
 
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND NOT CMAKE_CXX_COMPILER_VERSION VERSION_LESS 15)
+    # GCC 15 crashes (ICE, "during GIMPLE pass: strlen") while instantiating
+    # rclcpp/service.hpp with coverage instrumentation, which is how CI builds.
+    # It hits whichever translation unit happens to instantiate it, so every
+    # package carries this; suppressing the pass' warnings is not enough,
+    # the pass itself has to go.
+    add_compile_options(-fno-optimize-strlen)
+  endif()
+
   set(CMAKE_CXX_STANDARD 17)
   set(CMAKE_CXX_STANDARD_REQUIRED ON)
 

@@ -147,12 +147,12 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
   ament_auto_find_build_dependencies()
 
   if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND NOT CMAKE_CXX_COMPILER_VERSION VERSION_LESS 15)
-    # GCC 15 segfaults (ICE in the strlen pass' printf handling) while
-    # instantiating rclcpp/service.hpp with coverage instrumentation. Skip that
-    # printf analysis; it only powers the -Wformat-overflow/-Wformat-truncation
-    # diagnostics and the sprintf return-value optimization.
-    add_compile_options(
-      -fno-printf-return-value -Wno-format-overflow -Wno-format-truncation)
+    # GCC 15 crashes (ICE, "during GIMPLE pass: strlen") while instantiating
+    # rclcpp/service.hpp with coverage instrumentation, which is how CI builds.
+    # It hits whichever translation unit happens to instantiate it, so every
+    # package carries this; suppressing the pass' warnings is not enough,
+    # the pass itself has to go.
+    add_compile_options(-fno-optimize-strlen)
   endif()
   # ament_auto does not take care of OpenMP, so request it explicitly.
   find_package(OpenMP REQUIRED)
