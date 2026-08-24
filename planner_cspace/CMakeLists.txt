@@ -460,10 +460,13 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
       TARGET test_navigate_with_tolerance
       ARGS "with_tolerance:=true"
       TIMEOUT 180)
+    # The crowd-mode run also exercises the escape cases, which drive the robot
+    # across the map and cannot be shortened without changing what they are
+    # about; the deterministic scenarios cover the escapes themselves.
     add_launch_test(test_ros2/test/test_navigate_launch.py
       TARGET test_navigate_enable_crowd_mode
       ARGS "enable_crowd_mode:=true"
-      TIMEOUT 180)
+      TIMEOUT 700)
 
     add_launch_test(test_ros2/test/test_navigate_remember_launch.py
       TARGET test_navigate_remember
