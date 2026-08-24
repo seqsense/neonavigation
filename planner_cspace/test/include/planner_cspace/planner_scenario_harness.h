@@ -155,7 +155,12 @@ public:
     return raw;
   }
 
-  costmap_cspace_msgs::msg::CSpace3D::SharedPtr toCSpace3D(const rclcpp::Time & stamp) const
+  // std::shared_ptr rather than the message's own SharedPtr alias: on ROS 1 the
+  // compat headers alias the ROS 2 message names onto the ROS 1 structs, which
+  // carry Ptr/ConstPtr instead. Planner3dCore's own signatures spell it out the
+  // same way.
+  std::shared_ptr<const costmap_cspace_msgs::msg::CSpace3D> toCSpace3D(
+    const rclcpp::Time & stamp) const
   {
     auto msg = std::make_shared<costmap_cspace_msgs::msg::CSpace3D>();
     msg->header.frame_id = "map";
@@ -178,7 +183,8 @@ public:
   }
 
   // A whole-map update, as costmap_cspace publishes after a map change.
-  costmap_cspace_msgs::msg::CSpace3DUpdate::SharedPtr toUpdate(const rclcpp::Time & stamp) const
+  std::shared_ptr<const costmap_cspace_msgs::msg::CSpace3DUpdate> toUpdate(
+    const rclcpp::Time & stamp) const
   {
     auto msg = std::make_shared<costmap_cspace_msgs::msg::CSpace3DUpdate>();
     msg->header.frame_id = "map";
