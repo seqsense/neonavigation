@@ -309,6 +309,13 @@ protected:
   }
 };
 
+// Short routes on purpose: driving the robot across the map takes minutes of
+// simulated time, and what happens along the way - obstacle avoidance, getting
+// stuck, recovering, escaping - is covered by test_planner_cspace_scenarios,
+// which steps the planner without a node. What only a running graph can show is
+// that the nodes talk to each other: the goal arrives through patrol_nodes, the
+// costmap reaches the planner, the path reaches the tracker, the robot moves,
+// and the status comes back. A metre of corridor is enough for that.
 TEST_F(Navigate, Navigate)
 {
   ros::spinOnce();
@@ -318,12 +325,12 @@ TEST_F(Navigate, Navigate)
   path.poses.resize(2);
   path.header.frame_id = "map";
   path.poses[0].header.frame_id = path.header.frame_id;
-  path.poses[0].pose.position.x = 1.7;
-  path.poses[0].pose.position.y = 2.8;
+  path.poses[0].pose.position.x = 2.0;
+  path.poses[0].pose.position.y = 0.45;
   path.poses[0].pose.orientation = tf2::toMsg(tf2::Quaternion(tf2::Vector3(0.0, 0.0, 1.0), -3.14));
   path.poses[1].header.frame_id = path.header.frame_id;
-  path.poses[1].pose.position.x = 1.9;
-  path.poses[1].pose.position.y = 2.8;
+  path.poses[1].pose.position.x = 1.8;
+  path.poses[1].pose.position.y = 0.45;
   path.poses[1].pose.orientation = tf2::toMsg(tf2::Quaternion(tf2::Vector3(0.0, 0.0, 1.0), -1.57));
   pub_patrol_nodes_.publish(path);
 
@@ -392,8 +399,8 @@ TEST_F(Navigate, NavigateWithLocalMap)
   path.poses.resize(1);
   path.header.frame_id = "map";
   path.poses[0].header.frame_id = path.header.frame_id;
-  path.poses[0].pose.position.x = 1.7;
-  path.poses[0].pose.position.y = 2.8;
+  path.poses[0].pose.position.x = 2.0;
+  path.poses[0].pose.position.y = 0.45;
   path.poses[0].pose.orientation = tf2::toMsg(tf2::Quaternion(tf2::Vector3(0.0, 0.0, 1.0), -3.14));
   pub_patrol_nodes_.publish(path);
 
