@@ -152,7 +152,7 @@ sensor_msgs::msg::PointCloud Costmap3dHandler::generateDebugPointCloud(
 {
   sensor_msgs::msg::PointCloud pc;
   pc.header = map.header;
-  pc.header.stamp = rclcpp::Clock(RCL_ROS_TIME).now();
+  pc.header.stamp = clock_->now();
   for (size_t yaw = 0; yaw < map.info.angle; yaw++) {
     for (unsigned int i = 0; i < map.info.width * map.info.height; i++) {
       int gx = i % map.info.width;

@@ -188,7 +188,7 @@ protected:
   void publishDebug(const costmap_cspace_msgs::CSpace3D & map)
   {
     if (pub_debug_.getNumSubscribers() == 0) return;
-    pub_debug_.publish(costmap_cspace::Costmap3dHandler::generateDebugPointCloud(map));
+    pub_debug_.publish(handler_->generateDebugPointCloud(map));
   }
   void cbPublishFootprint(
     const ros::TimerEvent & /* event */, const geometry_msgs::PolygonStamped msg)

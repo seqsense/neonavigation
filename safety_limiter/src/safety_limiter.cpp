@@ -120,8 +120,7 @@ SafetyLimiter::PredictResult SafetyLimiter::predict(
       result.r_lim = 1.0;
       return result;
     }
-    rclcpp::Clock clock(RCL_ROS_TIME);
-    RCLCPP_WARN_THROTTLE(logger_, clock, 1000, "safety_limiter: Empty pointcloud passed.");
+    RCLCPP_WARN_THROTTLE(logger_, *clock_, 1000, "safety_limiter: Empty pointcloud passed.");
     result.r_lim = 0.0;
     return result;
   }
@@ -136,8 +135,7 @@ SafetyLimiter::PredictResult SafetyLimiter::predict(
   try {
     fixed_to_base = tfbuf_.lookupTransform(base_frame_id_, cloud->header.frame_id, stamp);
   } catch (tf2::TransformException & e) {
-    rclcpp::Clock clock(RCL_ROS_TIME);
-    RCLCPP_WARN_THROTTLE(logger_, clock, 1000, "safety_limiter: Transform failed: %s", e.what());
+    RCLCPP_WARN_THROTTLE(logger_, *clock_, 1000, "safety_limiter: Transform failed: %s", e.what());
     result.r_lim = 0.0;
     return result;
   }
@@ -169,8 +167,7 @@ SafetyLimiter::PredictResult SafetyLimiter::predict(
       result.r_lim = 1.0;
       return result;
     }
-    rclcpp::Clock clock(RCL_ROS_TIME);
-    RCLCPP_WARN_THROTTLE(logger_, clock, 1000, "safety_limiter: Empty pointcloud passed.");
+    RCLCPP_WARN_THROTTLE(logger_, *clock_, 1000, "safety_limiter: Empty pointcloud passed.");
     result.r_lim = 0.0;
     return result;
   }
@@ -192,7 +189,7 @@ SafetyLimiter::PredictResult SafetyLimiter::predict(
   move_inv.setIdentity();
   sensor_msgs::msg::PointCloud & col_points = result.collision_points;
   col_points.header.frame_id = base_frame_id_;
-  col_points.header.stamp = rclcpp::Clock(RCL_ROS_TIME).now();
+  col_points.header.stamp = clock_->now();
 
   float d_col = 0;
   float yaw_col = 0;
@@ -259,7 +256,7 @@ SafetyLimiter::PredictResult SafetyLimiter::predict(
 
   if (has_collision_at_now_) {
     if (stuck_started_since_ == rclcpp::Time(0, 0, RCL_ROS_TIME))
-      stuck_started_since_ = rclcpp::Clock(RCL_ROS_TIME).now();
+      stuck_started_since_ = clock_->now();
   } else {
     if (stuck_started_since_ != rclcpp::Time(0, 0, RCL_ROS_TIME))
       stuck_started_since_ = rclcpp::Time(0, 0, RCL_ROS_TIME);
