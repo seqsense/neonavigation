@@ -195,6 +195,14 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
       test/src/ros2_test_trajectory_tracker_with_odom.cpp)
     target_link_libraries(ros2_test_trajectory_tracker_with_odom ${GTEST_LIBRARIES})
 
+    ament_auto_add_executable(ros2_test_trajectory_tracker_overshoot
+      test/src/ros2_test_trajectory_tracker_overshoot.cpp)
+    target_link_libraries(ros2_test_trajectory_tracker_overshoot ${GTEST_LIBRARIES})
+
+    ament_auto_add_executable(ros2_test_trajectory_recorder
+      test/src/ros2_test_trajectory_recorder.cpp)
+    target_link_libraries(ros2_test_trajectory_recorder ${GTEST_LIBRARIES})
+
     install(DIRECTORY test/configs
       DESTINATION share/${PROJECT_NAME}/test/)
 
@@ -232,6 +240,16 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
     tracker_add_launch_test(test/test/test_trajectory_tracker_realtime_launch.py
       TARGET test_trajectory_tracker_with_odom
       ARGS "test_executable:=ros2_test_trajectory_tracker_with_odom"
+      TIMEOUT 120)
+    # Two cases only: what is left to prove here is that a parameter changed at
+    # runtime reaches the controller (see the test source).
+    tracker_add_launch_test(test/test/test_trajectory_tracker_realtime_launch.py
+      TARGET test_trajectory_tracker_overshoot
+      ARGS "test_executable:=ros2_test_trajectory_tracker_overshoot"
+      TIMEOUT 120)
+
+    tracker_add_launch_test(test/test/test_trajectory_recorder_launch.py
+      TARGET test_trajectory_recorder
       TIMEOUT 120)
   endif()
 
