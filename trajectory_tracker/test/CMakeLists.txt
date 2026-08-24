@@ -33,9 +33,17 @@ add_rostest_gtest(test_trajectory_tracker test/trajectory_tracker_rostest.test
 target_link_libraries(test_trajectory_tracker ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 add_dependencies(test_trajectory_tracker trajectory_tracker)
 
-# The odom_delay / use_time_optimal_control variants of this scenario set are
-# covered by test_trajectory_tracker_scenarios, which runs the control law
-# without a node.
+# The same short path once per parameter combination: the control law itself is
+# covered by test_trajectory_tracker_scenarios, without a node.
+add_rostest(test/trajectory_tracker_rostest.test
+  ARGS odom_delay:=0.04 use_odom:=true use_time_optimal_control:=true
+  DEPENDENCIES test_trajectory_tracker
+)
+
+add_rostest(test/trajectory_tracker_rostest.test
+  ARGS odom_delay:=0.04 use_odom:=true use_time_optimal_control:=false
+  DEPENDENCIES test_trajectory_tracker
+)
 
 add_rostest_gtest(test_trajectory_tracker_with_odom test/trajectory_tracker_with_odom_rostest.test
     src/test_trajectory_tracker_with_odom.cpp)

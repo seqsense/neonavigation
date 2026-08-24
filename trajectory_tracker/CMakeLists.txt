@@ -199,10 +199,11 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
       DESTINATION share/${PROJECT_NAME}/test/)
 
     # The control law is covered by test_trajectory_tracker_scenarios, which
-    # needs no node at all. What is left here has to run as a node: that the
-    # interface layer publishes and subscribes what the scenarios assume
-    # (integration smoke test), and that the node's own timers behave - the
-    # control rate and the odometry timeout.
+    # needs no node at all. What runs here has to run as a node: that the
+    # interface layer publishes and subscribes what the scenarios assume, once
+    # per parameter combination, and that the node's own timers behave - the
+    # control rate and the odometry timeout. Each of these drives a single
+    # short path rather than the whole scenario set.
     #
     # Each launch test gets a private DDS domain and local-only discovery. ctest
     # runs them one at a time, but a node from the previous test can still be on
@@ -219,6 +220,14 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
     tracker_add_launch_test(test/test/test_trajectory_tracker_launch.py
       TARGET test_trajectory_tracker
       ARGS "use_sim_time:=true"
+      TIMEOUT 120)
+    tracker_add_launch_test(test/test/test_trajectory_tracker_launch.py
+      TARGET test_trajectory_tracker_with_odom_delay
+      ARGS "use_sim_time:=true" "odom_delay:=0.04" "use_odom:=true" "use_time_optimal_control:=true"
+      TIMEOUT 120)
+    tracker_add_launch_test(test/test/test_trajectory_tracker_launch.py
+      TARGET test_trajectory_tracker_without_time_optimal_control
+      ARGS "use_sim_time:=true" "odom_delay:=0.04" "use_odom:=true" "use_time_optimal_control:=false"
       TIMEOUT 120)
     tracker_add_launch_test(test/test/test_trajectory_tracker_realtime_launch.py
       TARGET test_trajectory_tracker_with_odom
