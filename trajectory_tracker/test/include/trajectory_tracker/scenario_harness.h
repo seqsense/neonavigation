@@ -27,8 +27,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TRAJECTORY_TRACKER_SCENARIO_HARNESS_H
-#define TRAJECTORY_TRACKER_SCENARIO_HARNESS_H
+#ifndef TRAJECTORY_TRACKER__SCENARIO_HARNESS_H_
+#define TRAJECTORY_TRACKER__SCENARIO_HARNESS_H_
 
 // In-process harness for the trajectory_tracker scenarios.
 //
@@ -331,4 +331,4 @@ inline Scenario::Scenario(const trajectory_tracker::TrackerController::Parameter
 
 }  // namespace trajectory_tracker_testing
 
-#endif  // TRAJECTORY_TRACKER_SCENARIO_HARNESS_H
+#endif  // TRAJECTORY_TRACKER__SCENARIO_HARNESS_H_

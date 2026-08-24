@@ -27,8 +27,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PLANNER_CSPACE_PLANNER_SCENARIO_HARNESS_H
-#define PLANNER_CSPACE_PLANNER_SCENARIO_HARNESS_H
+#ifndef PLANNER_CSPACE__PLANNER_SCENARIO_HARNESS_H_
+#define PLANNER_CSPACE__PLANNER_SCENARIO_HARNESS_H_
 
 // In-process harness for the planner_3d navigation scenarios.
 //
@@ -490,4 +490,4 @@ private:
 
 }  // namespace planner_cspace_testing
 
-#endif  // PLANNER_CSPACE_PLANNER_SCENARIO_HARNESS_H
+#endif  // PLANNER_CSPACE__PLANNER_SCENARIO_HARNESS_H_
