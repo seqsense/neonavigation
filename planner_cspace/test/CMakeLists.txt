@@ -16,6 +16,12 @@ target_compile_definitions(planner_3d_debug PUBLIC DEBUG)
 target_link_libraries(planner_3d_debug ${catkin_LIBRARIES} ${OpenMP_CXX_FLAGS})
 add_dependencies(planner_3d_debug ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg)
 
+# Deterministic ports of the navigation scenarios, shared with the ROS 2 build.
+catkin_add_gtest(test_planner_scenarios src/test_planner_scenarios.cpp)
+target_link_libraries(test_planner_scenarios
+  -Wl,--no-as-needed planner_3d_core ${catkin_LIBRARIES} ${OpenMP_CXX_FLAGS})
+add_dependencies(test_planner_scenarios planner_3d_core)
+
 catkin_add_gtest(test_blockmem_gridmap src/test_blockmem_gridmap.cpp)
 target_link_libraries(test_blockmem_gridmap ${catkin_LIBRARIES})
 
