@@ -215,10 +215,10 @@ public:
   {
     const double dt = std::min(1.0 / options_.hz, options_.dt_cap);
 
+    // Only the transform itself is read by the controller; stamp_ has a
+    // different type on ROS 1 and ROS 2, so it is left alone.
     tf2::Stamped<tf2::Transform> odom_to_robot;
     odom_to_robot.frame_id_ = options_.frame_odom;
-    odom_to_robot.stamp_ =
-      tf2::TimePoint(std::chrono::nanoseconds(stamp(state_.time).nanoseconds()));
     odom_to_robot.setData(
       tf2::Transform(
         tf2::Quaternion(tf2::Vector3(0, 0, 1), state_.yaw),
