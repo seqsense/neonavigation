@@ -311,10 +311,10 @@ TEST(PlannerScenario, GoalIsInRockRecovered)
 }
 
 // costmap_watchdog is not here on purpose: Planner3dCore stamps the costmap
-// with rclcpp::Clock(RCL_ROS_TIME).now() inside applyCostmapUpdate rather than
-// with the time the planning cycle is given, so the age it compares against the
-// watchdog can only be produced by a real clock. test_costmap_watchdog covers
-// it as a launch test.
+// from its clock inside applyCostmapUpdate rather than with the time the
+// planning cycle is given, and the scenario's time is a counter rather than a
+// clock the planner could be handed. test_costmap_watchdog covers it as a
+// launch test.
 
 // Crowd mode: when the goal cannot be reached the planner escapes to a
 // temporary goal instead of standing still.

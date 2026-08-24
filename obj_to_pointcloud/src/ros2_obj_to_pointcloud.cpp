@@ -212,7 +212,7 @@ private:
 
     pcl::toROSMsg(*pc_ds, pc_msg);
     pc_msg.header.frame_id = frame_id_;
-    pc_msg.header.stamp = rclcpp::Clock(RCL_ROS_TIME).now();
+    pc_msg.header.stamp = this->now();
     RCLCPP_INFO(
       this->get_logger(), "pointcloud (%d points) has been generated from %d verticles",
       static_cast<int>(pc_ds->size()), static_cast<int>(pc->size()));

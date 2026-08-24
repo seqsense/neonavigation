@@ -32,6 +32,7 @@
 
 #include <cmath>
 #include <limits>
+#include <memory>
 #include <string>
 
 #include "Eigen/Core"
@@ -119,8 +120,7 @@ public:
     path_.fromMsg(msg, epsilon_);
     for (const auto & path_pose : path_) {
       if (std::isfinite(path_pose.velocity_) && path_pose.velocity_ < -0.0) {
-        rclcpp::Clock clock(RCL_ROS_TIME);
-        RCLCPP_ERROR_THROTTLE(logger_, clock, 1000, "path_velocity.velocity.x must be positive");
+        RCLCPP_ERROR_THROTTLE(logger_, *clock_, 1000, "path_velocity.velocity.x must be positive");
         path_.clear();
         return;
       }
@@ -141,6 +141,12 @@ public:
   ControlOutput control(
     const tf2::Stamped<tf2::Transform> & odom_to_robot, const Eigen::Vector3d & prediction_offset,
     const double odom_linear_vel, const double odom_angular_vel, const double dt);
+
+  // The clock the logic reads time from. On ROS 2 a bare rclcpp::Clock never
+  // subscribes to /clock, so under use_sim_time it silently is wall time; the
+  // interface node hands in its own clock instead. The default keeps the ROS 1
+  // build right on its own, where the compat rclcpp::Clock is ros::Time.
+  void setClock(const rclcpp::Clock::SharedPtr & clock) { clock_ = clock; }
 
 private:
   std::string frame_robot_;
@@ -178,6 +184,7 @@ private:
 
   tf2_ros::Buffer & tfbuf_;
   rclcpp::Logger logger_;
+  rclcpp::Clock::SharedPtr clock_ = std::make_shared<rclcpp::Clock>(RCL_ROS_TIME);
 
   trajectory_tracker::Path2D path_;
   std_msgs::msg::Header path_header_;

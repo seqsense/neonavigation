@@ -257,6 +257,12 @@ public:
   nav_msgs::msg::OccupancyGrid generateHysteresisMapMsg() const;
   nav_msgs::msg::OccupancyGrid generateRememberedMapMsg() const;
 
+  // The clock the logic reads time from. On ROS 2 a bare rclcpp::Clock never
+  // subscribes to /clock, so under use_sim_time it silently is wall time; the
+  // interface node hands in its own clock instead. The default keeps the ROS 1
+  // build right on its own, where the compat rclcpp::Clock is ros::Time.
+  void setClock(const rclcpp::Clock::SharedPtr & clock) { clock_ = clock; }
+
 protected:
   Astar::Vec metric2Grid(const geometry_msgs::msg::Pose & pose) const;
   geometry_msgs::msg::Pose grid2MetricPose(const Astar::Vec & grid) const;
@@ -294,6 +300,7 @@ protected:
   int getSwitchIndex(const nav_msgs::msg::Path & path) const;
 
   rclcpp::Logger logger_;
+  rclcpp::Clock::SharedPtr clock_ = std::make_shared<rclcpp::Clock>(RCL_ROS_TIME);
 
   Callbacks cb_;
 

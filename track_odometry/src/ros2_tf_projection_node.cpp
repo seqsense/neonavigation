@@ -78,8 +78,7 @@ private:
           parent_frame_, projection_surface_frame_, trans.stamp_, tf2::durationFromSec(0.1)),
         trans_target);
     } catch (tf2::TransformException & e) {
-      rclcpp::Clock clock(RCL_ROS_TIME);
-      RCLCPP_WARN_THROTTLE(this->get_logger(), clock, 1000, "%s", e.what());
+      RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "%s", e.what());
       return;
     }
 

@@ -311,6 +311,10 @@ Planner3dNode::Planner3dNode(const rclcpp::NodeOptions & options)
 {
   tfl_ = std::make_shared<tf2_ros::TransformListener>(tfbuf_);
 
+  // Time is read through the node's clock so the logic follows /clock
+  // when use_sim_time is set.
+  planner_.setClock(this->get_clock());
+
   declareDynamicParameters();
 
   Planner3dCore::StaticParameters sp;

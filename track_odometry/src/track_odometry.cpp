@@ -171,8 +171,7 @@ TrackOdometry::OdomResult TrackOdometry::processOdom(
     }
 
     if (!has_imu_) {
-      rclcpp::Clock clock(RCL_ROS_TIME);
-      RCLCPP_ERROR_THROTTLE(logger_, clock, 1000, "IMU data not received");
+      RCLCPP_ERROR_THROTTLE(logger_, *clock_, 1000, "IMU data not received");
       return result;
     }
 
