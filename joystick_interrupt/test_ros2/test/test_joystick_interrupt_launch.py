@@ -25,7 +25,7 @@ import pytest
 def generate_test_description():
     joystick_interrupt = Node(
         package='joystick_interrupt',
-        executable='joystick_interrupt_node',
+        executable='joystick_interrupt',
         name='joystick_interrupt',
         output='screen',
         parameters=[{
@@ -43,7 +43,7 @@ def generate_test_description():
     )
     joystick_interrupt_omni = Node(
         package='joystick_interrupt',
-        executable='joystick_interrupt_node',
+        executable='joystick_interrupt',
         name='joystick_interrupt_omni',
         output='screen',
         parameters=[{
@@ -65,7 +65,7 @@ def generate_test_description():
     )
     joystick_mux = Node(
         package='joystick_interrupt',
-        executable='joystick_mux_node',
+        executable='joystick_mux',
         name='joystick_mux',
         output='screen',
         parameters=[{

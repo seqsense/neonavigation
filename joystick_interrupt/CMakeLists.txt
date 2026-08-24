@@ -87,19 +87,21 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
   set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
   # ROS 2 component interface node: interrupts cmd_vel by joystick input.
-  ament_auto_add_library(joystick_interrupt SHARED
+  # The library carries the _component suffix so that the standalone executable
+  # can keep the ROS 1 name, which a migrated launch file names unchanged.
+  ament_auto_add_library(joystick_interrupt_component SHARED
     src/ros2_joystick_interrupt.cpp)
-  rclcpp_components_register_node(joystick_interrupt
+  rclcpp_components_register_node(joystick_interrupt_component
     PLUGIN "joystick_interrupt::JoystickInterrupt"
-    EXECUTABLE joystick_interrupt_node)
+    EXECUTABLE joystick_interrupt)
 
   # ROS 2 component interface node: joystick-selected mux of arbitrary-type
   # topics (topic_tools::ShapeShifter ported to generic pub/sub).
-  ament_auto_add_library(joystick_mux SHARED
+  ament_auto_add_library(joystick_mux_component SHARED
     src/ros2_joystick_mux.cpp)
-  rclcpp_components_register_node(joystick_mux
+  rclcpp_components_register_node(joystick_mux_component
     PLUGIN "joystick_interrupt::JoystickMux"
-    EXECUTABLE joystick_mux_node)
+    EXECUTABLE joystick_mux)
 
   if(BUILD_TESTING)
     find_package(ament_lint_auto REQUIRED)

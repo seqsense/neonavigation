@@ -24,7 +24,7 @@ import pytest
 def tf_projection_node(name, params):
     return Node(
         package='track_odometry',
-        executable='tf_projection_node_exec',
+        executable='tf_projection',
         name=name,
         output='screen',
         parameters=[params],
