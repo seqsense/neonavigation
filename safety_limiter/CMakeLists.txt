@@ -102,10 +102,18 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
   if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND NOT CMAKE_CXX_COMPILER_VERSION VERSION_LESS 15)
     # GCC 15 crashes (ICE, "during GIMPLE pass: strlen") while instantiating
     # rclcpp/service.hpp with coverage instrumentation, which is how CI builds.
-    # It hits whichever translation unit happens to instantiate it, so every
-    # package carries this; suppressing the pass' warnings is not enough,
-    # the pass itself has to go.
-    add_compile_options(-fno-optimize-strlen)
+    # It lands on whichever translation unit instantiates it, and only sometimes,
+    # so every package carries this guard. -fno-optimize-strlen is not enough:
+    # the pass still runs to emit its printf diagnostics, which is where it dies.
+    # The pass names are GCC internals, hence the flag check.
+    include(CheckCXXCompilerFlag)
+    check_cxx_compiler_flag(-fdisable-tree-strlen1 HAS_DISABLE_TREE_STRLEN1)
+    check_cxx_compiler_flag(-fdisable-tree-strlen2 HAS_DISABLE_TREE_STRLEN2)
+    if(HAS_DISABLE_TREE_STRLEN1 AND HAS_DISABLE_TREE_STRLEN2)
+      add_compile_options(-fdisable-tree-strlen1 -fdisable-tree-strlen2)
+    else()
+      add_compile_options(-fno-optimize-strlen)
+    endif()
   endif()
 
   find_package(PCL REQUIRED)
