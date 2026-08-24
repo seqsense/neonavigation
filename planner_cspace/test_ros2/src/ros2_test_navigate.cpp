@@ -463,12 +463,19 @@ protected:
   }
 };
 
+// Short routes on purpose: driving the robot across the map takes minutes of
+// simulated time, and what happens along the way - obstacle avoidance, getting
+// stuck, recovering, escaping - is covered by test_planner_cspace_scenarios,
+// which steps the planner without a node. What only a running graph can show is
+// that the nodes talk to each other: the goal arrives through patrol_nodes, the
+// costmap reaches the planner, the path reaches the tracker, the robot moves,
+// and the status comes back. A metre of corridor is enough for that.
 TEST_F(Navigate, Navigate)
 {
   rclcpp::spin_some(node_);
   ASSERT_TRUE(static_cast<bool>(map_));
 
-  navigateTo(makePath({{1.7, 2.8, -3.14}, {1.9, 2.8, -1.57}}), 90.0, false, false);
+  navigateTo(makePath({{2.0, 0.45, 3.14}, {1.8, 0.45, -1.57}}), 60.0, false, false);
 }
 
 TEST_F(Navigate, NavigateWithLocalMap)
@@ -479,7 +486,7 @@ TEST_F(Navigate, NavigateWithLocalMap)
   pubMapLocal();
   sleepAndSpin(0.2);
 
-  navigateTo(makePath({{1.7, 2.8, -3.14}}), 90.0, true, true);
+  navigateTo(makePath({{2.0, 0.45, 3.14}}), 60.0, true, true);
 }
 
 TEST_F(Navigate, GlobalPlan)

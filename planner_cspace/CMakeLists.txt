@@ -311,6 +311,14 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
     target_include_directories(test_${PROJECT_NAME}_motion_primitive_builder PRIVATE include)
     target_link_libraries(test_${PROJECT_NAME}_motion_primitive_builder planner_3d_core)
 
+    # Deterministic ports of the navigation scenarios: they step Planner3dCore
+    # directly, so no nodes, no DDS and no simulated clock are involved. Shared
+    # with the ROS 1 build (see test/CMakeLists.txt).
+    ament_add_gtest(test_${PROJECT_NAME}_scenarios test/src/test_planner_scenarios.cpp
+      TIMEOUT 300)
+    target_include_directories(test_${PROJECT_NAME}_scenarios PRIVATE include test/include)
+    target_link_libraries(test_${PROJECT_NAME}_scenarios planner_3d_core ${OpenMP_CXX_FLAGS})
+
     ament_add_gtest(test_${PROJECT_NAME}_start_pose_predictor
       test/src/test_start_pose_predictor.cpp)
     target_include_directories(test_${PROJECT_NAME}_start_pose_predictor PRIVATE include)
@@ -431,26 +439,31 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
       TARGET test_dynamic_parameter_change
       TIMEOUT 360)
 
-    # Same matrix the ROS 1 CMakeLists registered with add_rostest.
+    # Integration tests: the whole graph - map server, costmap, planner, dummy
+    # robot and tracker - driving over a short route, once per parameter
+    # combination. What the robot does over a long route, and how the planner
+    # recovers from obstacles, is covered by test_planner_cspace_scenarios;
+    # these prove that the nodes are wired together and that each parameter
+    # combination still brings a robot to a goal.
     add_launch_test(test_ros2/test/test_navigate_launch.py
       TARGET test_navigate
-      TIMEOUT 700)
+      TIMEOUT 180)
     add_launch_test(test_ros2/test/test_navigate_launch.py
       TARGET test_navigate_antialias_start
       ARGS "antialias_start:=true"
-      TIMEOUT 700)
+      TIMEOUT 180)
     add_launch_test(test_ros2/test/test_navigate_launch.py
       TARGET test_navigate_antialias_start_fast_map_update
       ARGS "antialias_start:=true" "fast_map_update:=true"
-      TIMEOUT 700)
+      TIMEOUT 180)
     add_launch_test(test_ros2/test/test_navigate_launch.py
       TARGET test_navigate_with_tolerance
       ARGS "with_tolerance:=true"
-      TIMEOUT 700)
+      TIMEOUT 180)
     add_launch_test(test_ros2/test/test_navigate_launch.py
       TARGET test_navigate_enable_crowd_mode
       ARGS "enable_crowd_mode:=true"
-      TIMEOUT 700)
+      TIMEOUT 180)
 
     add_launch_test(test_ros2/test/test_navigate_remember_launch.py
       TARGET test_navigate_remember
