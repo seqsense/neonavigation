@@ -108,6 +108,28 @@ protected:
                pub_cost_update_->get_subscription_count() > 0;
       }))
       << "planner_3d/costmap_3d are not up";
+  }
+
+  // planner_3d rejects a goal that reaches it before the costmap does ("Goal
+  // [map] pose must be in the map frame []"), and the costmap reaching this
+  // node says nothing about whether it reached the planner: the two
+  // subscriptions are matched independently. Nothing the planner publishes
+  // tells the two apart either - the status it reports without a map is the
+  // same DONE it reports before any goal - so the goal is repeated until the
+  // status shows it was taken.
+  void publishGoalUntilAccepted(const geometry_msgs::msg::PoseStamped & goal)
+  {
+    ASSERT_TRUE(spinUntil(
+      node_, std::chrono::seconds(20),
+      [this] {
+        return status_ && status_->status != planner_cspace_msgs::msg::PlannerStatus::DONE;
+      },
+      [this, &goal] {
+        pub_goal_->publish(goal);
+        pub_cost_update_->publish(emptyUpdate());
+      },
+      std::chrono::milliseconds(200)))
+      << "planner_3d did not take the goal";
     cnt_ = 0;
   }
 
@@ -130,7 +152,7 @@ TEST_F(Planner3D, CostmapWatchdog)
   goal.pose.position.x = 1.9;
   goal.pose.position.y = 2.8;
   goal.pose.orientation.w = 1.0;
-  pub_goal_->publish(goal);
+  publishGoalUntilAccepted(goal);
 
   rclcpp::WallRate rate(10.0);
   while (rclcpp::ok()) {
@@ -178,7 +200,7 @@ TEST_F(Planner3D, CostmapTimeoutOnFinishing)
   goal.pose.position.y = 0.45;
   goal.pose.orientation.w = std::sin(0.09);
   goal.pose.orientation.z = std::cos(0.09);
-  pub_goal_->publish(goal);
+  publishGoalUntilAccepted(goal);
 
   const rclcpp::Time deadline = node_->now() + rclcpp::Duration::from_seconds(5.0);
   rclcpp::WallRate rate(10.0);
