@@ -129,6 +129,9 @@ Costmap3DOFNode::Costmap3DOFNode(const rclcpp::NodeOptions & options)
     "~/debug", rclcpp::QoS(1).transient_local());
 
   handler_ = std::make_unique<Costmap3dHandler>(loadConfig(), this->get_logger());
+  // Time is read through the node's clock so the logic follows /clock
+  // when use_sim_time is set.
+  handler_->setClock(this->get_clock());
   handler_->setStaticOutputCallback(
     [this](const CSpace3DMsg::Ptr & map) { return cbUpdateStatic(map); });
   handler_->setUpdateOutputCallback(
@@ -208,8 +211,7 @@ void Costmap3DOFNode::publishDebug(const costmap_cspace_msgs::msg::CSpace3D & ma
   if (pub_debug_->get_subscription_count() == 0) {
     return;
   }
-  auto pc =
-    std::make_unique<sensor_msgs::msg::PointCloud>(Costmap3dHandler::generateDebugPointCloud(map));
+  auto pc = std::make_unique<sensor_msgs::msg::PointCloud>(handler_->generateDebugPointCloud(map));
   pub_debug_->publish(std::move(pc));
 }
 

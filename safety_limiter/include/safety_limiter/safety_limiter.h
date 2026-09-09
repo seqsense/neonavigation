@@ -33,6 +33,7 @@
 #include <cassert>
 #include <cmath>
 #include <limits>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -186,9 +187,16 @@ public:
   PredictResult predict(
     const geometry_msgs::msg::Twist & twist, const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud);
 
+  // The clock the logic reads time from. On ROS 2 a bare rclcpp::Clock never
+  // subscribes to /clock, so under use_sim_time it silently is wall time; the
+  // interface node hands in its own clock instead. The default keeps the ROS 1
+  // build right on its own, where the compat rclcpp::Clock is ros::Time.
+  void setClock(const rclcpp::Clock::SharedPtr & clock) { clock_ = clock; }
+
 private:
   tf2_ros::Buffer & tfbuf_;
   rclcpp::Logger logger_;
+  rclcpp::Clock::SharedPtr clock_ = std::make_shared<rclcpp::Clock>(RCL_ROS_TIME);
 
   Parameters params_;
   double tmax_;
