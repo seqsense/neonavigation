@@ -27,35 +27,31 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <vector>
-
 #include <trajectory_tracker_test.h>
+
+#include <vector>
 
 TEST_F(TrajectoryTrackerTest, FrameRate)
 {
   initState(Eigen::Vector2d(0, 0), 0);
 
   std::vector<Eigen::Vector3d> poses;
-  for (double x = 0.0; x < 0.5; x += 0.01)
-    poses.push_back(Eigen::Vector3d(x, 0.0, 0.0));
+  for (double x = 0.0; x < 0.5; x += 0.01) poses.push_back(Eigen::Vector3d(x, 0.0, 0.0));
   poses.push_back(Eigen::Vector3d(0.5, 0.0, 0.0));
   waitUntilStart(std::bind(&TrajectoryTrackerTest::publishPath, this, poses));
 
   ros::Rate rate(50);
   const ros::Time start = ros::Time::now();
-  while (ros::ok())
-  {
+  while (ros::ok()) {
     ASSERT_LT(ros::Time::now() - start, ros::Duration(10.0));
 
     publishTransform();
     rate.sleep();
     ros::spinOnce();
-    if (status_->status == trajectory_tracker_msgs::TrajectoryTrackerStatus::GOAL)
-      break;
+    if (status_->status == trajectory_tracker_msgs::TrajectoryTrackerStatus::GOAL) break;
   }
   const double frame_rate = getCmdVelFrameRate();
-  for (int i = 0; i < 25; ++i)
-  {
+  for (int i = 0; i < 25; ++i) {
     publishTransform();
     rate.sleep();
     ros::spinOnce();
@@ -73,14 +69,12 @@ TEST_F(TrajectoryTrackerTest, Timeout)
   initState(Eigen::Vector2d(0, 0), 0);
 
   std::vector<Eigen::Vector3d> poses;
-  for (double x = 0.0; x < 2.0; x += 0.01)
-    poses.push_back(Eigen::Vector3d(x, 0.0, 0.0));
+  for (double x = 0.0; x < 2.0; x += 0.01) poses.push_back(Eigen::Vector3d(x, 0.0, 0.0));
   poses.push_back(Eigen::Vector3d(2.0, 0.0, 0.0));
   waitUntilStart(std::bind(&TrajectoryTrackerTest::publishPath, this, poses));
 
   ros::Rate rate(50);
-  for (int i = 0; i < 50; ++i)
-  {
+  for (int i = 0; i < 50; ++i) {
     publishTransform();
     rate.sleep();
     ros::spinOnce();
@@ -95,16 +89,13 @@ TEST_F(TrajectoryTrackerTest, Timeout)
   ASSERT_LT(getPos()[0], 2.0);
   ASSERT_EQ(status_->status, trajectory_tracker_msgs::TrajectoryTrackerStatus::NO_PATH);
 
-  while (ros::ok())
-  {
+  while (ros::ok()) {
     publishTransform();
     rate.sleep();
     ros::spinOnce();
-    if (status_->status == trajectory_tracker_msgs::TrajectoryTrackerStatus::GOAL)
-      break;
+    if (status_->status == trajectory_tracker_msgs::TrajectoryTrackerStatus::GOAL) break;
   }
-  for (int i = 0; i < 25; ++i)
-  {
+  for (int i = 0; i < 25; ++i) {
     publishTransform();
     rate.sleep();
     ros::spinOnce();
@@ -115,7 +106,7 @@ TEST_F(TrajectoryTrackerTest, Timeout)
   ASSERT_EQ(last_path_header_.stamp, status_->path_header.stamp);
 }
 
-int main(int argc, char** argv)
+int main(int argc, char ** argv)
 {
   testing::InitGoogleTest(&argc, argv);
   ros::init(argc, argv, "test_trajectory_tracker_frame_rate");

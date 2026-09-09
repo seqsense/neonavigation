@@ -27,21 +27,20 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <gtest/gtest.h>
+#include <omp.h>
+
 #include <cmath>
 #include <limits>
 #include <string>
 #include <vector>
 
-#include <gtest/gtest.h>
-
-#include <omp.h>
-
-#include <costmap_cspace_msgs/MapMetaData3D.h>
-#include <planner_cspace/distance_map_utils.h>
-#include <planner_cspace/grid_astar.h>
-#include <planner_cspace/planner_3d/costmap_bbf.h>
-#include <planner_cspace/planner_3d/distance_map.h>
-#include <planner_cspace/planner_3d/grid_astar_model.h>
+#include "costmap_cspace_msgs/msg/map_meta_data3_d.hpp"
+#include "planner_cspace/distance_map_utils.h"
+#include "planner_cspace/grid_astar.h"
+#include "planner_cspace/planner_3d/costmap_bbf.h"
+#include "planner_cspace/planner_3d/distance_map.h"
+#include "planner_cspace/planner_3d/grid_astar_model.h"
 
 namespace planner_cspace
 {
@@ -67,16 +66,16 @@ protected:
   DistanceMap dm_fast_;
 
   DistanceMapTest()
-    : ec_(0.5f, 0.5f, 0.2f)
-    , bbf_costmap_(new CostmapBBFImpl())
-    , dm_full_(cm_rough_, bbf_costmap_)
-    , dm_fast_(cm_rough_, bbf_costmap_)
+  : ec_(0.5f, 0.5f, 0.2f),
+    bbf_costmap_(new CostmapBBFImpl()),
+    dm_full_(cm_rough_, bbf_costmap_),
+    dm_fast_(cm_rough_, bbf_costmap_)
   {
     const int range = 0;
     const int local_range = 0;
     omp_set_num_threads(2);
 
-    costmap_cspace_msgs::MapMetaData3D map_info;
+    costmap_cspace_msgs::msg::MapMetaData3D map_info;
     map_info.width = w_;
     map_info.height = h_;
     map_info.angle = angle_;
@@ -94,13 +93,8 @@ protected:
     const Astar::Vec size2d(w_, h_, 1);
     Astar::Gridmap<char, 0x40> cm;
     Astar::Gridmap<char, 0x80> cm_hyst;
-    GridAstarModel3D::Ptr model(
-        new GridAstarModel3D(
-            map_info,
-            ec_,
-            local_range,
-            dm_full_.gridmap(), cm, cm_hyst, cm_rough_,
-            cc, range));
+    GridAstarModel3D::Ptr model(new GridAstarModel3D(
+      map_info, ec_, local_range, dm_full_.gridmap(), cm, cm_hyst, cm_rough_, cc, range));
     cm.reset(size3d);
     cm_hyst.reset(size3d);
     cm_rough_.reset(size2d);
@@ -111,15 +105,14 @@ protected:
     cm_rough_.clear(0);
     bbf_costmap_->clear();
 
-    const DistanceMap::Params dmp =
-        {
-            .euclid_cost = ec_,
-            .range = range,
-            .local_range = local_range,
-            .longcut_range = 0,
-            .size = size2d,
-            .resolution = map_info.linear_resolution,
-        };
+    const DistanceMap::Params dmp = {
+      .euclid_cost = ec_,
+      .range = range,
+      .local_range = local_range,
+      .longcut_range = 0,
+      .size = size2d,
+      .resolution = map_info.linear_resolution,
+    };
     dm_full_.init(model, dmp);
     dm_fast_.init(model, dmp);
   }
@@ -137,8 +130,7 @@ protected:
        [ ][ ][ ][ ][ ][ ][ ][ ][ ][ ][ ][ ]
      */
     cm_rough_.clear(0);
-    for (int x = 1; x < w_ - 1; x++)
-    {
+    for (int x = 1; x < w_ - 1; x++) {
       cm_rough_[Astar::Vec(x, 2, 0)] = 100;
       cm_rough_[Astar::Vec(x, 3, 0)] = 100;
       cm_rough_[Astar::Vec(x, 4, 0)] = 100;
@@ -146,20 +138,16 @@ protected:
     }
   }
 
-  bool validate(const std::string& msg) const
+  bool validate(const std::string & msg) const
   {
-    for (int y = 0; y < h_; y++)
-    {
-      for (int x = 0; x < w_; x++)
-      {
+    for (int y = 0; y < h_; y++) {
+      for (int x = 0; x < w_; x++) {
         const Astar::Vec pos(x, y, 0);
-        if (cm_rough_[pos] == 100)
-        {
+        if (cm_rough_[pos] == 100) {
           continue;
         }
         EXPECT_NEAR(dm_full_[pos], dm_fast_[pos], 0.5) << msg + " failed at " + xyStr(x, y);
-        if (::testing::Test::HasFailure())
-        {
+        if (::testing::Test::HasFailure()) {
           return false;
         }
       }
@@ -186,8 +174,7 @@ TEST_F(DistanceMapTest, FarEdge)
   dm_fast_.update(s, e, DistanceMap::Rect(Astar::Vec(9, 1, 0), Astar::Vec(11, 1, 0)));
   debugOutput(dm_fast_, cm_rough_, s, e);
 
-  if (!validate("obstacle in range"))
-  {
+  if (!validate("obstacle in range")) {
     fprintf(stderr, "expected:\n");
     debugOutput(dm_full_, cm_rough_, s, e);
     return;
@@ -218,8 +205,7 @@ TEST_F(DistanceMapTest, BlockedEdge)
   dm_fast_.update(s, e, DistanceMap::Rect(Astar::Vec(2, 0, 0), Astar::Vec(10, 1, 0)));
   debugOutput(dm_fast_, cm_rough_, s, e);
 
-  if (!validate("obstacle in range"))
-  {
+  if (!validate("obstacle in range")) {
     fprintf(stderr, "expected:\n");
     debugOutput(dm_full_, cm_rough_, s, e);
     return;
@@ -231,8 +217,7 @@ TEST_F(DistanceMapTest, BlockedEdge)
   dm_fast_.update(s, e, DistanceMap::Rect(Astar::Vec(2, 0, 0), Astar::Vec(10, 1, 0)));
   debugOutput(dm_fast_, cm_rough_, s, e);
 
-  if (!validate("going around"))
-  {
+  if (!validate("going around")) {
     fprintf(stderr, "expected:\n");
     debugOutput(dm_full_, cm_rough_, s, e);
     return;
@@ -250,8 +235,7 @@ TEST_F(DistanceMapTest, BlockedEdge)
   dm_fast_.update(s, e, DistanceMap::Rect(Astar::Vec(0, 0, 0), Astar::Vec(10, 1, 0)));
   debugOutput(dm_fast_, cm_rough_, s, e);
 
-  if (!validate("obstacle out of range"))
-  {
+  if (!validate("obstacle out of range")) {
     fprintf(stderr, "expected:\n");
     debugOutput(dm_full_, cm_rough_, s, e);
     return;
@@ -260,7 +244,7 @@ TEST_F(DistanceMapTest, BlockedEdge)
 }  // namespace planner_3d
 }  // namespace planner_cspace
 
-int main(int argc, char** argv)
+int main(int argc, char ** argv)
 {
   testing::InitGoogleTest(&argc, argv);
 

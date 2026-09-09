@@ -15,9 +15,37 @@ jobs:
   test:
     uses: alpine-ros/alpine-ros-ci-workflows/.github/workflows/ros1.yaml@main
     with:
+      # The reusable workflow still defaults to Alpine 3.20, which is on its
+      # way out; pin to 3.23 to match the ROS 2 job.
+      alpine-version: "3.23"
       enable-bot-comment: true
-      bot-comment-api-base: "https://ghbot-api.at-wat.tokyo"
-      enable-codecov: true
+      # This fork has neither access to the upstream bot-comment proxy nor a
+      # CODECOV_TOKEN, so comment through the plain GitHub API and skip the
+      # coverage upload. Restore both when merging upstream.
+      enable-codecov: false
+      # .rosinstall pulls whole repositories, and sq_ros1_rclcpp_compat carries
+      # samples/ packages that are demos this repository must not be gated on.
+      # Restrict the build to this repository's packages plus the source
+      # dependencies actually needed. The ../.. paths resolve to the
+      # container's ~/extsrc, where the rosinstall dependencies are checked out.
+      manifest-files: |
+        costmap_cspace/package.xml
+        joystick_interrupt/package.xml
+        map_organizer/package.xml
+        neonavigation/package.xml
+        neonavigation_common/package.xml
+        neonavigation_launch/package.xml
+        obj_to_pointcloud/package.xml
+        planner_cspace/package.xml
+        safety_limiter/package.xml
+        track_odometry/package.xml
+        trajectory_tracker/package.xml
+        ../../home/builder/extsrc/sq_ros1_rclcpp_compat/sq_ros1_rclcpp_compat/package.xml
+        ../../home/builder/extsrc/neonavigation_msgs/costmap_cspace_msgs/package.xml
+        ../../home/builder/extsrc/neonavigation_msgs/map_organizer_msgs/package.xml
+        ../../home/builder/extsrc/neonavigation_msgs/neonavigation_metrics_msgs/package.xml
+        ../../home/builder/extsrc/neonavigation_msgs/planner_cspace_msgs/package.xml
+        ../../home/builder/extsrc/neonavigation_msgs/safety_limiter_msgs/package.xml
+        ../../home/builder/extsrc/neonavigation_msgs/trajectory_tracker_msgs/package.xml
     secrets:
-      bot-comment-token: "7762317a-2b5e-4e1b-bfe2-3c3d8277e214"
-      codecov-upload-token: ${{ secrets.CODECOV_TOKEN }}
+      bot-comment-token: ${{ secrets.GITHUB_TOKEN }}

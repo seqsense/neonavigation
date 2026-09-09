@@ -27,25 +27,24 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TRAJECTORY_TRACKER_PATH2D_H
-#define TRAJECTORY_TRACKER_PATH2D_H
+#ifndef TRAJECTORY_TRACKER__PATH2D_H_
+#define TRAJECTORY_TRACKER__PATH2D_H_
 
 #include <limits>
 #include <utility>
 #include <vector>
 
-#include <Eigen/Core>
-#include <Eigen/Geometry>
-
-#include <geometry_msgs/Pose.h>
-#include <nav_msgs/Path.h>
-#include <tf2/utils.h>
-#include <trajectory_tracker_msgs/PathWithVelocity.h>
-
-#include <trajectory_tracker/average.h>
-#include <trajectory_tracker/eigen_line.h>
-
-#include <ros/ros.h>
+#include "Eigen/Core"
+#include "Eigen/Geometry"
+#include "geometry_msgs/msg/pose.hpp"
+#include "geometry_msgs/msg/pose_stamped.hpp"
+#include "nav_msgs/msg/path.hpp"
+#include "tf2/utils.h"
+#include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
+#include "trajectory_tracker/average.h"
+#include "trajectory_tracker/eigen_line.h"
+#include "trajectory_tracker_msgs/msg/path_with_velocity.hpp"
+#include "trajectory_tracker_msgs/msg/pose_stamped_with_velocity.hpp"
 
 namespace trajectory_tracker
 {
@@ -56,34 +55,27 @@ public:
   float yaw_;
   float velocity_;
 
-  inline Pose2D()
-    : pos_(0, 0)
-    , yaw_(0)
-    , velocity_(0)
+  inline Pose2D() : pos_(0, 0), yaw_(0), velocity_(0) {}
+  inline Pose2D(const Eigen::Vector2d & p, float y, float velocity)
+  : pos_(p), yaw_(y), velocity_(velocity)
   {
   }
-  inline Pose2D(const Eigen::Vector2d& p, float y, float velocity)
-    : pos_(p)
-    , yaw_(y)
-    , velocity_(velocity)
+  inline Pose2D(const geometry_msgs::msg::Pose & pose, float velocity)
+  : pos_(Eigen::Vector2d(pose.position.x, pose.position.y)),
+    yaw_(tf2::getYaw(pose.orientation)),
+    velocity_(velocity)
   {
   }
-  inline Pose2D(const geometry_msgs::Pose& pose, float velocity)
-    : pos_(Eigen::Vector2d(pose.position.x, pose.position.y))
-    , yaw_(tf2::getYaw(pose.orientation))
-    , velocity_(velocity)
+  inline explicit Pose2D(const geometry_msgs::msg::PoseStamped & pose)
+  : pos_(Eigen::Vector2d(pose.pose.position.x, pose.pose.position.y)),
+    yaw_(tf2::getYaw(pose.pose.orientation)),
+    velocity_(std::numeric_limits<float>::quiet_NaN())
   {
   }
-  inline explicit Pose2D(const geometry_msgs::PoseStamped& pose)
-    : pos_(Eigen::Vector2d(pose.pose.position.x, pose.pose.position.y))
-    , yaw_(tf2::getYaw(pose.pose.orientation))
-    , velocity_(std::numeric_limits<float>::quiet_NaN())
-  {
-  }
-  inline explicit Pose2D(const trajectory_tracker_msgs::PoseStampedWithVelocity& pose)
-    : pos_(Eigen::Vector2d(pose.pose.position.x, pose.pose.position.y))
-    , yaw_(tf2::getYaw(pose.pose.orientation))
-    , velocity_(pose.linear_velocity.x)
+  inline explicit Pose2D(const trajectory_tracker_msgs::msg::PoseStampedWithVelocity & pose)
+  : pos_(Eigen::Vector2d(pose.pose.position.x, pose.pose.position.y)),
+    yaw_(tf2::getYaw(pose.pose.orientation)),
+    velocity_(pose.linear_velocity.x)
   {
   }
   inline void rotate(const float ang)
@@ -96,18 +88,16 @@ public:
     pos_.x() = cos_v * org_x - sin_v * org_y;
     pos_.y() = sin_v * org_x + cos_v * org_y;
     yaw_ += ang;
-    while (yaw_ < 0)
-      yaw_ += 2 * M_PI;
-    while (yaw_ > 2 * M_PI)
-      yaw_ -= 2 * M_PI;
+    while (yaw_ < 0) yaw_ += 2 * M_PI;
+    while (yaw_ > 2 * M_PI) yaw_ -= 2 * M_PI;
   }
-  void toMsg(geometry_msgs::PoseStamped& pose) const
+  void toMsg(geometry_msgs::msg::PoseStamped & pose) const
   {
     pose.pose.position.x = pos_.x();
     pose.pose.position.y = pos_.y();
     pose.pose.orientation = tf2::toMsg(tf2::Quaternion(tf2::Vector3(0, 0, 1), yaw_));
   }
-  void toMsg(trajectory_tracker_msgs::PoseStampedWithVelocity& pose) const
+  void toMsg(trajectory_tracker_msgs::msg::PoseStampedWithVelocity & pose) const
   {
     pose.pose.position.x = pos_.x();
     pose.pose.position.y = pos_.y();
@@ -127,38 +117,29 @@ public:
   inline float length() const
   {
     double l = 0;
-    for (size_t i = 1; i < size(); i++)
-      l += ((*this)[i - 1].pos_ - (*this)[i].pos_).norm();
+    for (size_t i = 1; i < size(); i++) l += ((*this)[i - 1].pos_ - (*this)[i].pos_).norm();
     return l;
   }
   inline ConstIterator findLocalGoal(
-      const ConstIterator& begin,
-      const ConstIterator& end,
-      const bool allow_switch_back,
-      const bool allow_in_place_turn = true,
-      const double epsilon = 1e-6) const
+    const ConstIterator & begin, const ConstIterator & end, const bool allow_switch_back,
+    const bool allow_in_place_turn = true, const double epsilon = 1e-6) const
   {
     float sign_vel_prev = 0;
     ConstIterator it_prev = begin;
-    for (ConstIterator it = begin + 1; it < end; ++it)
-    {
-      if ((it->pos_ - it_prev->pos_).squaredNorm() < epsilon)
-      {
-        if (allow_in_place_turn)
-        {
+    for (ConstIterator it = begin + 1; it < end; ++it) {
+      if ((it->pos_ - it_prev->pos_).squaredNorm() < epsilon) {
+        if (allow_in_place_turn) {
           // stop reading forward if the path is in-place turning
           return it;
         }
         sign_vel_prev = 0;
-      }
-      else if (allow_switch_back)
-      {
+      } else if (allow_switch_back) {
         const Eigen::Vector2d inc = it->pos_ - it_prev->pos_;
         const float angle = atan2(inc[1], inc[0]);
         const float angle_pose = it->yaw_;
-        const float sign_vel_req = std::cos(angle) * std::cos(angle_pose) + std::sin(angle) * std::sin(angle_pose);
-        if (sign_vel_prev * sign_vel_req < 0)
-        {
+        const float sign_vel_req =
+          std::cos(angle) * std::cos(angle_pose) + std::sin(angle) * std::sin(angle_pose);
+        if (sign_vel_prev * sign_vel_req < 0) {
           // stop reading forward if the path is switching back
           return it;
         }
@@ -169,25 +150,17 @@ public:
     return end;
   }
   inline ConstIterator findNearest(
-      const ConstIterator& begin,
-      const ConstIterator& end,
-      const Eigen::Vector2d& target,
-      const float max_search_range = 0,
-      const float epsilon = 1e-6) const
+    const ConstIterator & begin, const ConstIterator & end, const Eigen::Vector2d & target,
+    const float max_search_range = 0, const float epsilon = 1e-6) const
   {
     return findNearestWithDistance(begin, end, target, max_search_range, epsilon).first;
   }
   inline std::pair<ConstIterator, double> findNearestWithDistance(
-      const ConstIterator& begin,
-      const ConstIterator& end,
-      const Eigen::Vector2d& target,
-      const float max_search_range = 0,
-      const float epsilon = 1e-6) const
+    const ConstIterator & begin, const ConstIterator & end, const Eigen::Vector2d & target,
+    const float max_search_range = 0, const float epsilon = 1e-6) const
   {
-    if (begin == end)
-    {
-      if (end == this->end())
-      {
+    if (begin == end) {
+      if (end == this->end()) {
         return std::make_pair(end, std::numeric_limits<double>::max());
       }
       return std::make_pair(end, (end->pos_ - target).norm());
@@ -197,15 +170,12 @@ public:
     float min_dist = (begin->pos_ - target).norm() + epsilon;
 
     ConstIterator it_prev = begin;
-    for (ConstIterator it = begin + 1; it < end; ++it)
-    {
+    for (ConstIterator it = begin + 1; it < end; ++it) {
       const Eigen::Vector2d inc = it->pos_ - it_prev->pos_;
       distance_path_search += inc.norm();
-      if (max_search_range > 0 && distance_path_search > max_search_range)
-        break;
+      if (max_search_range > 0 && distance_path_search > max_search_range) break;
 
-      const float d =
-          trajectory_tracker::lineStripDistanceSigned(it_prev->pos_, it->pos_, target);
+      const float d = trajectory_tracker::lineStripDistanceSigned(it_prev->pos_, it->pos_, target);
 
       // Use earlier point if the robot is same distance from two line strip
       // to avoid chattering.
@@ -214,8 +184,7 @@ public:
 
       // If it is the last point, select it as priority
       // to calculate correct remained distance.
-      if (d_compare <= min_dist || (it + 1 == end && d_abs <= min_dist + epsilon))
-      {
+      if (d_compare <= min_dist || (it + 1 == end && d_abs <= min_dist + epsilon)) {
         min_dist = d_abs;
         it_nearest = it;
       }
@@ -224,25 +193,20 @@ public:
     return std::make_pair(it_nearest, min_dist);
   }
   inline double remainedDistance(
-      const ConstIterator& begin,
-      const ConstIterator& nearest,
-      const ConstIterator& end,
-      const Eigen::Vector2d& target_on_line) const
+    const ConstIterator & begin, const ConstIterator & nearest, const ConstIterator & end,
+    const Eigen::Vector2d & target_on_line) const
   {
     double remain = (nearest->pos_ - target_on_line).norm();
-    if (nearest + 1 >= end)
-    {
+    if (nearest + 1 >= end) {
       const ConstIterator last = end - 1;
       const ConstIterator last_pre = end - 2;
-      if (last_pre < begin || last < begin)
-      {
+      if (last_pre < begin || last < begin) {
         // no enough points: orientation control mode
         return 0;
       }
       const Eigen::Vector2d vec_path = last->pos_ - last_pre->pos_;
       const Eigen::Vector2d vec_remain = last->pos_ - target_on_line;
-      if (vec_path.dot(vec_remain) >= 0)
-      {
+      if (vec_path.dot(vec_remain) >= 0) {
         // ongoing
         return remain;
       }
@@ -250,121 +214,99 @@ public:
       return -remain;
     }
     ConstIterator it_prev = nearest;
-    for (ConstIterator it = nearest + 1; it < end; ++it)
-    {
+    for (ConstIterator it = nearest + 1; it < end; ++it) {
       remain += (it_prev->pos_ - it->pos_).norm();
       it_prev = it;
     }
     return remain;
   }
   inline float getCurvature(
-      const ConstIterator& begin,
-      const ConstIterator& end,
-      const Eigen::Vector2d& target_on_line,
-      const float max_search_range) const
+    const ConstIterator & begin, const ConstIterator & end, const Eigen::Vector2d & target_on_line,
+    const float max_search_range) const
   {
-    if (end - begin <= 1)
-    {
+    if (end - begin <= 1) {
       return 0;
-    }
-    else if (end - begin == 2)
-    {
-      // When only two poses are remained, the logic same as planner_cspace::planner_3d::RotationCache is used.
+    } else if (end - begin == 2) {
+      // When only two poses are remained, the logic same as
+      // planner_cspace::planner_3d::RotationCache is used.
       ConstIterator it_prev = begin;
       ConstIterator it = begin + 1;
       Pose2D rel(it->pos_ - it_prev->pos_, it->yaw_, 0.0f);
       rel.rotate(-it_prev->yaw_);
       const float sin_v = std::sin(rel.yaw_);
       static const float EPS = 1.0e-6f;
-      if (std::abs(sin_v) < EPS)
-      {
+      if (std::abs(sin_v) < EPS) {
         return 0;
       }
       const float cos_v = std::cos(rel.yaw_);
       const float r1 = rel.pos_.y() + rel.pos_.x() * cos_v / sin_v;
       const float r2 = std::copysign(
-          std::sqrt(std::pow(rel.pos_.x(), 2) + std::pow(rel.pos_.x() * cos_v / sin_v, 2)),
-          rel.pos_.x() * sin_v);
+        std::sqrt(std::pow(rel.pos_.x(), 2) + std::pow(rel.pos_.x() * cos_v / sin_v, 2)),
+        rel.pos_.x() * sin_v);
       return 1.0f / ((r1 + r2) / 2);
     }
     const float max_search_range_sq = max_search_range * max_search_range;
     trajectory_tracker::Average<float> curv;
     ConstIterator it_prev2 = begin;
     ConstIterator it_prev1 = begin + 1;
-    for (ConstIterator it = begin + 2; it < end; ++it)
-    {
+    for (ConstIterator it = begin + 2; it < end; ++it) {
       curv += trajectory_tracker::curv3p(it_prev2->pos_, it_prev1->pos_, it->pos_);
-      if ((it->pos_ - target_on_line).squaredNorm() > max_search_range_sq)
-        break;
+      if ((it->pos_ - target_on_line).squaredNorm() > max_search_range_sq) break;
       it_prev2 = it_prev1;
       it_prev1 = it;
     }
     return curv;
   }
-  // PATH_TYPE should be trajectory_tracker_msgs::PathWithVelocity or nav_msgs::Path
+  // PATH_TYPE should be trajectory_tracker_msgs::msg::PathWithVelocity or nav_msgs::msg::Path
   template <typename PATH_TYPE>
-  inline void fromMsg(const PATH_TYPE& path, const double in_place_turn_eps = 1.0e-6)
+  inline void fromMsg(const PATH_TYPE & path, const double in_place_turn_eps = 1.0e-6)
   {
     clear();
     bool in_place_turning = false;
     trajectory_tracker::Pose2D in_place_turn_end;
-    for (const auto& pose : path.poses)
-    {
+    for (const auto & pose : path.poses) {
       const trajectory_tracker::Pose2D next(pose);
-      if (empty())
-      {
+      if (empty()) {
         push_back(next);
         continue;
       }
-      if ((back().pos_ - next.pos_).squaredNorm() >= std::pow(in_place_turn_eps, 2))
-      {
-        if (in_place_turning)
-        {
+      if ((back().pos_ - next.pos_).squaredNorm() >= std::pow(in_place_turn_eps, 2)) {
+        if (in_place_turning) {
           push_back(in_place_turn_end);
           in_place_turning = false;
         }
         push_back(next);
-      }
-      else
-      {
-        in_place_turn_end = trajectory_tracker::Pose2D(
-            back().pos_, next.yaw_, next.velocity_);
+      } else {
+        in_place_turn_end = trajectory_tracker::Pose2D(back().pos_, next.yaw_, next.velocity_);
         in_place_turning = true;
       }
     }
-    if (in_place_turning)
-    {
+    if (in_place_turning) {
       push_back(in_place_turn_end);
     }
   }
-  // PATH_TYPE should be trajectory_tracker_msgs::PathWithVelocity or nav_msgs::Path
+  // PATH_TYPE should be trajectory_tracker_msgs::msg::PathWithVelocity or nav_msgs::msg::Path
   template <typename PATH_TYPE>
-  inline void toMsg(PATH_TYPE& path) const
+  inline void toMsg(PATH_TYPE & path) const
   {
     path.poses.clear();
     path.poses.resize(size());
-    for (size_t i = 0; i < size(); ++i)
-    {
+    for (size_t i = 0; i < size(); ++i) {
       path.poses[i].header = path.header;
       at(i).toMsg(path.poses[i]);
     }
   }
 
   inline std::vector<ConstIterator> enumerateLocalGoals(
-      const ConstIterator& begin,
-      const ConstIterator& end,
-      const bool allow_switch_back,
-      const bool allow_in_place_turn = true,
-      const double epsilon = 1e-6) const
+    const ConstIterator & begin, const ConstIterator & end, const bool allow_switch_back,
+    const bool allow_in_place_turn = true, const double epsilon = 1e-6) const
   {
     ConstIterator it_search_begin = begin;
     std::vector<ConstIterator> results;
-    while (true)
-    {
+    while (true) {
       const ConstIterator it_local_goal =
-          findLocalGoal(it_search_begin, end, allow_switch_back, allow_in_place_turn, epsilon);
-      if (it_local_goal == end)
-        break;
+        findLocalGoal(it_search_begin, end, allow_switch_back, allow_in_place_turn, epsilon);
+      if (it_local_goal == end) break;
       results.push_back(it_local_goal);
       it_search_begin = it_local_goal;
     }
@@ -372,31 +314,22 @@ public:
   }
 
   inline std::vector<double> getEstimatedTimeOfArrivals(
-      const ConstIterator& begin,
-      const ConstIterator& end,
-      const double linear_speed,
-      const double angular_speed,
-      const double initial_eta_sec = 0.0) const
+    const ConstIterator & begin, const ConstIterator & end, const double linear_speed,
+    const double angular_speed, const double initial_eta_sec = 0.0) const
   {
-    if (begin == end)
-    {
+    if (begin == end) {
       return std::vector<double>();
     }
     std::vector<double> results(1, initial_eta_sec);
     double elapsed_sec = initial_eta_sec;
     ConstIterator it_prev = begin;
-    for (ConstIterator it = begin + 1; it < end; ++it)
-    {
+    for (ConstIterator it = begin + 1; it < end; ++it) {
       const double dist = (it_prev->pos_ - it->pos_).norm();
-      if (dist > 1.0e-6)
-      {
+      if (dist > 1.0e-6) {
         elapsed_sec += dist / linear_speed;
-      }
-      else
-      {
+      } else {
         double ang_diff = std::abs(it_prev->yaw_ - it->yaw_);
-        if (ang_diff > M_PI)
-        {
+        if (ang_diff > M_PI) {
           ang_diff = 2 * M_PI - ang_diff;
         }
         elapsed_sec += ang_diff / angular_speed;
@@ -409,4 +342,4 @@ public:
 };
 }  // namespace trajectory_tracker
 
-#endif  // TRAJECTORY_TRACKER_PATH2D_H
+#endif  // TRAJECTORY_TRACKER__PATH2D_H_

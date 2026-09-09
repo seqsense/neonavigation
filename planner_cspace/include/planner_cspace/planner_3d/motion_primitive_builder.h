@@ -27,14 +27,14 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PLANNER_CSPACE_PLANNER_3D_MOTION_PRIMITIVE_BUILDER_H
-#define PLANNER_CSPACE_PLANNER_3D_MOTION_PRIMITIVE_BUILDER_H
+#ifndef PLANNER_CSPACE__PLANNER_3D__MOTION_PRIMITIVE_BUILDER_H_
+#define PLANNER_CSPACE__PLANNER_3D__MOTION_PRIMITIVE_BUILDER_H_
 
 #include <vector>
 
-#include <costmap_cspace_msgs/MapMetaData3D.h>
-#include <planner_cspace/cyclic_vec.h>
-#include <planner_cspace/planner_3d/grid_astar_model.h>
+#include "costmap_cspace_msgs/msg/map_meta_data3_d.hpp"
+#include "planner_cspace/cyclic_vec.h"
+#include "planner_cspace/planner_3d/grid_astar_model.h"
 
 namespace planner_cspace
 {
@@ -46,12 +46,13 @@ public:
   using Vec = CyclicVecInt<3, 2>;
   using Vecf = CyclicVecFloat<3, 2>;
 
-  static std::vector<std::vector<Vec>> build(const costmap_cspace_msgs::MapMetaData3D& map_info,
-                                             const CostCoeff& cc, const int range);
+  static std::vector<std::vector<Vec>> build(
+    const costmap_cspace_msgs::msg::MapMetaData3D & map_info, const CostCoeff & cc,
+    const int range);
 
 private:
 };
 }  // namespace planner_3d
 }  // namespace planner_cspace
 
-#endif  // PLANNER_CSPACE_PLANNER_3D_MOTION_PRIMITIVE_BUILDER_H
+#endif  // PLANNER_CSPACE__PLANNER_3D__MOTION_PRIMITIVE_BUILDER_H_

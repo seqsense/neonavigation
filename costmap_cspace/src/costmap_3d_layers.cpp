@@ -27,31 +27,23 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <ros/ros.h>
-
 #include <string>
 #include <vector>
 
-#include <costmap_cspace/costmap_3d.h>
+#include "costmap_cspace/costmap_3d.h"
 
 COSTMAP_3D_LAYER_CLASS_LOADER_ENABLE();
 
 COSTMAP_3D_LAYER_CLASS_LOADER_REGISTER(
-    "Costmap3dLayerFootprint",
-    costmap_cspace::Costmap3dLayerFootprint,
-    Costmap3dLayerFootprint);
+  "Costmap3dLayerFootprint", costmap_cspace::Costmap3dLayerFootprint, Costmap3dLayerFootprint);
 
 COSTMAP_3D_LAYER_CLASS_LOADER_REGISTER(
-    "Costmap3dLayerPlain",
-    costmap_cspace::Costmap3dLayerPlain,
-    Costmap3dLayerPlain);
+  "Costmap3dLayerPlain", costmap_cspace::Costmap3dLayerPlain, Costmap3dLayerPlain);
 
 COSTMAP_3D_LAYER_CLASS_LOADER_REGISTER(
-    "Costmap3dLayerStopPropagation",
-    costmap_cspace::Costmap3dLayerStopPropagation,
-    Costmap3dLayerStopPropagation);
+  "Costmap3dLayerStopPropagation", costmap_cspace::Costmap3dLayerStopPropagation,
+  Costmap3dLayerStopPropagation);
 
 COSTMAP_3D_LAYER_CLASS_LOADER_REGISTER(
-    "Costmap3dLayerUnknownHandle",
-    costmap_cspace::Costmap3dLayerUnknownHandle,
-    Costmap3dLayerUnknownHandle);
+  "Costmap3dLayerUnknownHandle", costmap_cspace::Costmap3dLayerUnknownHandle,
+  Costmap3dLayerUnknownHandle);

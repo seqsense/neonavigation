@@ -28,8 +28,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TRAJECTORY_TRACKER_AVERAGE_H
-#define TRAJECTORY_TRACKER_AVERAGE_H
+#ifndef TRAJECTORY_TRACKER__AVERAGE_H_
+#define TRAJECTORY_TRACKER__AVERAGE_H_
 
 namespace trajectory_tracker
 {
@@ -37,20 +37,15 @@ template <typename T>
 class Average
 {
 public:
-  inline Average()
-    : sum()
-    , num(0)
-  {
-  }
-  inline void operator+=(const T& val)
+  inline Average() : sum(), num(0) {}
+  inline void operator+=(const T & val)
   {
     sum += val;
     num++;
   }
   inline operator T() const
   {
-    if (num == 0)
-      return 0;
+    if (num == 0) return 0;
     return sum / num;
   }
 
@@ -60,4 +55,4 @@ private:
 };
 }  // namespace trajectory_tracker
 
-#endif  // TRAJECTORY_TRACKER_AVERAGE_H
+#endif  // TRAJECTORY_TRACKER__AVERAGE_H_

@@ -27,16 +27,16 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PLANNER_CSPACE_PLANNER_2DOF_SERIAL_JOINTS_GRID_ASTAR_MODEL_H
-#define PLANNER_CSPACE_PLANNER_2DOF_SERIAL_JOINTS_GRID_ASTAR_MODEL_H
+#ifndef PLANNER_CSPACE__PLANNER_2DOF_SERIAL_JOINTS__GRID_ASTAR_MODEL_H_
+#define PLANNER_CSPACE__PLANNER_2DOF_SERIAL_JOINTS__GRID_ASTAR_MODEL_H_
 
 #include <memory>
 #include <utility>
 #include <vector>
 
-#include <planner_cspace/cyclic_vec.h>
-#include <planner_cspace/grid_astar_model.h>
-#include <planner_cspace/blockmem_gridmap.h>
+#include "planner_cspace/blockmem_gridmap.h"
+#include "planner_cspace/cyclic_vec.h"
+#include "planner_cspace/grid_astar_model.h"
 
 namespace planner_cspace
 {
@@ -61,28 +61,23 @@ protected:
   std::vector<Vec> search_list_;
   Vecf euclid_cost_coef_;
   int resolution_;
-  BlockMemGridmapBase<char, 2, 0>& cm_;
+  BlockMemGridmapBase<char, 2, 0> & cm_;
   CostCoeff cc_;
   int range_;
 
 public:
   GridAstarModel2DoFSerialJoint(
-      const Vecf& euclid_cost_coef,
-      const int resolution,
-      BlockMemGridmapBase<char, 2, 0>& cm,
-      const CostCoeff& cc,
-      const int range);
-  float euclidCost(const Vec& v) const;
+    const Vecf & euclid_cost_coef, const int resolution, BlockMemGridmapBase<char, 2, 0> & cm,
+    const CostCoeff & cc, const int range);
+  float euclidCost(const Vec & v) const;
   float cost(
-      const Vec& cur, const Vec& next, const std::vector<VecWithCost>& start, const Vec& goal) const override;
-  float costEstim(
-      const Vec& cur, const Vec& goal) const override;
-  const std::vector<Vec>& searchGrids(
-      const Vec& p,
-      const std::vector<VecWithCost>& ss,
-      const Vec& es) const override;
+    const Vec & cur, const Vec & next, const std::vector<VecWithCost> & start,
+    const Vec & goal) const override;
+  float costEstim(const Vec & cur, const Vec & goal) const override;
+  const std::vector<Vec> & searchGrids(
+    const Vec & p, const std::vector<VecWithCost> & ss, const Vec & es) const override;
 };
 }  // namespace planner_2dof_serial_joints
 }  // namespace planner_cspace
 
-#endif  // PLANNER_CSPACE_PLANNER_2DOF_SERIAL_JOINTS_GRID_ASTAR_MODEL_H
+#endif  // PLANNER_CSPACE__PLANNER_2DOF_SERIAL_JOINTS__GRID_ASTAR_MODEL_H_

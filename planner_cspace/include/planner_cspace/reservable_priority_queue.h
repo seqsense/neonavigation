@@ -27,8 +27,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PLANNER_CSPACE_RESERVABLE_PRIORITY_QUEUE_H
-#define PLANNER_CSPACE_RESERVABLE_PRIORITY_QUEUE_H
+#ifndef PLANNER_CSPACE__RESERVABLE_PRIORITY_QUEUE_H_
+#define PLANNER_CSPACE__RESERVABLE_PRIORITY_QUEUE_H_
 
 #include <queue>
 
@@ -39,27 +39,12 @@ class reservable_priority_queue : public std::priority_queue<T>
 {
 public:
   typedef typename std::priority_queue<T>::size_type size_type;
-  explicit reservable_priority_queue(const size_type capacity = 0)
-  {
-    reserve(capacity);
-  }
-  void reserve(const size_type capacity)
-  {
-    this->c.reserve(capacity);
-  }
-  size_type capacity() const
-  {
-    return this->c.capacity();
-  }
-  void clear()
-  {
-    this->c.clear();
-  }
-  void pop_back()
-  {
-    this->c.pop_back();
-  }
+  explicit reservable_priority_queue(const size_type capacity = 0) { reserve(capacity); }
+  void reserve(const size_type capacity) { this->c.reserve(capacity); }
+  size_type capacity() const { return this->c.capacity(); }
+  void clear() { this->c.clear(); }
+  void pop_back() { this->c.pop_back(); }
 };
 }  // namespace planner_cspace
 
-#endif  // PLANNER_CSPACE_RESERVABLE_PRIORITY_QUEUE_H
+#endif  // PLANNER_CSPACE__RESERVABLE_PRIORITY_QUEUE_H_

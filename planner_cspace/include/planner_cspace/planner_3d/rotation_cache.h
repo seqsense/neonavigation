@@ -27,8 +27,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PLANNER_CSPACE_PLANNER_3D_ROTATION_CACHE_H
-#define PLANNER_CSPACE_PLANNER_3D_ROTATION_CACHE_H
+#ifndef PLANNER_CSPACE__PLANNER_3D__ROTATION_CACHE_H_
+#define PLANNER_CSPACE__PLANNER_3D__ROTATION_CACHE_H_
 
 #include <cmath>
 #include <list>
@@ -36,7 +36,7 @@
 #include <utility>
 #include <vector>
 
-#include <planner_cspace/cyclic_vec.h>
+#include "planner_cspace/cyclic_vec.h"
 
 namespace planner_cspace
 {
@@ -53,29 +53,25 @@ private:
     CyclicVecInt<3, 2> size_;
     int ser_size_;
 
-    inline size_t addr(const CyclicVecInt<3, 2>& pos) const
+    inline size_t addr(const CyclicVecInt<3, 2> & pos) const
     {
       size_t addr = pos[2];
-      for (int i = 1; i >= 0; i--)
-        addr = addr * size_[i] + pos[i];
+      for (int i = 1; i >= 0; i--) addr = addr * size_[i] + pos[i];
       return addr;
     }
 
   public:
-    void reset(const CyclicVecInt<3, 2>& size);
-    inline CyclicVecFloat<3, 2>& motion(const CyclicVecInt<3, 2>& pos)
+    void reset(const CyclicVecInt<3, 2> & size);
+    inline CyclicVecFloat<3, 2> & motion(const CyclicVecInt<3, 2> & pos) { return c_[addr(pos)]; }
+    inline const CyclicVecFloat<3, 2> & motion(const CyclicVecInt<3, 2> & pos) const
     {
       return c_[addr(pos)];
     }
-    inline const CyclicVecFloat<3, 2>& motion(const CyclicVecInt<3, 2>& pos) const
-    {
-      return c_[addr(pos)];
-    }
-    inline std::pair<float, float>& radiuses(const CyclicVecInt<3, 2>& pos)
+    inline std::pair<float, float> & radiuses(const CyclicVecInt<3, 2> & pos)
     {
       return r_[addr(pos)];
     }
-    inline const std::pair<float, float>& radiuses(const CyclicVecInt<3, 2>& pos) const
+    inline const std::pair<float, float> & radiuses(const CyclicVecInt<3, 2> & pos) const
     {
       return r_[addr(pos)];
     }
@@ -85,25 +81,22 @@ private:
 
 public:
   void reset(const float linear_resolution, const float angular_resolution, const int range);
-  inline const CyclicVecFloat<3, 2>& getMotion(
-      const int start_angle,
-      const CyclicVecInt<3, 2>& end) const
+  inline const CyclicVecFloat<3, 2> & getMotion(
+    const int start_angle, const CyclicVecInt<3, 2> & end) const
   {
     return pages_[start_angle].motion(end);
   }
-  inline const std::pair<float, float>& getRadiuses(
-      const int start_angle,
-      const CyclicVecInt<3, 2>& end) const
+  inline const std::pair<float, float> & getRadiuses(
+    const int start_angle, const CyclicVecInt<3, 2> & end) const
   {
     return pages_[start_angle].radiuses(end);
   }
 
   std::list<CyclicVecFloat<3, 2>> interpolate(
-      const std::list<CyclicVecInt<3, 2>>& path_grid,
-      const float interval,
-      const int local_range) const;
+    const std::list<CyclicVecInt<3, 2>> & path_grid, const float interval,
+    const int local_range) const;
 };
 }  // namespace planner_3d
 }  // namespace planner_cspace
 
-#endif  // PLANNER_CSPACE_PLANNER_3D_ROTATION_CACHE_H
+#endif  // PLANNER_CSPACE__PLANNER_3D__ROTATION_CACHE_H_

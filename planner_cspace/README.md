@@ -107,3 +107,117 @@ stub
 ## patrol
 
 stub
+
+----
+
+## ROS 2 notes
+
+The package is hybridized: the same sources build on ROS 1 (catkin) and ROS 2
+(ament). The ROS 1 interface layer is unchanged, so everything above still
+describes the ROS 1 behaviour exactly. This section lists what differs when the
+nodes are run on ROS 2.
+
+All four nodes (`planner_3d`, `planner_2dof_serial_joints`, `dummy_robot`,
+`patrol`) are available both as standalone executables and as `rclcpp`
+components (`planner_cspace::planner_3d::Planner3dNode`,
+`planner_cspace::planner_2dof_serial_joints::Planner2dofSerialJointsNode`,
+`planner_cspace::DummyRobotNode`, `planner_cspace::PatrolActionNode`).
+
+The `/neonavigation_compatible` topic name aliases are ROS 1 only; the ROS 2
+nodes always use the plain (new) topic names listed above.
+
+Topics that were latched on ROS 1 are published with `transient_local`
+durability on ROS 2, so subscribers have to request `transient_local` as well.
+
+### Actions
+
+`move_base_msgs` does not exist on ROS 2, so the `move_base` action of
+`planner_3d` (and the action client of `patrol`) uses
+`nav2_msgs/action/NavigateToPose`. The action name is unchanged. The field
+mapping is:
+
+| `move_base_msgs/MoveBase` (ROS 1) | `nav2_msgs/NavigateToPose` (ROS 2) |
+|---|---|
+| `goal.target_pose` | `goal.pose` (`goal.behavior_tree` is ignored) |
+| `feedback.base_position` | `feedback.current_pose` |
+| (empty result) | `result.error_code` (always `NONE`) and `result.error_msg`, which carries the status text that ROS 1 passed to `setSucceeded()` / `setAborted()` |
+
+`feedback.navigation_time` holds the time since the goal was accepted and
+`feedback.distance_remaining` the length of the last published path;
+`estimated_time_remaining` and `number_of_recoveries` have no counterpart in
+this planner and stay zero.
+
+The `tolerant_move` action keeps using
+`planner_cspace_msgs/action/MoveWithTolerance` on both ROS versions.
+
+#### Preemption semantics
+
+`actionlib` preempted a running goal automatically when a new one arrived and
+reported it with `setPreempted()`. `rclcpp_action` has neither automatic
+preemption nor a `PREEMPTED` terminal state, and `canceled()` may only be used
+after a cancel request was accepted. `planner_3d` therefore behaves as follows
+on ROS 2:
+
+* A goal that is superseded by a **new goal on the same action server** is
+  **aborted** with `"Preempted."` (in `result.error_msg` for `move_base`; logged
+  for `tolerant_move`, whose result is empty).
+* An **explicitly cancelled** goal is terminated with `canceled()`. The cancel
+  request is recorded in the cancel callback and the goal handle is finished
+  from the planning timer, because a goal handle may not be terminated from
+  within `handle_cancel`.
+* A goal that arrives while the **other** action server is busy is **rejected**
+  in `handle_goal`. ROS 1 logged an error and left such a goal pending forever.
+
+### `planner_3d`
+
+* `move_base_simple/goal` is named **`goal_pose`**, which is what RViz 2
+  publishes for "2D Goal Pose".
+* `~/make_plan` (`nav_msgs/srv/GetPlan`) cannot report a failure the way a ROS 1
+  service could by returning `false`; when no plan is found the response simply
+  holds an empty plan.
+* `dynamic_reconfigure` is replaced by plain ROS 2 parameters. The names,
+  defaults and value ranges are the ones from `cfg/Planner3D.cfg`, and changes
+  are applied through a post-set parameter callback, so `ros2 param set` has the
+  same effect as `rqt_reconfigure` had on ROS 1.
+* `print_planning_duration` raises the level of this node's logger to `Debug`
+  instead of the global rosconsole logger.
+* The 100 Hz planning loop of the ROS 1 `main()` runs from a 100 Hz timer, and
+  the one-shot `costmap_watchdog` timer is a periodic timer which is re-armed or
+  stopped on every costmap update.
+
+### `planner_2dof_serial_joints`
+
+ROS 1 read the per-group settings from the nested private namespace
+`~/<group>/<key>`. ROS 2 parameters are strictly flat, so the same settings are
+given as dot separated names `<group>.<key>`:
+
+```yaml
+# ROS 1
+planner_2dof_serial_joints:
+  num_groups: 1
+  group0_name: group0
+  group0:
+    link0_name: front_flipper
+    link1_name: rear_flipper
+    resolution: 128
+```
+
+```yaml
+# ROS 2
+planner_2dof_serial_joints:
+  ros__parameters:
+    num_groups: 1
+    group0_name: group0
+    group0:
+      link0_name: front_flipper
+      link1_name: rear_flipper
+      resolution: 128
+```
+
+The per-group keys are unchanged (`resolution`, `queue_size_limit`, `range`,
+`num_threads`, `weight_cost`, `expand`, `point_vel_mode`, `link0_*`, `link1_*`),
+and `debug_aa`, `replan_interval`, `num_groups` and `group<i>_name` stay
+node-level parameters. A ROS 2 component is a single node, so one node instance
+owns every link group instead of one object per group; the published
+`~/<group>/status` and the shared `joint_trajectory` / `trajectory_in` /
+`joint_states` topics are the same as on ROS 1.

@@ -27,27 +27,27 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <gtest/gtest.h>
+#include <trajectory_tracker/eigen_line.h>
+#include <trajectory_tracker/path2d.h>
+
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <limits>
+#include <nav_msgs/msg/path.hpp>
+#include <rclcpp/rclcpp.hpp>
 #include <string>
+#include <trajectory_tracker_msgs/msg/path_with_velocity.hpp>
 #include <vector>
-
-#include <gtest/gtest.h>
-
-#include <nav_msgs/Path.h>
-#include <trajectory_tracker/eigen_line.h>
-#include <trajectory_tracker/path2d.h>
-#include <trajectory_tracker_msgs/PathWithVelocity.h>
 
 namespace
 {
-double getRemainedDistance(const trajectory_tracker::Path2D& path, const Eigen::Vector2d& p)
+double getRemainedDistance(const trajectory_tracker::Path2D & path, const Eigen::Vector2d & p)
 {
   const auto nearest = path.findNearest(path.begin(), path.end(), p);
   const Eigen::Vector2d pos_on_line =
-      trajectory_tracker::projection2d((nearest - 1)->pos_, nearest->pos_, p);
+    trajectory_tracker::projection2d((nearest - 1)->pos_, nearest->pos_, p);
   return path.remainedDistance(path.begin(), nearest, path.end(), pos_on_line);
 }
 }  // namespace
@@ -60,8 +60,7 @@ TEST(Path2D, RemainedDistance)
   path_full.push_back(trajectory_tracker::Pose2D(Eigen::Vector2d(10.0, 0), 0, 1));
 
   // Single pose path means orientation control mode. More than two poses should be line following.
-  for (size_t l = 2; l < path_full.size(); ++l)
-  {
+  for (size_t l = 2; l < path_full.size(); ++l) {
     trajectory_tracker::Path2D path;
     path.resize(l);
     std::copy(path_full.end() - l, path_full.end(), path.begin());
@@ -82,34 +81,32 @@ TEST(Path2D, RemainedDistance)
 
 TEST(Path2D, Curvature)
 {
-  for (float c = 1.0; c < 4.0; c += 0.4)
-  {
+  for (float c = 1.0; c < 4.0; c += 0.4) {
     trajectory_tracker::Path2D path;
     for (double a = 0; a < 1.57; a += 0.1)
-      path.push_back(trajectory_tracker::Pose2D(Eigen::Vector2d(std::cos(a), std::sin(a)) * c, a + M_PI / 2, 1));
+      path.push_back(
+        trajectory_tracker::Pose2D(Eigen::Vector2d(std::cos(a), std::sin(a)) * c, a + M_PI / 2, 1));
     ASSERT_NEAR(path.getCurvature(path.begin(), path.end(), path[0].pos_, 10.0), 1.0 / c, 1e-2);
   }
 
-  for (float c = 1.0; c < 4.0; c += 0.4)
-  {
+  for (float c = 1.0; c < 4.0; c += 0.4) {
     trajectory_tracker::Path2D path;
     for (double a = 0; a < 0.2; a += 0.1)
-      path.push_back(trajectory_tracker::Pose2D(Eigen::Vector2d(std::cos(a), std::sin(a)) * c, a + M_PI / 2, 1));
+      path.push_back(
+        trajectory_tracker::Pose2D(Eigen::Vector2d(std::cos(a), std::sin(a)) * c, a + M_PI / 2, 1));
     ASSERT_NEAR(path.getCurvature(path.begin(), path.end(), path[0].pos_, 10.0), 1.0 / c, 1e-2);
   }
 }
 
 TEST(Path2D, LocalGoalWithoutSwitchBack)
 {
-  for (int yaw_i = -1; yaw_i <= 1; ++yaw_i)
-  {
+  for (int yaw_i = -1; yaw_i <= 1; ++yaw_i) {
     const double yaw_diff = yaw_i * 0.1;
 
     trajectory_tracker::Path2D path;
     Eigen::Vector2d p(0, 0);
     double yaw(0);
-    for (int i = 0; i < 10; ++i)
-    {
+    for (int i = 0; i < 10; ++i) {
       p -= Eigen::Vector2d(std::cos(yaw), std::sin(yaw)) * 0.1;
       yaw += yaw_diff;
       path.push_back(trajectory_tracker::Pose2D(p, yaw, 1));
@@ -121,21 +118,18 @@ TEST(Path2D, LocalGoalWithoutSwitchBack)
 
 TEST(Path2D, LocalGoalWithSwitchBack)
 {
-  for (int yaw_i = -1; yaw_i <= 1; ++yaw_i)
-  {
+  for (int yaw_i = -1; yaw_i <= 1; ++yaw_i) {
     const double yaw_diff = yaw_i * 0.1;
 
     trajectory_tracker::Path2D path;
     Eigen::Vector2d p(0, 0);
     double yaw(0);
-    for (int i = 0; i < 5; ++i)
-    {
+    for (int i = 0; i < 5; ++i) {
       p -= Eigen::Vector2d(std::cos(yaw), std::sin(yaw)) * 0.1;
       yaw += yaw_diff;
       path.push_back(trajectory_tracker::Pose2D(p, yaw, 1));
     }
-    for (int i = 0; i < 5; ++i)
-    {
+    for (int i = 0; i < 5; ++i) {
       p += Eigen::Vector2d(std::cos(yaw), std::sin(yaw)) * 0.1;
       yaw += yaw_diff;
       path.push_back(trajectory_tracker::Pose2D(p, yaw, 1));
@@ -160,16 +154,14 @@ TEST(Path2D, LocalGoalTest)
 {
   trajectory_tracker::Path2D path;
   Eigen::Vector2d p(0, 0);
-  for (size_t i = 0; i <= 10; ++i)
-  {
+  for (size_t i = 0; i <= 10; ++i) {
     const double yaw = M_PI / 2 / 10;
     p.x() = std::sin(i * yaw);
     p.y() = 1.0 - std::cos(i * yaw);
     path.push_back(trajectory_tracker::Pose2D(p, yaw, 0));
   }
   // Turn in-place and go back
-  for (size_t i = 0; i <= 10; ++i)
-  {
+  for (size_t i = 0; i <= 10; ++i) {
     path.push_back(trajectory_tracker::Pose2D(Eigen::Vector2d(1.0 - i * 0.1, 1.0), 0, 0));
   }
   {
@@ -188,10 +180,8 @@ TEST(Path2D, EnumerateLocalGoals)
   const std::vector<float> yaws = {0.5, -0.2, 1.0};
   double x = 0.0;
   double y = 0.0;
-  for (const float yaw : yaws)
-  {
-    for (size_t i = 0; i < 10; ++i)
-    {
+  for (const float yaw : yaws) {
+    for (size_t i = 0; i < 10; ++i) {
       path.push_back(trajectory_tracker::Pose2D(Eigen::Vector2d(x, y), yaw, 1.0));
       x += std::cos(yaw) * 0.1;
       y += std::sin(yaw) * 0.1;
@@ -220,26 +210,31 @@ TEST(Path2D, FindNearestWithDistance)
 
   {
     // The nearest line is (0.8, 0.6) - (0.9, 0.7), and the nearest point on the line is (0.85, 0.65).
-    const auto nearest_with_dist = path.findNearestWithDistance(path.begin(), path.end(), Eigen::Vector2d(1.0, 0.5));
+    const auto nearest_with_dist =
+      path.findNearestWithDistance(path.begin(), path.end(), Eigen::Vector2d(1.0, 0.5));
     EXPECT_EQ(nearest_with_dist.first, path.begin() + 4);
-    EXPECT_NEAR(nearest_with_dist.second, std::sqrt(std::pow(1.0 - 0.85, 2) + std::pow(0.5 - 0.65, 2)), 1.0e-6);
+    EXPECT_NEAR(
+      nearest_with_dist.second, std::sqrt(std::pow(1.0 - 0.85, 2) + std::pow(0.5 - 0.65, 2)),
+      1.0e-6);
   }
   {
     // The nearest point is (0.7, 0.5).
     const auto nearest_with_dist =
-        path.findNearestWithDistance(path.begin(), path.begin() + 3, Eigen::Vector2d(1.0, 0.5));
+      path.findNearestWithDistance(path.begin(), path.begin() + 3, Eigen::Vector2d(1.0, 0.5));
     EXPECT_EQ(nearest_with_dist.first, path.begin() + 2);
-    EXPECT_NEAR(nearest_with_dist.second, std::sqrt(std::pow(1.0 - 0.7, 2) + std::pow(0.5 - 0.5, 2)), 1.0e-6);
+    EXPECT_NEAR(
+      nearest_with_dist.second, std::sqrt(std::pow(1.0 - 0.7, 2) + std::pow(0.5 - 0.5, 2)), 1.0e-6);
   }
   {
     // Test edge cases
     const auto nearest_with_dist =
-        path.findNearestWithDistance(path.begin() + 5, path.begin() + 5, Eigen::Vector2d(1.0, 0.5));
+      path.findNearestWithDistance(path.begin() + 5, path.begin() + 5, Eigen::Vector2d(1.0, 0.5));
     EXPECT_EQ(nearest_with_dist.first, path.begin() + 5);
-    EXPECT_NEAR(nearest_with_dist.second, std::sqrt(std::pow(1.0 - 0.9, 2) + std::pow(0.5 - 0.8, 2)), 1.0e-6);
+    EXPECT_NEAR(
+      nearest_with_dist.second, std::sqrt(std::pow(1.0 - 0.9, 2) + std::pow(0.5 - 0.8, 2)), 1.0e-6);
 
     const auto invalid_result =
-        path.findNearestWithDistance(path.end(), path.end(), Eigen::Vector2d(1.0, 0.5));
+      path.findNearestWithDistance(path.end(), path.end(), Eigen::Vector2d(1.0, 0.5));
     EXPECT_EQ(invalid_result.first, path.end());
     EXPECT_EQ(invalid_result.second, std::numeric_limits<double>::max());
   }
@@ -247,7 +242,7 @@ TEST(Path2D, FindNearestWithDistance)
 
 TEST(Path2D, Conversions)
 {
-  nav_msgs::Path path_msg_org;
+  nav_msgs::msg::Path path_msg_org;
   path_msg_org.poses.resize(8);
   path_msg_org.poses[0].pose.position.x = 0.0;
   path_msg_org.poses[0].pose.position.y = 0.0;
@@ -285,34 +280,34 @@ TEST(Path2D, Conversions)
 
   const std::vector<size_t> expected_org_indexes = {0, 1, 3, 4, 5, 7};
   ASSERT_EQ(path.size(), 6);
-  for (size_t i = 0; i < path.size(); ++i)
-  {
+  for (size_t i = 0; i < path.size(); ++i) {
     const size_t org_index = expected_org_indexes[i];
-    EXPECT_EQ(path[i].pos_.x(), path_msg_org.poses[org_index].pose.position.x) << "i: " << i << " org: " << org_index;
-    EXPECT_EQ(path[i].pos_.y(), path_msg_org.poses[org_index].pose.position.y) << "i: " << i << " org: " << org_index;
+    EXPECT_EQ(path[i].pos_.x(), path_msg_org.poses[org_index].pose.position.x)
+      << "i: " << i << " org: " << org_index;
+    EXPECT_EQ(path[i].pos_.y(), path_msg_org.poses[org_index].pose.position.y)
+      << "i: " << i << " org: " << org_index;
     EXPECT_NEAR(path[i].yaw_, tf2::getYaw(path_msg_org.poses[org_index].pose.orientation), 1.0e-6)
-        << "i: " << i << " org: " << org_index;
+      << "i: " << i << " org: " << org_index;
     EXPECT_TRUE(std::isnan(path[i].velocity_));
   }
 
-  nav_msgs::Path path_msg;
+  nav_msgs::msg::Path path_msg;
   path_msg.header.frame_id = "map";
-  path_msg.header.stamp = ros::Time(123.456);
+  path_msg.header.stamp = rclcpp::Time(123, 456000000, RCL_ROS_TIME);
   path.toMsg(path_msg);
   ASSERT_EQ(path_msg.poses.size(), 6);
-  for (size_t i = 0; i < path.size(); ++i)
-  {
+  for (size_t i = 0; i < path.size(); ++i) {
     EXPECT_EQ(path[i].pos_.x(), path_msg.poses[i].pose.position.x) << "i: " << i;
     EXPECT_EQ(path[i].pos_.y(), path_msg.poses[i].pose.position.y) << "i: " << i;
-    EXPECT_NEAR(path[i].yaw_, tf2::getYaw(path_msg.poses[i].pose.orientation), 1.0e-6) << "i: " << i;
+    EXPECT_NEAR(path[i].yaw_, tf2::getYaw(path_msg.poses[i].pose.orientation), 1.0e-6)
+      << "i: " << i;
     EXPECT_EQ(path_msg.poses[i].header.frame_id, path_msg.header.frame_id);
     EXPECT_EQ(path_msg.poses[i].header.stamp, path_msg.header.stamp);
   }
 
-  trajectory_tracker_msgs::PathWithVelocity path_with_vel_msg_org;
+  trajectory_tracker_msgs::msg::PathWithVelocity path_with_vel_msg_org;
   path_with_vel_msg_org.poses.resize(path_msg_org.poses.size());
-  for (size_t i = 0; i < path_msg_org.poses.size(); ++i)
-  {
+  for (size_t i = 0; i < path_msg_org.poses.size(); ++i) {
     path_with_vel_msg_org.poses[i].pose = path_msg_org.poses[i].pose;
     path_with_vel_msg_org.poses[i].linear_velocity.x = i * 0.1;
   }
@@ -321,29 +316,31 @@ TEST(Path2D, Conversions)
   path_with_vel.fromMsg(path_with_vel_msg_org);
 
   ASSERT_EQ(path_with_vel.size(), 6);
-  for (size_t i = 0; i < path_with_vel.size(); ++i)
-  {
+  for (size_t i = 0; i < path_with_vel.size(); ++i) {
     const size_t org_index = expected_org_indexes[i];
     EXPECT_EQ(path_with_vel[i].pos_.x(), path_with_vel_msg_org.poses[org_index].pose.position.x)
-        << "i: " << i << " org: " << org_index;
+      << "i: " << i << " org: " << org_index;
     EXPECT_EQ(path_with_vel[i].pos_.y(), path_with_vel_msg_org.poses[org_index].pose.position.y)
-        << "i: " << i << " org: " << org_index;
-    EXPECT_NEAR(path_with_vel[i].yaw_, tf2::getYaw(path_with_vel_msg_org.poses[org_index].pose.orientation), 1.0e-6)
-        << "i: " << i << " org: " << org_index;
-    EXPECT_NEAR(path_with_vel[i].velocity_, org_index * 0.1, 1.0e-6) << "i: " << i << " org: " << org_index;
+      << "i: " << i << " org: " << org_index;
+    EXPECT_NEAR(
+      path_with_vel[i].yaw_, tf2::getYaw(path_with_vel_msg_org.poses[org_index].pose.orientation),
+      1.0e-6)
+      << "i: " << i << " org: " << org_index;
+    EXPECT_NEAR(path_with_vel[i].velocity_, org_index * 0.1, 1.0e-6)
+      << "i: " << i << " org: " << org_index;
   }
 
-  trajectory_tracker_msgs::PathWithVelocity path_with_vel_msg;
+  trajectory_tracker_msgs::msg::PathWithVelocity path_with_vel_msg;
   path_with_vel_msg.header.frame_id = "map";
-  path_with_vel_msg.header.stamp = ros::Time(123.456);
+  path_with_vel_msg.header.stamp = rclcpp::Time(123, 456000000, RCL_ROS_TIME);
   path_with_vel.toMsg(path_with_vel_msg);
   ASSERT_EQ(path_with_vel_msg.poses.size(), 6);
-  for (size_t i = 0; i < path_with_vel.size(); ++i)
-  {
+  for (size_t i = 0; i < path_with_vel.size(); ++i) {
     EXPECT_EQ(path_with_vel[i].pos_.x(), path_with_vel_msg.poses[i].pose.position.x) << "i: " << i;
     EXPECT_EQ(path_with_vel[i].pos_.y(), path_with_vel_msg.poses[i].pose.position.y) << "i: " << i;
-    EXPECT_NEAR(path_with_vel[i].yaw_, tf2::getYaw(path_with_vel_msg.poses[i].pose.orientation), 1.0e-6)
-        << "i: " << i;
+    EXPECT_NEAR(
+      path_with_vel[i].yaw_, tf2::getYaw(path_with_vel_msg.poses[i].pose.orientation), 1.0e-6)
+      << "i: " << i;
     EXPECT_EQ(path_with_vel_msg.poses[i].header.frame_id, path_with_vel_msg.header.frame_id);
     EXPECT_EQ(path_with_vel_msg.poses[i].header.stamp, path_with_vel_msg.header.stamp);
   }
@@ -359,16 +356,17 @@ TEST(Path2D, EstimatedTimeOfArrivals)
   // In-place-turn
   path.push_back(trajectory_tracker::Pose2D(Eigen::Vector2d(0.2, -0.2), -M_PI / 2, 0));
   // Curve
-  for (int i = 1; i <= 4; ++i)
-  {
+  for (int i = 1; i <= 4; ++i) {
     const double angle = M_PI / 8 * i;
-    path.push_back(trajectory_tracker::Pose2D(
-        Eigen::Vector2d(0.2 * std::cos(angle), -0.2 + 0.2 * std::sin(angle)), -M_PI / 2 - angle, 0));
+    path.push_back(
+      trajectory_tracker::Pose2D(
+        Eigen::Vector2d(0.2 * std::cos(angle), -0.2 + 0.2 * std::sin(angle)), -M_PI / 2 - angle,
+        0));
   }
   const double linear_speed = 0.5;
   const double angular_speed = M_PI;
   const std::vector<double> etas =
-      path.getEstimatedTimeOfArrivals(path.begin(), path.end(), linear_speed, angular_speed, 1.0);
+    path.getEstimatedTimeOfArrivals(path.begin(), path.end(), linear_speed, angular_speed, 1.0);
   ASSERT_EQ(etas.size(), 8);
   double expected_eta = 1.0;
   EXPECT_NEAR(etas[0], expected_eta, 1.0e-6);
@@ -379,15 +377,7 @@ TEST(Path2D, EstimatedTimeOfArrivals)
   expected_eta += 135.0 / (180.0 / M_PI) / angular_speed;
   EXPECT_NEAR(etas[3], expected_eta, 1.0e-6);
   const double turn_dist = std::hypot(0.2 - 0.2 * std::cos(M_PI / 8), 0.2 * std::sin(M_PI / 8));
-  for (size_t p = 4; p < etas.size(); ++p)
-  {
+  for (size_t p = 4; p < etas.size(); ++p) {
     EXPECT_NEAR(etas[p], expected_eta + (p - 3) * turn_dist / linear_speed, 1.0e-6);
   }
-}
-
-int main(int argc, char** argv)
-{
-  testing::InitGoogleTest(&argc, argv);
-
-  return RUN_ALL_TESTS();
 }

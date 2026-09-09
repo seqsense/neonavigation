@@ -27,12 +27,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef COSTMAP_CSPACE_CSPACE3_CACHE_H
-#define COSTMAP_CSPACE_CSPACE3_CACHE_H
+#ifndef COSTMAP_CSPACE__CSPACE3_CACHE_H_
+#define COSTMAP_CSPACE__CSPACE3_CACHE_H_
 
+#include <cassert>
+#include <cstring>
 #include <memory>
-
-#include <ros/ros.h>
 
 namespace costmap_cspace
 {
@@ -46,15 +46,13 @@ protected:
   size_t array_size_;
 
 public:
-  CSpace3Cache()
-    : c_(nullptr)
-    , array_size_(0)
+  CSpace3Cache() : c_(nullptr), array_size_(0)
   {
     size_[0] = size_[1] = size_[2] = 0;
     center_[0] = center_[1] = center_[2] = 0;
     stride_[0] = stride_[1] = stride_[2] = 0;
   }
-  void reset(const int& x, const int& y, const int& yaw)
+  void reset(const int & x, const int & y, const int & yaw)
   {
     size_[0] = x * 2 + 1;
     size_[1] = y * 2 + 1;
@@ -64,33 +62,33 @@ public:
     center_[2] = 0;
     array_size_ = size_[0] * size_[1] * size_[2];
     c_.reset(new char[array_size_]);
-    memset(c_.get(), 0, array_size_ * sizeof(char));
+    std::memset(c_.get(), 0, array_size_ * sizeof(char));
     stride_[0] = 1;
     stride_[1] = size_[0];
     stride_[2] = size_[0] * size_[1];
   }
 
-  char& e(const int& x, const int& y, const int& yaw)
+  char & e(const int & x, const int & y, const int & yaw)
   {
     const size_t addr = yaw * stride_[2] + (y + center_[1]) * stride_[1] + (x + center_[0]);
-    ROS_ASSERT(addr < array_size_);
+    assert(addr < array_size_);
 
     return c_[addr];
   }
-  const char& e(const int& x, const int& y, const int& yaw) const
+  const char & e(const int & x, const int & y, const int & yaw) const
   {
     const size_t addr = yaw * stride_[2] + (y + center_[1]) * stride_[1] + (x + center_[0]);
-    ROS_ASSERT(addr < array_size_);
+    assert(addr < array_size_);
 
     return c_[addr];
   }
-  void getSize(int& x, int& y, int& a) const
+  void getSize(int & x, int & y, int & a) const
   {
     x = size_[0];
     y = size_[1];
     a = size_[2];
   }
-  void getCenter(int& x, int& y, int& a) const
+  void getCenter(int & x, int & y, int & a) const
   {
     x = center_[0];
     y = center_[1];
@@ -99,4 +97,4 @@ public:
 };
 }  // namespace costmap_cspace
 
-#endif  // COSTMAP_CSPACE_CSPACE3_CACHE_H
+#endif  // COSTMAP_CSPACE__CSPACE3_CACHE_H_

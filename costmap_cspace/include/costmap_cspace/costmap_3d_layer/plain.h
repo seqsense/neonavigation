@@ -27,18 +27,17 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef COSTMAP_CSPACE_COSTMAP_3D_LAYER_PLAIN_H
-#define COSTMAP_CSPACE_COSTMAP_3D_LAYER_PLAIN_H
+#ifndef COSTMAP_CSPACE__COSTMAP_3D_LAYER__PLAIN_H_
+#define COSTMAP_CSPACE__COSTMAP_3D_LAYER__PLAIN_H_
 
 #include <memory>
 
-#include <costmap_cspace_msgs/CSpace3D.h>
-#include <costmap_cspace_msgs/CSpace3DUpdate.h>
-#include <geometry_msgs/PolygonStamped.h>
-#include <nav_msgs/OccupancyGrid.h>
-
-#include <costmap_cspace/costmap_3d_layer/base.h>
-#include <costmap_cspace/costmap_3d_layer/footprint.h>
+#include "costmap_cspace/costmap_3d_layer/base.h"
+#include "costmap_cspace/costmap_3d_layer/footprint.h"
+#include "costmap_cspace_msgs/msg/c_space3_d.hpp"
+#include "costmap_cspace_msgs/msg/c_space3_d_update.hpp"
+#include "geometry_msgs/msg/polygon_stamped.hpp"
+#include "nav_msgs/msg/occupancy_grid.hpp"
 
 namespace costmap_cspace
 {
@@ -51,22 +50,16 @@ public:
   {
     Polygon footprint;
     footprint.v.resize(3);
-    for (auto& p : footprint.v)
-    {
+    for (auto & p : footprint.v) {
       p[0] = p[1] = 0.0;
     }
     setFootprint(footprint);
   }
-  void loadConfig(XmlRpc::XmlRpcValue config)
+  void loadConfig(const Costmap3dLayerConfig & config)
   {
-    const int linear_spread_min_cost =
-        config.hasMember("linear_spread_min_cost") ? static_cast<int>(config["linear_spread_min_cost"]) : 0;
-    setExpansion(
-        static_cast<double>(config["linear_expand"]),
-        static_cast<double>(config["linear_spread"]),
-        linear_spread_min_cost);
+    setExpansion(config.linear_expand, config.linear_spread, config.linear_spread_min_cost);
   }
 };
 }  // namespace costmap_cspace
 
-#endif  // COSTMAP_CSPACE_COSTMAP_3D_LAYER_PLAIN_H
+#endif  // COSTMAP_CSPACE__COSTMAP_3D_LAYER__PLAIN_H_

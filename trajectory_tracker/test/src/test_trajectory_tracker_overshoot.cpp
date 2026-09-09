@@ -27,24 +27,23 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <vector>
-
-#include <trajectory_tracker_test.h>
-#include <trajectory_tracker/TrajectoryTrackerConfig.h>
-
 #include <dynamic_reconfigure/client.h>
+#include <trajectory_tracker/TrajectoryTrackerConfig.h>
+#include <trajectory_tracker_test.h>
+
+#include <vector>
 
 class TrajectoryTrackerOvershootTest : public TrajectoryTrackerTest
 {
 protected:
-  void runTest(const double goal_tolerance_lin_vel, const double goal_tolerance_ang_vel,
-               const double linear_vel, const double rotation_vel, const int32_t expected_status)
+  void runTest(
+    const double goal_tolerance_lin_vel, const double goal_tolerance_ang_vel,
+    const double linear_vel, const double rotation_vel, const int32_t expected_status)
   {
     initState(Eigen::Vector2d(0, 0), 0);
 
     std::vector<Eigen::Vector3d> poses;
-    for (double x = 0.0; x < 0.5; x += 0.01)
-      poses.push_back(Eigen::Vector3d(x, 0.0, 0.0));
+    for (double x = 0.0; x < 0.5; x += 0.01) poses.push_back(Eigen::Vector3d(x, 0.0, 0.0));
     poses.push_back(Eigen::Vector3d(0.5, 0.0, 0.0));
     waitUntilStart(std::bind(&TrajectoryTrackerTest::publishPath, this, poses));
 
@@ -74,14 +73,14 @@ protected:
     ros::Rate rate(50);
     const ros::Time initial_time = ros::Time::now();
     const ros::Time time_limit = initial_time + ros::Duration(5.0);
-    while (ros::ok() && time_limit > ros::Time::now())
-    {
+    while (ros::ok() && time_limit > ros::Time::now()) {
       odom.header.stamp = ros::Time::now();
       publishTransform(odom);
       rate.sleep();
       ros::spinOnce();
-      if ((status_->header.stamp > initial_time + ros::Duration(0.5)) && (status_->status == expected_status))
-      {
+      if (
+        (status_->header.stamp > initial_time + ros::Duration(0.5)) &&
+        (status_->status == expected_status)) {
         return;
       }
     }
@@ -125,7 +124,7 @@ TEST_F(TrajectoryTrackerOvershootTest, AngularrVelocityToleranceWithRemainingAng
   runTest(0.0, 0.05, 0.0, 0.1, trajectory_tracker_msgs::TrajectoryTrackerStatus::FOLLOWING);
 }
 
-int main(int argc, char** argv)
+int main(int argc, char ** argv)
 {
   testing::InitGoogleTest(&argc, argv);
   ros::init(argc, argv, "test_trajectory_tracker_overshoot");

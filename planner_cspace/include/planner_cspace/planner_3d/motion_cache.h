@@ -27,15 +27,16 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PLANNER_CSPACE_PLANNER_3D_MOTION_CACHE_H
-#define PLANNER_CSPACE_PLANNER_3D_MOTION_CACHE_H
+#ifndef PLANNER_CSPACE__PLANNER_3D__MOTION_CACHE_H_
+#define PLANNER_CSPACE__PLANNER_3D__MOTION_CACHE_H_
 
-#include <memory>
+#include <functional>
 #include <list>
+#include <memory>
 #include <unordered_map>
 #include <vector>
 
-#include <planner_cspace/cyclic_vec.h>
+#include "planner_cspace/cyclic_vec.h"
 
 namespace planner_cspace
 {
@@ -54,65 +55,48 @@ public:
     float distance_;
 
   public:
-    inline float getDistance() const
-    {
-      return distance_;
-    }
-    const std::vector<CyclicVecInt<3, 2>>& getMotion() const
-    {
-      return motion_;
-    }
-    const std::vector<CyclicVecFloat<3, 2>>& getInterpolatedMotion() const
+    inline float getDistance() const { return distance_; }
+    const std::vector<CyclicVecInt<3, 2>> & getMotion() const { return motion_; }
+    const std::vector<CyclicVecFloat<3, 2>> & getInterpolatedMotion() const
     {
       return interpolated_motion_;
     }
   };
 
-  using Cache =
-      std::unordered_map<CyclicVecInt<3, 2>, Page, CyclicVecInt<3, 2>>;
+  using Cache = std::unordered_map<CyclicVecInt<3, 2>, Page, CyclicVecInt<3, 2>>;
 
   using Ptr = std::shared_ptr<MotionCache>;
 
   inline const typename Cache::const_iterator find(
-      const int start_yaw,
-      const CyclicVecInt<3, 2>& goal) const
+    const int start_yaw, const CyclicVecInt<3, 2> & goal) const
   {
     int i = start_yaw % page_size_;
-    if (i < 0)
-      i += page_size_;
+    if (i < 0) i += page_size_;
     return cache_[i].find(goal);
   }
   inline const typename Cache::const_iterator find(
-      const CyclicVecInt<3, 2>& from,
-      const CyclicVecInt<3, 2>& to) const
+    const CyclicVecInt<3, 2> & from, const CyclicVecInt<3, 2> & to) const
   {
     const int start_yaw = from[2];
     const CyclicVecInt<3, 2> goal(to[0] - from[0], to[1] - from[1], to[2]);
     return find(start_yaw, goal);
   }
-  inline const typename Cache::const_iterator end(
-      const int start_yaw) const
+  inline const typename Cache::const_iterator end(const int start_yaw) const
   {
     int i = start_yaw % page_size_;
-    if (i < 0)
-      i += page_size_;
+    if (i < 0) i += page_size_;
     return cache_[i].cend();
   }
 
-  inline const CyclicVecInt<3, 2>& getMaxRange() const
-  {
-    return max_range_;
-  }
+  inline const CyclicVecInt<3, 2> & getMaxRange() const { return max_range_; }
 
   void reset(
-      const float linear_resolution,
-      const float angular_resolution,
-      const int range,
-      const std::function<void(CyclicVecInt<3, 2>, size_t&, size_t&)> gm_addr,
-      const float interpolation_resolution,
-      const float grid_enumeration_resolution);
+    const float linear_resolution, const float angular_resolution, const int range,
+    const std::function<void(CyclicVecInt<3, 2>, size_t &, size_t &)> gm_addr,
+    const float interpolation_resolution, const float grid_enumeration_resolution);
 
-  std::list<CyclicVecFloat<3, 2>> interpolatePath(const std::list<CyclicVecInt<3, 2>>& path_grid) const;
+  std::list<CyclicVecFloat<3, 2>> interpolatePath(
+    const std::list<CyclicVecInt<3, 2>> & path_grid) const;
 
 protected:
   std::vector<Cache> cache_;
@@ -122,4 +106,4 @@ protected:
 }  // namespace planner_3d
 }  // namespace planner_cspace
 
-#endif  // PLANNER_CSPACE_PLANNER_3D_MOTION_CACHE_H
+#endif  // PLANNER_CSPACE__PLANNER_3D__MOTION_CACHE_H_

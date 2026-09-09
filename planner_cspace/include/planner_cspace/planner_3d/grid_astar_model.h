@@ -27,8 +27,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PLANNER_CSPACE_PLANNER_3D_GRID_ASTAR_MODEL_H
-#define PLANNER_CSPACE_PLANNER_3D_GRID_ASTAR_MODEL_H
+#ifndef PLANNER_CSPACE__PLANNER_3D__GRID_ASTAR_MODEL_H_
+#define PLANNER_CSPACE__PLANNER_3D__GRID_ASTAR_MODEL_H_
 
 #include <array>
 #include <list>
@@ -36,13 +36,12 @@
 #include <utility>
 #include <vector>
 
-#include <costmap_cspace_msgs/MapMetaData3D.h>
-
-#include <planner_cspace/blockmem_gridmap.h>
-#include <planner_cspace/cyclic_vec.h>
-#include <planner_cspace/grid_astar_model.h>
-#include <planner_cspace/planner_3d/motion_cache.h>
-#include <planner_cspace/planner_3d/rotation_cache.h>
+#include "costmap_cspace_msgs/msg/map_meta_data3_d.hpp"
+#include "planner_cspace/blockmem_gridmap.h"
+#include "planner_cspace/cyclic_vec.h"
+#include "planner_cspace/grid_astar_model.h"
+#include "planner_cspace/planner_3d/motion_cache.h"
+#include "planner_cspace/planner_3d/rotation_cache.h"
 
 namespace planner_cspace
 {
@@ -80,16 +79,16 @@ public:
 
 protected:
   bool hysteresis_;
-  costmap_cspace_msgs::MapMetaData3D map_info_;
+  costmap_cspace_msgs::msg::MapMetaData3D map_info_;
   Vecf euclid_cost_coef_;
   Vecf resolution_;
   std::vector<std::vector<Vec>> motion_primitives_;
   std::vector<Vec> search_list_rough_;
   int local_range_;
-  const BlockMemGridmapBase<float, 3, 2>& cost_estim_cache_;
-  const BlockMemGridmapBase<char, 3, 2>& cm_;
-  const BlockMemGridmapBase<char, 3, 2>& cm_hyst_;
-  const BlockMemGridmapBase<char, 3, 2>& cm_rough_;
+  const BlockMemGridmapBase<float, 3, 2> & cost_estim_cache_;
+  const BlockMemGridmapBase<char, 3, 2> & cm_;
+  const BlockMemGridmapBase<char, 3, 2> & cm_hyst_;
+  const BlockMemGridmapBase<char, 3, 2> & cm_rough_;
   CostCoeff cc_;
   int range_;
   RotationCache rot_cache_;
@@ -101,37 +100,26 @@ protected:
 
 public:
   explicit GridAstarModel3D(
-      const costmap_cspace_msgs::MapMetaData3D& map_info,
-      const Vecf& euclid_cost_coef,
-      const int local_range,
-      const BlockMemGridmapBase<float, 3, 2>& cost_estim_cache,
-      const BlockMemGridmapBase<char, 3, 2>& cm,
-      const BlockMemGridmapBase<char, 3, 2>& cm_hyst,
-      const BlockMemGridmapBase<char, 3, 2>& cm_rough,
-      const CostCoeff& cc,
-      const int range,
-      const float path_interpolation_resolution = 0.5,
-      const float grid_enumeration_resolution = 0.1);
+    const costmap_cspace_msgs::msg::MapMetaData3D & map_info, const Vecf & euclid_cost_coef,
+    const int local_range, const BlockMemGridmapBase<float, 3, 2> & cost_estim_cache,
+    const BlockMemGridmapBase<char, 3, 2> & cm, const BlockMemGridmapBase<char, 3, 2> & cm_hyst,
+    const BlockMemGridmapBase<char, 3, 2> & cm_rough, const CostCoeff & cc, const int range,
+    const float path_interpolation_resolution = 0.5, const float grid_enumeration_resolution = 0.1);
   void updateCostParameters(
-      const Vecf& euclid_cost_coef,
-      const CostCoeff& cc,
-      const int local_range);
+    const Vecf & euclid_cost_coef, const CostCoeff & cc, const int local_range);
 
   void enableHysteresis(const bool enable);
   void createEuclidCostCache();
-  float euclidCost(const Vec& v) const;
-  float euclidCostRough(const Vec& v) const;
+  float euclidCost(const Vec & v) const;
+  float euclidCostRough(const Vec & v) const;
   float cost(
-      const Vec& cur, const Vec& next, const std::vector<VecWithCost>& start, const Vec& goal) const override;
+    const Vec & cur, const Vec & next, const std::vector<VecWithCost> & start,
+    const Vec & goal) const override;
 
-  float costEstim(
-      const Vec& cur, const Vec& goal) const override;
-  const std::vector<Vec>& searchGrids(
-      const Vec& p,
-      const std::vector<VecWithCost>& ss,
-      const Vec& es) const override;
-  std::list<Vecf> interpolatePath(
-      const std::list<Vec>& path) const;
+  float costEstim(const Vec & cur, const Vec & goal) const override;
+  const std::vector<Vec> & searchGrids(
+    const Vec & p, const std::vector<VecWithCost> & ss, const Vec & es) const override;
+  std::list<Vecf> interpolatePath(const std::list<Vec> & path) const;
 };
 
 class GridAstarModel2D : public GridAstarModelBase<3, 2>
@@ -140,19 +128,16 @@ public:
   using Ptr = std::shared_ptr<GridAstarModel2D>;
   const GridAstarModel3D::ConstPtr base_;
 
-  inline explicit GridAstarModel2D(const GridAstarModel3D::ConstPtr base)
-    : base_(base)
-  {
-  }
+  inline explicit GridAstarModel2D(const GridAstarModel3D::ConstPtr base) : base_(base) {}
 
   float cost(
-      const Vec& cur, const Vec& next, const std::vector<VecWithCost>& start, const Vec& goal) const final;
-  float costEstim(
-      const Vec& cur, const Vec& goal) const final;
-  const std::vector<Vec>& searchGrids(
-      const Vec& cur, const std::vector<VecWithCost>& start, const Vec& goal) const final;
+    const Vec & cur, const Vec & next, const std::vector<VecWithCost> & start,
+    const Vec & goal) const final;
+  float costEstim(const Vec & cur, const Vec & goal) const final;
+  const std::vector<Vec> & searchGrids(
+    const Vec & cur, const std::vector<VecWithCost> & start, const Vec & goal) const final;
 };
 }  // namespace planner_3d
 }  // namespace planner_cspace
 
-#endif  // PLANNER_CSPACE_PLANNER_3D_GRID_ASTAR_MODEL_H
+#endif  // PLANNER_CSPACE__PLANNER_3D__GRID_ASTAR_MODEL_H_

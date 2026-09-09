@@ -27,17 +27,18 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PLANNER_CSPACE_JUMP_DETECTOR_H
-#define PLANNER_CSPACE_JUMP_DETECTOR_H
+#ifndef PLANNER_CSPACE__JUMP_DETECTOR_H_
+#define PLANNER_CSPACE__JUMP_DETECTOR_H_
 
 #include <cmath>
 #include <string>
 
-#include <ros/ros.h>
-
-#include <tf2/utils.h>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-#include <tf2_ros/transform_listener.h>
+#include "geometry_msgs/msg/transform_stamped.hpp"
+#include "rclcpp/rclcpp.hpp"
+#include "tf2/utils.h"
+#include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
+#include "tf2_ros/buffer.h"
+#include "tf2_ros/transform_listener.h"
 
 namespace planner_cspace
 {
@@ -46,7 +47,7 @@ namespace planner_3d
 class JumpDetector
 {
 protected:
-  tf2_ros::Buffer& tfbuf_;
+  tf2_ros::Buffer & tfbuf_;
   tf2::Transform base_trans_prev_;
   tf2::Transform map_trans_prev_;
 
@@ -58,22 +59,19 @@ protected:
 
   bool init_;
 
+  rclcpp::Logger logger_;
+
 public:
-  explicit JumpDetector(tf2_ros::Buffer& tfbuf)
-    : tfbuf_(tfbuf)
-    , base_trans_prev_(tf2::Quaternion(0, 0, 0, 1))
-    , map_trans_prev_(tf2::Quaternion(0, 0, 0, 1))
-    , init_(false)
+  JumpDetector(tf2_ros::Buffer & tfbuf, const rclcpp::Logger & logger)
+  : tfbuf_(tfbuf),
+    base_trans_prev_(tf2::Quaternion(0, 0, 0, 1)),
+    map_trans_prev_(tf2::Quaternion(0, 0, 0, 1)),
+    init_(false),
+    logger_(logger)
   {
   }
-  void setMapFrame(const std::string& frame_id)
-  {
-    map_frame_ = frame_id;
-  }
-  void setBaseFrame(const std::string& frame_id)
-  {
-    jump_detect_frame_ = frame_id;
-  }
+  void setMapFrame(const std::string & frame_id) { map_frame_ = frame_id; }
+  void setBaseFrame(const std::string & frame_id) { jump_detect_frame_ = frame_id; }
   void setThresholds(const double pos_jump, const double yaw_jump)
   {
     pos_jump_ = pos_jump;
@@ -83,26 +81,22 @@ public:
   {
     tf2::Stamped<tf2::Transform> base_trans;
     tf2::Stamped<tf2::Transform> map_trans;
-    try
-    {
-      geometry_msgs::TransformStamped base_trans_tmp =
-          tfbuf_.lookupTransform(jump_detect_frame_, "base_link", ros::Time());
-      geometry_msgs::TransformStamped map_trans_tmp =
-          tfbuf_.lookupTransform(map_frame_, "base_link", ros::Time());
+    try {
+      geometry_msgs::msg::TransformStamped base_trans_tmp =
+        tfbuf_.lookupTransform(jump_detect_frame_, "base_link", rclcpp::Time(0, 0, RCL_ROS_TIME));
+      geometry_msgs::msg::TransformStamped map_trans_tmp =
+        tfbuf_.lookupTransform(map_frame_, "base_link", rclcpp::Time(0, 0, RCL_ROS_TIME));
       tf2::fromMsg(base_trans_tmp, base_trans);
       tf2::fromMsg(map_trans_tmp, map_trans);
-    }
-    catch (tf2::TransformException& e)
-    {
+    } catch (tf2::TransformException & e) {
       return false;
     }
     const auto diff =
-        map_trans.inverse() * map_trans_prev_ * (base_trans_prev_.inverse() * base_trans);
+      map_trans.inverse() * map_trans_prev_ * (base_trans_prev_.inverse() * base_trans);
     base_trans_prev_ = base_trans;
     map_trans_prev_ = map_trans;
 
-    if (!init_)
-    {
+    if (!init_) {
       init_ = true;
       return false;
     }
@@ -110,10 +104,10 @@ public:
     const auto pos_diff = diff.getOrigin().length();
     const auto yaw_diff = tf2::getYaw(diff.getRotation());
 
-    if (pos_diff > pos_jump_ || std::abs(yaw_diff) > yaw_jump_)
-    {
-      ROS_ERROR("Position jumped (%0.3f/%0.3f, %0.3f/%0.3f); clearing history",
-                pos_diff, pos_jump_, yaw_diff, yaw_jump_);
+    if (pos_diff > pos_jump_ || std::abs(yaw_diff) > yaw_jump_) {
+      RCLCPP_ERROR(
+        logger_, "Position jumped (%0.3f/%0.3f, %0.3f/%0.3f); clearing history", pos_diff,
+        pos_jump_, yaw_diff, yaw_jump_);
       return true;
     }
     return false;
@@ -122,4 +116,4 @@ public:
 }  // namespace planner_3d
 }  // namespace planner_cspace
 
-#endif  // PLANNER_CSPACE_JUMP_DETECTOR_H
+#endif  // PLANNER_CSPACE__JUMP_DETECTOR_H_

@@ -27,17 +27,17 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef COSTMAP_CSPACE_COSTMAP_3D_LAYER_UNKNOWN_HANDLE_H
-#define COSTMAP_CSPACE_COSTMAP_3D_LAYER_UNKNOWN_HANDLE_H
+#ifndef COSTMAP_CSPACE__COSTMAP_3D_LAYER__UNKNOWN_HANDLE_H_
+#define COSTMAP_CSPACE__COSTMAP_3D_LAYER__UNKNOWN_HANDLE_H_
 
 #include <memory>
 
-#include <geometry_msgs/PolygonStamped.h>
-#include <nav_msgs/OccupancyGrid.h>
-#include <costmap_cspace_msgs/CSpace3D.h>
-#include <costmap_cspace_msgs/CSpace3DUpdate.h>
-
-#include <costmap_cspace/costmap_3d_layer/base.h>
+#include "costmap_cspace/costmap_3d_layer/base.h"
+#include "costmap_cspace_msgs/msg/c_space3_d.hpp"
+#include "costmap_cspace_msgs/msg/c_space3_d_update.hpp"
+#include "costmap_cspace_msgs/msg/map_meta_data3_d.hpp"
+#include "geometry_msgs/msg/polygon_stamped.hpp"
+#include "nav_msgs/msg/occupancy_grid.hpp"
 
 namespace costmap_cspace
 {
@@ -50,57 +50,36 @@ protected:
   int8_t unknown_cost_;
 
 public:
-  Costmap3dLayerUnknownHandle()
-    : unknown_cost_(-1)
+  Costmap3dLayerUnknownHandle() : unknown_cost_(-1) {}
+  void loadConfig(const Costmap3dLayerConfig & config)
   {
+    unknown_cost_ = static_cast<int8_t>(config.unknown_cost);
   }
-  void loadConfig(XmlRpc::XmlRpcValue config)
-  {
-    if (config.hasMember("unknown_cost"))
-    {
-      unknown_cost_ = static_cast<int>(config["unknown_cost"]);
-    }
-  }
-  void setMapMetaData(const costmap_cspace_msgs::MapMetaData3D& info)
-  {
-  }
+  void setMapMetaData(const costmap_cspace_msgs::msg::MapMetaData3D & /* info */) {}
 
 protected:
-  int getRangeMax() const
+  int getRangeMax() const { return 0; }
+  bool updateChain(const bool /* output */)
   {
-    return 0;
-  }
-  bool updateChain(const bool output)
-  {
-    for (
-        size_t a = region_.yaw_;
-        static_cast<int>(a) < region_.yaw_ + region_.angle_ && a < map_->info.angle;
-        ++a)
-    {
-      for (
-          size_t y = region_.y_;
-          static_cast<int>(y) < region_.y_ + region_.height_ && y < map_->info.height;
-          ++y)
-      {
-        for (
-            size_t x = region_.x_;
-            static_cast<int>(x) < region_.x_ + region_.width_ && x < map_->info.width;
-            ++x)
-        {
-          auto& m = map_overlay_->getCost(x, y, a);
-          if (m < 0)
-            m = unknown_cost_;
+    for (size_t a = region_.yaw_;
+         static_cast<int>(a) < region_.yaw_ + region_.angle_ && a < map_->info.angle; ++a) {
+      for (size_t y = region_.y_;
+           static_cast<int>(y) < region_.y_ + region_.height_ && y < map_->info.height; ++y) {
+        for (size_t x = region_.x_;
+             static_cast<int>(x) < region_.x_ + region_.width_ && x < map_->info.width; ++x) {
+          auto & m = map_overlay_->getCost(x, y, a);
+          if (m < 0) m = unknown_cost_;
         }
       }
     }
     return false;
   }
   void updateCSpace(
-      const nav_msgs::OccupancyGrid::ConstPtr& map,
-      const UpdatedRegion& region)
+    const std::shared_ptr<const nav_msgs::msg::OccupancyGrid> & /* map */,
+    const UpdatedRegion & /* region */)
   {
   }
 };
 }  // namespace costmap_cspace
 
-#endif  // COSTMAP_CSPACE_COSTMAP_3D_LAYER_UNKNOWN_HANDLE_H
+#endif  // COSTMAP_CSPACE__COSTMAP_3D_LAYER__UNKNOWN_HANDLE_H_

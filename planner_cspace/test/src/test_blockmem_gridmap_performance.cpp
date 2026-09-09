@@ -27,13 +27,14 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <gtest/gtest.h>
+
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <memory>
 
-#include <gtest/gtest.h>
-
-#include <planner_cspace/blockmem_gridmap.h>
+#include "planner_cspace/blockmem_gridmap.h"
 
 namespace planner_cspace
 {
@@ -53,58 +54,45 @@ TEST(BlockmemGridmap, SpacialAccessPerformance)
   // Allocate raw grid in heap memory to avoid stack overflow
   std::shared_ptr<ThreeDimArrayFloat> array_ptr(new ThreeDimArrayFloat);
   std::shared_ptr<ThreeDimArrayFloat> array_ret_ptr(new ThreeDimArrayFloat);
-  ThreeDimArrayFloat& array = *array_ptr;
-  ThreeDimArrayFloat& array_ret = *array_ret_ptr;
+  ThreeDimArrayFloat & array = *array_ptr;
+  ThreeDimArrayFloat & array_ret = *array_ret_ptr;
 
   gm.reset(Vec(size[0], size[1], size[2]));
   gm_ret.reset(Vec(size[0], size[1], size[2]));
 
   Vec i;
   // Generate dataset.
-  for (i[0] = 0; i[0] < size[0]; ++i[0])
-  {
-    for (i[1] = 0; i[1] < size[1]; ++i[1])
-    {
-      for (i[2] = 0; i[2] < size[2]; ++i[2])
-      {
+  for (i[0] = 0; i[0] < size[0]; ++i[0]) {
+    for (i[1] = 0; i[1] < size[1]; ++i[1]) {
+      for (i[2] = 0; i[2] < size[2]; ++i[2]) {
         gm[i] = i[2] * 0x100 + i[1] * 0x10 + i[0];
         array[i[2]][i[1]][i[0]] = gm[i];
       }
     }
   }
   // Check dataset.
-  for (i[0] = pad[0]; i[0] < size[0] - pad[0]; ++i[0])
-  {
-    for (i[1] = pad[1]; i[1] < size[1] - pad[1]; ++i[1])
-    {
-      for (i[2] = pad[2]; i[2] < size[2] - pad[2]; ++i[2])
-      {
+  for (i[0] = pad[0]; i[0] < size[0] - pad[0]; ++i[0]) {
+    for (i[1] = pad[1]; i[1] < size[1] - pad[1]; ++i[1]) {
+      for (i[2] = pad[2]; i[2] < size[2] - pad[2]; ++i[2]) {
         ASSERT_EQ(gm[i], array[i[2]][i[1]][i[0]]);
       }
     }
   }
-  boost::chrono::duration<float> d0;
-  boost::chrono::duration<float> d1;
+  std::chrono::duration<float> d0;
+  std::chrono::duration<float> d1;
 
-  for (int r = 0; r < repeat; ++r)
-  {
+  for (int r = 0; r < repeat; ++r) {
     // Performance test for BlockMemGridmap.
-    const auto ts0 = boost::chrono::high_resolution_clock::now();
-    for (i[0] = pad[0]; i[0] < size[0] - pad[0]; ++i[0])
-    {
-      for (i[1] = pad[1]; i[1] < size[1] - pad[1]; ++i[1])
-      {
-        for (i[2] = pad[2]; i[2] < size[2] - pad[2]; ++i[2])
-        {
+    const auto ts0 = std::chrono::steady_clock::now();
+    for (i[0] = pad[0]; i[0] < size[0] - pad[0]; ++i[0]) {
+      for (i[1] = pad[1]; i[1] < size[1] - pad[1]; ++i[1]) {
+        for (i[2] = pad[2]; i[2] < size[2] - pad[2]; ++i[2]) {
           Vec j;
           gm_ret[i] = 0;
 
-          for (j[0] = -range; j[0] <= range; ++j[0])
-          {
-            for (j[1] = -range; j[1] <= range; ++j[1])
-            {
-              for (j[2] = -range; j[2] <= range; ++j[2])
-              {
+          for (j[0] = -range; j[0] <= range; ++j[0]) {
+            for (j[1] = -range; j[1] <= range; ++j[1]) {
+              for (j[2] = -range; j[2] <= range; ++j[2]) {
                 const Vec ij = i + j;
                 gm_ret[i] += gm[ij];
                 gm[ij]++;
@@ -116,26 +104,20 @@ TEST(BlockmemGridmap, SpacialAccessPerformance)
       std::cerr << ".";
     }
     std::cerr << std::endl;
-    const auto te0 = boost::chrono::high_resolution_clock::now();
-    d0 += boost::chrono::duration<float>(te0 - ts0);
+    const auto te0 = std::chrono::steady_clock::now();
+    d0 += std::chrono::duration<float>(te0 - ts0);
 
     // Performance test for 3D Array.
-    const auto ts1 = boost::chrono::high_resolution_clock::now();
-    for (i[0] = pad[0]; i[0] < size[0] - pad[0]; ++i[0])
-    {
-      for (i[1] = pad[1]; i[1] < size[1] - pad[1]; ++i[1])
-      {
-        for (i[2] = pad[2]; i[2] < size[2] - pad[2]; ++i[2])
-        {
+    const auto ts1 = std::chrono::steady_clock::now();
+    for (i[0] = pad[0]; i[0] < size[0] - pad[0]; ++i[0]) {
+      for (i[1] = pad[1]; i[1] < size[1] - pad[1]; ++i[1]) {
+        for (i[2] = pad[2]; i[2] < size[2] - pad[2]; ++i[2]) {
           Vec j;
           array_ret[i[2]][i[1]][i[0]] = 0;
 
-          for (j[0] = -range; j[0] <= range; ++j[0])
-          {
-            for (j[1] = -range; j[1] <= range; ++j[1])
-            {
-              for (j[2] = -range; j[2] <= range; ++j[2])
-              {
+          for (j[0] = -range; j[0] <= range; ++j[0]) {
+            for (j[1] = -range; j[1] <= range; ++j[1]) {
+              for (j[2] = -range; j[2] <= range; ++j[2]) {
                 const Vec ij = i + j;
                 array_ret[i[2]][i[1]][i[0]] += array[ij[2]][ij[1]][ij[0]];
                 array[ij[2]][ij[1]][ij[0]]++;
@@ -147,19 +129,16 @@ TEST(BlockmemGridmap, SpacialAccessPerformance)
       std::cerr << ".";
     }
     std::cerr << std::endl;
-    const auto te1 = boost::chrono::high_resolution_clock::now();
-    d1 += boost::chrono::duration<float>(te1 - ts1);
+    const auto te1 = std::chrono::steady_clock::now();
+    d1 += std::chrono::duration<float>(te1 - ts1);
   }
   std::cout << "BlockMemGridmap<3, 2>: " << d0.count() << std::endl;
   std::cout << "Array[][][]: " << d1.count() << std::endl;
 
   // Check result.
-  for (i[0] = pad[0]; i[0] < size[0] - pad[0]; ++i[0])
-  {
-    for (i[1] = pad[1]; i[1] < size[1] - pad[1]; ++i[1])
-    {
-      for (i[2] = pad[2]; i[2] < size[2] - pad[2]; ++i[2])
-      {
+  for (i[0] = pad[0]; i[0] < size[0] - pad[0]; ++i[0]) {
+    for (i[1] = pad[1]; i[1] < size[1] - pad[1]; ++i[1]) {
+      for (i[2] = pad[2]; i[2] < size[2] - pad[2]; ++i[2]) {
         ASSERT_EQ(gm_ret[i], array_ret[i[2]][i[1]][i[0]]);
       }
     }
@@ -171,7 +150,7 @@ TEST(BlockmemGridmap, SpacialAccessPerformance)
 }
 }  // namespace planner_cspace
 
-int main(int argc, char** argv)
+int main(int argc, char ** argv)
 {
   testing::InitGoogleTest(&argc, argv);
 

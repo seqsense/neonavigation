@@ -6,23 +6,24 @@ add_executable(planner_3d_debug
   ../src/grid_astar_model_3dof.cpp
   ../src/motion_cache.cpp
   ../src/motion_primitive_builder.cpp
-  ../src/planner_3d.cpp
+  ../src/ros1_planner_3d.cpp
+  ../src/planner_3d_core.cpp
   ../src/distance_map.cpp
   ../src/rotation_cache.cpp
   ../src/start_pose_predictor.cpp
 )
 target_compile_definitions(planner_3d_debug PUBLIC DEBUG)
-target_link_libraries(planner_3d_debug ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${OpenMP_CXX_FLAGS})
+target_link_libraries(planner_3d_debug ${catkin_LIBRARIES} ${OpenMP_CXX_FLAGS})
 add_dependencies(planner_3d_debug ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg)
 
 catkin_add_gtest(test_blockmem_gridmap src/test_blockmem_gridmap.cpp)
-target_link_libraries(test_blockmem_gridmap ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+target_link_libraries(test_blockmem_gridmap ${catkin_LIBRARIES})
 
 catkin_add_gtest(test_grid_astar src/test_grid_astar.cpp)
-target_link_libraries(test_grid_astar ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${OpenMP_CXX_FLAGS})
+target_link_libraries(test_grid_astar ${catkin_LIBRARIES} ${OpenMP_CXX_FLAGS})
 
 catkin_add_gtest(test_cyclic_vec src/test_cyclic_vec.cpp)
-target_link_libraries(test_cyclic_vec ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+target_link_libraries(test_cyclic_vec ${catkin_LIBRARIES})
 
 catkin_add_gtest(test_distance_map
   src/test_distance_map.cpp
@@ -33,7 +34,7 @@ catkin_add_gtest(test_distance_map
   ../src/motion_primitive_builder.cpp
   ../src/rotation_cache.cpp
 )
-target_link_libraries(test_distance_map ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${OpenMP_CXX_FLAGS})
+target_link_libraries(test_distance_map ${catkin_LIBRARIES} ${OpenMP_CXX_FLAGS})
 
 catkin_add_gtest(test_distance_map_fast_update
   src/test_distance_map_fast_update.cpp
@@ -44,10 +45,10 @@ catkin_add_gtest(test_distance_map_fast_update
   ../src/motion_primitive_builder.cpp
   ../src/rotation_cache.cpp
 )
-target_link_libraries(test_distance_map_fast_update ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${OpenMP_CXX_FLAGS})
+target_link_libraries(test_distance_map_fast_update ${catkin_LIBRARIES} ${OpenMP_CXX_FLAGS})
 
 catkin_add_gtest(test_grid_metric_converter src/test_grid_metric_converter.cpp)
-target_link_libraries(test_grid_metric_converter ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+target_link_libraries(test_grid_metric_converter ${catkin_LIBRARIES})
 
 catkin_add_gtest(test_planner_3d_cost
   src/test_planner_3d_cost.cpp
@@ -56,26 +57,26 @@ catkin_add_gtest(test_planner_3d_cost
   ../src/motion_primitive_builder.cpp
   ../src/rotation_cache.cpp
 )
-target_link_libraries(test_planner_3d_cost ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+target_link_libraries(test_planner_3d_cost ${catkin_LIBRARIES})
 
 catkin_add_gtest(test_costmap_bbf
   src/test_costmap_bbf.cpp
   ../src/costmap_bbf.cpp
 )
-target_link_libraries(test_costmap_bbf ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+target_link_libraries(test_costmap_bbf ${catkin_LIBRARIES})
 
 catkin_add_gtest(test_motion_cache
   src/test_motion_cache.cpp
   ../src/motion_cache.cpp
 )
-target_link_libraries(test_motion_cache ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+target_link_libraries(test_motion_cache ${catkin_LIBRARIES})
 
 catkin_add_gtest(test_motion_primitive_builder
   src/test_motion_primitive_builder.cpp
   ../src/motion_primitive_builder.cpp
   ../src/rotation_cache.cpp
 )
-target_link_libraries(test_motion_primitive_builder ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+target_link_libraries(test_motion_primitive_builder ${catkin_LIBRARIES})
 
 catkin_add_gtest(test_start_pose_predictor
   src/test_start_pose_predictor.cpp
@@ -83,7 +84,7 @@ catkin_add_gtest(test_start_pose_predictor
   ../src/rotation_cache.cpp
   ../src/start_pose_predictor.cpp
 )
-target_link_libraries(test_start_pose_predictor ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+target_link_libraries(test_start_pose_predictor ${catkin_LIBRARIES})
 
 add_rostest_gtest(test_debug_outputs
   test/debug_outputs_rostest.test
@@ -196,7 +197,7 @@ if(NEONAVIGATION_EXTRA_TESTS)
   catkin_add_gtest(test_blockmem_gridmap_performance
     src/test_blockmem_gridmap_performance.cpp
   )
-  target_link_libraries(test_blockmem_gridmap_performance ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${OpenMP_CXX_FLAGS})
+  target_link_libraries(test_blockmem_gridmap_performance ${catkin_LIBRARIES} ${OpenMP_CXX_FLAGS})
   # Force release build for performance test.
   set_target_properties(test_blockmem_gridmap_performance PROPERTIES COMPILE_FLAGS "${CMAKE_CXX_FLAGS_RELEASE}")
 

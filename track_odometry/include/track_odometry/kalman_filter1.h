@@ -27,8 +27,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TRACK_ODOMETRY_KALMAN_FILTER1_H
-#define TRACK_ODOMETRY_KALMAN_FILTER1_H
+#ifndef TRACK_ODOMETRY__KALMAN_FILTER1_H_
+#define TRACK_ODOMETRY__KALMAN_FILTER1_H_
 
 #include <limits>
 
@@ -40,14 +40,13 @@ public:
   double x_;
   double sigma_;
 
-  void set(const double x0 = 0.0,
-           const double sigma0 = std::numeric_limits<double>::infinity())
+  void set(const double x0 = 0.0, const double sigma0 = std::numeric_limits<double>::infinity())
   {
     x_ = x0;
     sigma_ = sigma0;
   }
-  KalmanFilter1(const double x0 = 0.0,
-                const double sigma0 = std::numeric_limits<double>::infinity())
+  KalmanFilter1(
+    const double x0 = 0.0, const double sigma0 = std::numeric_limits<double>::infinity())
   {
     set(x0, sigma0);
   }
@@ -58,10 +57,8 @@ public:
   }
   void measure(const double x_in, const double sigma_in)
   {
-    if (std::isinf(sigma_in))
-      return;
-    if (std::isinf(sigma_))
-    {
+    if (std::isinf(sigma_in)) return;
+    if (std::isinf(sigma_)) {
       if (std::isinf(x_in))
         x_ = 0;
       else
@@ -76,4 +73,4 @@ public:
 };
 }  // namespace track_odometry
 
-#endif  // TRACK_ODOMETRY_KALMAN_FILTER1_H
+#endif  // TRACK_ODOMETRY__KALMAN_FILTER1_H_

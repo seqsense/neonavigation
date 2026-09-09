@@ -27,17 +27,15 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <costmap_cspace_msgs/CSpace3D.h>
+#include <costmap_cspace_msgs/CSpace3DUpdate.h>
+#include <gtest/gtest.h>
+#include <planner_cspace_msgs/PlannerStatus.h>
+#include <ros/ros.h>
+
 #include <cmath>
 #include <cstddef>
 #include <vector>
-
-#include <ros/ros.h>
-
-#include <costmap_cspace_msgs/CSpace3D.h>
-#include <costmap_cspace_msgs/CSpace3DUpdate.h>
-#include <planner_cspace_msgs/PlannerStatus.h>
-
-#include <gtest/gtest.h>
 
 class Planner3DMapSize : public ::testing::Test
 {
@@ -48,18 +46,14 @@ protected:
   ros::Publisher pub_map_update_;
   size_t cnt_status_;
 
-  Planner3DMapSize()
-    : cnt_status_(0)
+  Planner3DMapSize() : cnt_status_(0)
   {
     sub_status_ = nh_.subscribe("/planner_3d/status", 100, &Planner3DMapSize::cbStatus, this);
     pub_map_ = nh_.advertise<costmap_cspace_msgs::CSpace3D>("costmap", 1, true);
     pub_map_update_ = nh_.advertise<costmap_cspace_msgs::CSpace3DUpdate>("costmap_update", 1);
   }
 
-  void cbStatus(const planner_cspace_msgs::PlannerStatus::ConstPtr& msg)
-  {
-    ++cnt_status_;
-  }
+  void cbStatus(const planner_cspace_msgs::PlannerStatus::ConstPtr & /* msg */) { ++cnt_status_; }
 
   virtual void SetUp()
   {
@@ -70,22 +64,19 @@ protected:
   bool waitStatus(const ros::Duration timeout)
   {
     const ros::Time deadline = ros::Time::now() + timeout;
-    while (ros::ok())
-    {
+    while (ros::ok()) {
       ros::Duration(0.1).sleep();
       ros::spinOnce();
 
-      if (cnt_status_ > 5)
-        return true;
+      if (cnt_status_ > 5) return true;
 
-      if (deadline < ros::Time::now())
-        break;
+      if (deadline < ros::Time::now()) break;
     }
     return false;
   }
 
   costmap_cspace_msgs::CSpace3D generateCSpace3DMsg(
-      const ros::Time stamp, const size_t w, const size_t h, const size_t angle)
+    const ros::Time stamp, const size_t w, const size_t h, const size_t angle)
   {
     costmap_cspace_msgs::CSpace3D msg;
     msg.header.stamp = stamp;
@@ -97,17 +88,15 @@ protected:
     msg.info.angular_resolution = M_PI * 2 / angle;
     msg.info.origin.orientation.w = 1;
     msg.data.resize(msg.info.width * msg.info.height * msg.info.angle);
-    for (auto& c : msg.data)
-    {
+    for (auto & c : msg.data) {
       c = 100;
     }
     return msg;
   }
 
   costmap_cspace_msgs::CSpace3DUpdate generateCSpace3DUpdateMsg(
-      const ros::Time stamp,
-      const size_t x, const size_t y, const size_t yaw,
-      const size_t w, const size_t h, const size_t angle)
+    const ros::Time stamp, const size_t x, const size_t y, const size_t yaw, const size_t w,
+    const size_t h, const size_t angle)
   {
     costmap_cspace_msgs::CSpace3DUpdate msg;
     msg.header.stamp = stamp;
@@ -119,8 +108,7 @@ protected:
     msg.height = h;
     msg.angle = angle;
     msg.data.resize(msg.width * msg.height * msg.angle);
-    for (auto& c : msg.data)
-    {
+    for (auto & c : msg.data) {
       c = 100;
     }
     return msg;
@@ -225,7 +213,7 @@ TEST_F(Planner3DMapSize, IllOrderedUpdateShrink)
   ASSERT_TRUE(waitStatus(ros::Duration(2)));
 }
 
-int main(int argc, char** argv)
+int main(int argc, char ** argv)
 {
   testing::InitGoogleTest(&argc, argv);
   ros::init(argc, argv, "test_planner_cspace_map_size");

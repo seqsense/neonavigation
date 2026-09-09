@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<package format="2">
+<package format="3">
   <name>costmap_cspace</name>
   <version>0.18.3</version>
   <description>3-dof configuration space costmap package</description>
@@ -8,11 +8,20 @@
   <license>BSD</license>
   <author email="atsushi.w@ieee.org">Atsushi Watanabe</author>
 
-  <buildtool_depend>catkin</buildtool_depend>
+  <buildtool_depend condition="$ROS_VERSION == 1">catkin</buildtool_depend>
+  <buildtool_depend condition="$ROS_VERSION == 2">ament_cmake</buildtool_depend>
+  <buildtool_depend condition="$ROS_VERSION == 2">ament_cmake_auto</buildtool_depend>
 
-  <depend>roscpp</depend>
-  <test_depend>roslint</test_depend>
-  <test_depend>rostest</test_depend>
+  <!-- ROS 1 interface layer (roscpp nodes) and ROS 1-only helpers. -->
+  <depend condition="$ROS_VERSION == 1">roscpp</depend>
+  <!-- XmlRpc parameter parsing lives in the ROS 1 interface layer only. -->
+  <depend condition="$ROS_VERSION == 1">xmlrpcpp</depend>
+  <!-- Provides the rclcpp-style shim used by the hybrid logic library on ROS 1. -->
+  <depend condition="$ROS_VERSION == 1">sq_ros1_rclcpp_compat</depend>
+
+  <!-- ROS 2 interface layer uses the real rclcpp and component registration. -->
+  <depend condition="$ROS_VERSION == 2">rclcpp</depend>
+  <depend condition="$ROS_VERSION == 2">rclcpp_components</depend>
 
   <depend>geometry_msgs</depend>
   <depend>laser_geometry</depend>
@@ -25,5 +34,20 @@
   <depend>costmap_cspace_msgs</depend>
   <depend>neonavigation_common</depend>
 
-  <depend>xmlrpcpp</depend>
+  <test_depend condition="$ROS_VERSION == 1">rostest</test_depend>
+
+  <test_depend condition="$ROS_VERSION == 2">ament_lint_auto</test_depend>
+  <test_depend condition="$ROS_VERSION == 2">ament_lint_common</test_depend>
+  <test_depend condition="$ROS_VERSION == 2">ament_cmake_clang_format</test_depend>
+  <test_depend condition="$ROS_VERSION == 2">ament_cmake_gtest</test_depend>
+  <test_depend condition="$ROS_VERSION == 2">launch_testing</test_depend>
+  <test_depend condition="$ROS_VERSION == 2">launch_testing_ament_cmake</test_depend>
+  <test_depend condition="$ROS_VERSION == 2">launch_testing_ros</test_depend>
+  <test_depend condition="$ROS_VERSION == 2">launch</test_depend>
+  <test_depend condition="$ROS_VERSION == 2">launch_ros</test_depend>
+
+  <export>
+    <build_type condition="$ROS_VERSION == 1">catkin</build_type>
+    <build_type condition="$ROS_VERSION == 2">ament_cmake</build_type>
+  </export>
 </package>

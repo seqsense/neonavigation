@@ -30,19 +30,17 @@
 #ifndef PLANNER_CSPACE_PLANNER_STATUS_H
 #define PLANNER_CSPACE_PLANNER_STATUS_H
 
-#include <ostream>
 #include <planner_cspace_msgs/PlannerStatus.h>
+
+#include <ostream>
 
 namespace planner_cspace_msgs
 {
-std::ostream& operator<<(std::ostream& os, const PlannerStatus::ConstPtr& msg)
+std::ostream & operator<<(std::ostream & os, const PlannerStatus::ConstPtr & msg)
 {
-  if (!msg)
-  {
+  if (!msg) {
     os << "nullptr";
-  }
-  else
-  {
+  } else {
     os << std::endl
        << "  header: " << msg->header.stamp << " " << msg->header.frame_id << std::endl
        << "  status: " << static_cast<int>(msg->status) << std::endl

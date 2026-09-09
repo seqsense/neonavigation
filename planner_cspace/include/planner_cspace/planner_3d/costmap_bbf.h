@@ -27,14 +27,14 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PLANNER_CSPACE_PLANNER_3D_COSTMAP_BBF_H
-#define PLANNER_CSPACE_PLANNER_3D_COSTMAP_BBF_H
+#ifndef PLANNER_CSPACE__PLANNER_3D__COSTMAP_BBF_H_
+#define PLANNER_CSPACE__PLANNER_3D__COSTMAP_BBF_H_
 
 #include <functional>
 #include <memory>
 
-#include <planner_cspace/bbf.h>
-#include <planner_cspace/blockmem_gridmap.h>
+#include "planner_cspace/bbf.h"
+#include "planner_cspace/blockmem_gridmap.h"
 
 namespace planner_cspace
 {
@@ -47,16 +47,15 @@ public:
   using Ptr = std::shared_ptr<CostmapBBF>;
   using ConstPtr = std::shared_ptr<const CostmapBBF>;
 
-  virtual void reset(const Vec& size) = 0;
+  virtual void reset(const Vec & size) = 0;
   virtual void clear() = 0;
-  virtual char getCost(const Vec& p) const = 0;
+  virtual char getCost(const Vec & p) const = 0;
   virtual void remember(
-      const BlockMemGridmapBase<char, 3, 2>* const costmap,
-      const Vec& center,
-      const float remember_hit_odds, const float remember_miss_odds,
-      const int range_min, const int range_max) = 0;
+    const BlockMemGridmapBase<char, 3, 2> * const costmap, const Vec & center,
+    const float remember_hit_odds, const float remember_miss_odds, const int range_min,
+    const int range_max) = 0;
   virtual void updateCostmap() = 0;
-  virtual void forEach(const std::function<void(const Vec&, bbf::BinaryBayesFilter&)> cb) = 0;
+  virtual void forEach(const std::function<void(const Vec &, bbf::BinaryBayesFilter &)> cb) = 0;
 };
 
 class CostmapBBFImpl : public CostmapBBF
@@ -70,11 +69,8 @@ private:
   VecInternal updated_max_;
 
 public:
-  inline CostmapBBFImpl()
-    : size_(0, 0, 0)
-  {
-  }
-  inline void reset(const Vec& size)
+  inline CostmapBBFImpl() : size_(0, 0, 0) {}
+  inline void reset(const Vec & size)
   {
     size_ = size;
     cm_hist_bbf_.reset(VecInternal(size[0], size[1]));
@@ -88,49 +84,33 @@ public:
     updated_min_ = VecInternal(0, 0);
     updated_max_ = VecInternal(size_[0] - 1, size_[1] - 1);
   }
-  inline char getCost(const Vec& p) const
-  {
-    return cm_hist_[VecInternal(p[0], p[1])];
-  }
+  inline char getCost(const Vec & p) const { return cm_hist_[VecInternal(p[0], p[1])]; }
 
   void remember(
-      const BlockMemGridmapBase<char, 3, 2>* const costmap,
-      const Vec& center,
-      const float remember_hit_odds, const float remember_miss_odds,
-      const int range_min, const int range_max);
+    const BlockMemGridmapBase<char, 3, 2> * const costmap, const Vec & center,
+    const float remember_hit_odds, const float remember_miss_odds, const int range_min,
+    const int range_max);
   void updateCostmap();
-  void forEach(const std::function<void(const Vec&, bbf::BinaryBayesFilter&)> cb);
+  void forEach(const std::function<void(const Vec &, bbf::BinaryBayesFilter &)> cb);
 };
 
 class CostmapBBFNoOp : public CostmapBBF
 {
 public:
-  inline void reset(const Vec& size)
-  {
-  }
-  inline void clear()
-  {
-  }
-  inline char getCost(const Vec& p) const
-  {
-    return 0;
-  }
+  inline void reset(const Vec & /* size */) {}
+  inline void clear() {}
+  inline char getCost(const Vec & /* p */) const { return 0; }
   inline void remember(
-      const BlockMemGridmapBase<char, 3, 2>* const costmap,
-      const Vec& center,
-      const float remember_hit_odds, const float remember_miss_odds,
-      const int range_min, const int range_max)
+    const BlockMemGridmapBase<char, 3, 2> * const /* costmap */, const Vec & /* center */,
+    const float /* remember_hit_odds */, const float /* remember_miss_odds */,
+    const int /* range_min */, const int /* range_max */)
   {
   }
-  inline void updateCostmap()
-  {
-  }
-  inline void forEach(const std::function<void(const Vec&, bbf::BinaryBayesFilter&)> cb)
-  {
-  }
+  inline void updateCostmap() {}
+  inline void forEach(const std::function<void(const Vec &, bbf::BinaryBayesFilter &)> /* cb */) {}
 };
 
 }  // namespace planner_3d
 }  // namespace planner_cspace
 
-#endif  // PLANNER_CSPACE_PLANNER_3D_COSTMAP_BBF_H
+#endif  // PLANNER_CSPACE__PLANNER_3D__COSTMAP_BBF_H_

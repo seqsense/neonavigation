@@ -27,38 +27,35 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <cmath>
-#include <memory>
-
-#include <gtest/gtest.h>
-
 #include <dynamic_reconfigure/client.h>
+#include <gtest/gtest.h>
 #include <move_base_msgs/MoveBaseAction.h>
 #include <nav_msgs/OccupancyGrid.h>
 #include <nav_msgs/Odometry.h>
 #include <planner_cspace/Planner3DConfig.h>
+#include <planner_cspace/action_test_base.h>
 #include <ros/ros.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
 
-#include <planner_cspace/action_test_base.h>
+#include <cmath>
+#include <memory>
 
 class DynamicParameterChangeTest
-  : public ActionTestBase<move_base_msgs::MoveBaseAction, ACTION_TOPIC_MOVE_BASE>
+: public ActionTestBase<move_base_msgs::MoveBaseAction, ACTION_TOPIC_MOVE_BASE>
 {
 public:
   void SetUp() final
   {
     path_ = nullptr;
     planner_3d_client_.reset(
-        new dynamic_reconfigure::Client<planner_cspace::Planner3DConfig>("/planner_3d/"));
+      new dynamic_reconfigure::Client<planner_cspace::Planner3DConfig>("/planner_3d/"));
     sub_path_ = node_.subscribe("path", 1, &DynamicParameterChangeTest::cbPath, this);
     pub_map_overlay_ = node_.advertise<nav_msgs::OccupancyGrid>("map_overlay", 1, true);
     pub_odom_ = node_.advertise<nav_msgs::Odometry>("odom", 1, true);  // not actually used
 
     const ros::Time deadline = ros::Time::now() + ros::Duration(2);
-    while (sub_path_.getNumPublishers() < 1 || pub_map_overlay_.getNumSubscribers() < 1)
-    {
+    while (sub_path_.getNumPublishers() < 1 || pub_map_overlay_.getNumSubscribers() < 1) {
       ros::Duration(0.1).sleep();
       ASSERT_TRUE(ros::ok());
       ASSERT_LT(ros::Time::now(), deadline);
@@ -91,13 +88,10 @@ public:
     default_config_.max_ang_vel = 1.0;
     ASSERT_TRUE(planner_3d_client_->setConfiguration(default_config_));
   }
-  void TearDown() final
-  {
-    move_base_->cancelAllGoals();
-  }
+  void TearDown() final { move_base_->cancelAllGoals(); }
 
 protected:
-  void cbPath(const nav_msgs::Path::ConstPtr& msg)
+  void cbPath(const nav_msgs::Path::ConstPtr & msg)
   {
     path_ = msg;
     ++path_received_count_;
@@ -121,45 +115,43 @@ protected:
 
   bool isPathIncludingCurves() const
   {
-    for (size_t i = 0; i < path_->poses.size() - 1; ++i)
-    {
-      const auto& pose1 = path_->poses[i];
-      const auto& pose2 = path_->poses[i + 1];
-      const double distance = std::hypot(pose1.pose.position.x - pose2.pose.position.x,
-                                         pose1.pose.position.y - pose2.pose.position.y);
-      const double yaw_diff = std::abs(tf2::getYaw(pose1.pose.orientation) - tf2::getYaw(pose2.pose.orientation));
-      if (distance > 1.0e-3 && yaw_diff > 1.0e-3)
-      {
+    for (size_t i = 0; i < path_->poses.size() - 1; ++i) {
+      const auto & pose1 = path_->poses[i];
+      const auto & pose2 = path_->poses[i + 1];
+      const double distance = std::hypot(
+        pose1.pose.position.x - pose2.pose.position.x,
+        pose1.pose.position.y - pose2.pose.position.y);
+      const double yaw_diff =
+        std::abs(tf2::getYaw(pose1.pose.orientation) - tf2::getYaw(pose2.pose.orientation));
+      if (distance > 1.0e-3 && yaw_diff > 1.0e-3) {
         return true;
       }
     }
     return false;
   }
 
-  ::testing::AssertionResult comparePath(const nav_msgs::Path& path1, const nav_msgs::Path& path2)
+  ::testing::AssertionResult comparePath(const nav_msgs::Path & path1, const nav_msgs::Path & path2)
   {
-    if (path1.poses.size() != path2.poses.size())
-    {
+    if (path1.poses.size() != path2.poses.size()) {
       return ::testing::AssertionFailure()
              << "Path size different: " << path1.poses.size() << " != " << path2.poses.size();
     }
-    for (size_t i = 0; i < path1.poses.size(); ++i)
-    {
-      const geometry_msgs::Point& pos1 = path1.poses[i].pose.position;
-      const geometry_msgs::Point& pos2 = path2.poses[i].pose.position;
-      if (std::abs(pos1.x - pos2.x) > 1.0e-6)
-      {
-        return ::testing::AssertionFailure() << "X different at #" << i << ": " << pos1.x << " != " << pos2.x;
+    for (size_t i = 0; i < path1.poses.size(); ++i) {
+      const geometry_msgs::Point & pos1 = path1.poses[i].pose.position;
+      const geometry_msgs::Point & pos2 = path2.poses[i].pose.position;
+      if (std::abs(pos1.x - pos2.x) > 1.0e-6) {
+        return ::testing::AssertionFailure()
+               << "X different at #" << i << ": " << pos1.x << " != " << pos2.x;
       }
-      if (std::abs(pos1.y - pos2.y) > 1.0e-6)
-      {
-        return ::testing::AssertionFailure() << "Y different at #" << i << ": " << pos1.y << " != " << pos2.y;
+      if (std::abs(pos1.y - pos2.y) > 1.0e-6) {
+        return ::testing::AssertionFailure()
+               << "Y different at #" << i << ": " << pos1.y << " != " << pos2.y;
       }
       const double yaw1 = tf2::getYaw(path1.poses[i].pose.orientation);
       const double yaw2 = tf2::getYaw(path2.poses[i].pose.orientation);
-      if (std::abs(yaw1 - yaw2) > 1.0e-6)
-      {
-        return ::testing::AssertionFailure() << "Yaw different at #" << i << ": " << yaw1 << " != " << yaw2;
+      if (std::abs(yaw1 - yaw2) > 1.0e-6) {
+        return ::testing::AssertionFailure()
+               << "Yaw different at #" << i << ": " << yaw1 << " != " << yaw2;
       }
     }
     return ::testing::AssertionSuccess();
@@ -174,16 +166,14 @@ protected:
 
     const ros::Time start_time = ros::Time::now();
     ros::Time deadline = start_time + ros::Duration(1.0);
-    while (ros::ok())
-    {
+    while (ros::ok()) {
       ros::Duration(0.1).sleep();
       ros::spinOnce();
-      if (path_ && (path_->header.stamp > start_time) && (path_->poses.size() > 0))
-      {
+      if (path_ && (path_->header.stamp > start_time) && (path_->poses.size() > 0)) {
         break;
       }
       ASSERT_LT(ros::Time::now(), deadline)
-          << "Failed to plan:" << move_base_->getState().toString() << statusString();
+        << "Failed to plan:" << move_base_->getState().toString() << statusString();
     }
   }
 
@@ -210,13 +200,12 @@ protected:
     pub_map_overlay_.publish(map_overlay_);
   }
 
-  double getAveragePathInterval(const ros::Duration& costmap_publishing_interval)
+  double getAveragePathInterval(const ros::Duration & costmap_publishing_interval)
   {
     publishMapAndRobot(2.55, 0.45, M_PI);
     ros::Duration(0.3).sleep();
     move_base_->sendGoal(CreateGoalInFree());
-    while (ros::ok() && (move_base_->getState() != actionlib::SimpleClientGoalState::ACTIVE))
-    {
+    while (ros::ok() && (move_base_->getState() != actionlib::SimpleClientGoalState::ACTIVE)) {
       ros::spinOnce();
     }
 
@@ -224,10 +213,8 @@ protected:
     publishMapAndRobot(2.55, 0.45, M_PI);
     ros::Time last_costmap_publishing_time = ros::Time::now();
     ros::Rate r(100);
-    while (ros::ok() && (last_path_received_time_ == ros::Time()))
-    {
-      if ((ros::Time::now() - last_costmap_publishing_time) > costmap_publishing_interval)
-      {
+    while (ros::ok() && (last_path_received_time_ == ros::Time())) {
+      if ((ros::Time::now() - last_costmap_publishing_time) > costmap_publishing_interval) {
         publishMapAndRobot(2.55, 0.45, M_PI);
         last_costmap_publishing_time = ros::Time::now();
       };
@@ -236,10 +223,8 @@ protected:
     }
     const ros::Time initial_path_received_time_ = last_path_received_time_;
     const int prev_path_received_count = path_received_count_;
-    while (ros::ok() && (path_received_count_ < prev_path_received_count + 10))
-    {
-      if ((ros::Time::now() - last_costmap_publishing_time) > costmap_publishing_interval)
-      {
+    while (ros::ok() && (path_received_count_ < prev_path_received_count + 10)) {
+      if ((ros::Time::now() - last_costmap_publishing_time) > costmap_publishing_interval) {
         publishMapAndRobot(2.55, 0.45, M_PI);
         last_costmap_publishing_time = ros::Time::now();
       }
@@ -348,15 +333,17 @@ TEST_F(DynamicParameterChangeTest, TriggerPlanByCostmapUpdate)
   // The path planning is trigger by the callback of CSpace3DUpdate, so its frequency is same as the frequency of
   // CSpace3DUpdate (10 Hz).
   const double interval_triggered_by_costmap = getAveragePathInterval(costmap_publishing_interval);
-  EXPECT_NEAR(interval_triggered_by_costmap, costmap_publishing_interval.toSec(),
-              costmap_publishing_interval.toSec() * 0.1);
+  EXPECT_NEAR(
+    interval_triggered_by_costmap, costmap_publishing_interval.toSec(),
+    costmap_publishing_interval.toSec() * 0.1);
 
   // The path planning is trigger by costmap_watchdog_(0.5 seconds) when CSpace3DUpdate is not published.
   const double interval_triggered_by_watchdog = getAveragePathInterval(ros::Duration(100));
-  EXPECT_NEAR(interval_triggered_by_watchdog, config.costmap_watchdog, config.costmap_watchdog * 0.1);
+  EXPECT_NEAR(
+    interval_triggered_by_watchdog, config.costmap_watchdog, config.costmap_watchdog * 0.1);
 }
 
-int main(int argc, char** argv)
+int main(int argc, char ** argv)
 {
   testing::InitGoogleTest(&argc, argv);
   ros::init(argc, argv, "test_dynamic_parameter_change");

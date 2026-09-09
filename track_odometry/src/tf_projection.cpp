@@ -27,13 +27,13 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <tf2/LinearMath/Transform.h>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include "track_odometry/tf_projection.h"
 
-#include <track_odometry/tf_projection.h>
+#include "tf2/LinearMath/Transform.h"
+#include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 
 tf2::Transform track_odometry::projectTranslation(
-    const tf2::Transform& trans, const tf2::Transform& trans_target)
+  const tf2::Transform & trans, const tf2::Transform & trans_target)
 {
   tf2::Vector3 origin(trans.getOrigin());
   origin.setZ(0.0);

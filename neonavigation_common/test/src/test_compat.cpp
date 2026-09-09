@@ -27,13 +27,13 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <gtest/gtest.h>
+
 #include <cstdlib>
 
-#include <ros/ros.h>
-#include <std_msgs/Bool.h>
-#include <std_srvs/Empty.h>
-
-#include <gtest/gtest.h>
+#include "ros/ros.h"
+#include "std_msgs/Bool.h"
+#include "std_srvs/Empty.h"
 
 #define UNDEF_COMPATIBILITY_LEVEL
 
@@ -46,7 +46,7 @@ int supported_level;
 int default_level;
 }  // namespace compat
 }  // namespace neonavigation_common
-#include <neonavigation_common/compatibility.h>
+#include "neonavigation_common/compatibility.h"
 
 TEST(NeonavigationCompat, CompatMode)
 {
@@ -56,29 +56,21 @@ TEST(NeonavigationCompat, CompatMode)
 
   ros::NodeHandle("/").setParam("neonavigation_compatible", 2);
   ASSERT_NO_THROW(
-      {
-        neonavigation_common::compat::checkCompatMode();
-      });  // NOLINT(whitespace/braces)
+    { neonavigation_common::compat::checkCompatMode(); });  // NOLINT(whitespace/braces)
 
   ros::NodeHandle("/").setParam("neonavigation_compatible", 3);
   ASSERT_NO_THROW(
-      {
-        neonavigation_common::compat::checkCompatMode();
-      });  // NOLINT(whitespace/braces)
+    { neonavigation_common::compat::checkCompatMode(); });  // NOLINT(whitespace/braces)
 
   ros::NodeHandle("/").setParam("neonavigation_compatible", 4);
   ASSERT_THROW(
-      {
-        neonavigation_common::compat::checkCompatMode();
-      },  // NOLINT(whitespace/braces)
-      std::runtime_error);
+    { neonavigation_common::compat::checkCompatMode(); },  // NOLINT(whitespace/braces)
+    std::runtime_error);
 
   ros::NodeHandle("/").setParam("neonavigation_compatible", 1);
   ASSERT_THROW(
-      {
-        neonavigation_common::compat::checkCompatMode();
-      },  // NOLINT(whitespace/braces)
-      std::runtime_error);
+    { neonavigation_common::compat::checkCompatMode(); },  // NOLINT(whitespace/braces)
+    std::runtime_error);
 }
 
 class NeonavigationCompatCallbacks
@@ -90,26 +82,16 @@ public:
   mutable std_msgs::Bool::ConstPtr msg_const_;
   bool srv_called_;
 
-  void cb(const std_msgs::Bool::ConstPtr& msg)
-  {
-    msg_ = msg;
-  }
-  void cbConst(const std_msgs::Bool::ConstPtr& msg) const
-  {
-    msg_const_ = msg;
-  }
+  void cb(const std_msgs::Bool::ConstPtr & msg) { msg_ = msg; }
+  void cbConst(const std_msgs::Bool::ConstPtr & msg) const { msg_const_ = msg; }
 
-  bool cbSrv(std_srvs::Empty::Request& req, std_srvs::Empty::Response& res)
+  bool cbSrv(std_srvs::Empty::Request & /* req */, std_srvs::Empty::Response & /* res */)
   {
     srv_called_ = true;
     return true;
   }
 
-  NeonavigationCompatCallbacks()
-    : pnh_("~")
-    , srv_called_(false)
-  {
-  }
+  NeonavigationCompatCallbacks() : pnh_("~"), srv_called_(false) {}
 };
 
 TEST(NeonavigationCompat, Subscribe)
@@ -131,10 +113,7 @@ TEST(NeonavigationCompat, Subscribe)
   {
     ros::NodeHandle("/").setParam("neonavigation_compatible", 2);
     ros::Subscriber sub = neonavigation_common::compat::subscribe(
-        cls.nh_, "test_new",
-        cls.pnh_, "test_old",
-        1,
-        &NeonavigationCompatCallbacks::cb, &cls);
+      cls.nh_, "test_new", cls.pnh_, "test_old", 1, &NeonavigationCompatCallbacks::cb, &cls);
     ros::Duration(0.1).sleep();
     ros::spinOnce();
     ASSERT_TRUE(static_cast<bool>(cls.msg_));
@@ -145,10 +124,7 @@ TEST(NeonavigationCompat, Subscribe)
     ros::NodeHandle("/").setParam("neonavigation_compatible", 3);
     cls.msg_ = nullptr;
     ros::Subscriber sub = neonavigation_common::compat::subscribe(
-        cls.nh_, "test_new",
-        cls.pnh_, "test_old",
-        1,
-        &NeonavigationCompatCallbacks::cb, &cls);
+      cls.nh_, "test_new", cls.pnh_, "test_old", 1, &NeonavigationCompatCallbacks::cb, &cls);
     ros::Duration(0.1).sleep();
     ros::spinOnce();
     ASSERT_TRUE(static_cast<bool>(cls.msg_));
@@ -159,10 +135,7 @@ TEST(NeonavigationCompat, Subscribe)
     ros::NodeHandle("/").setParam("neonavigation_compatible", 2);
     cls.msg_ = nullptr;
     ros::Subscriber sub = neonavigation_common::compat::subscribe(
-        cls.nh_, "test_new",
-        cls.pnh_, "test_old",
-        1,
-        &NeonavigationCompatCallbacks::cbConst, &cls);
+      cls.nh_, "test_new", cls.pnh_, "test_old", 1, &NeonavigationCompatCallbacks::cbConst, &cls);
     ros::Duration(0.1).sleep();
     ros::spinOnce();
     ASSERT_TRUE(static_cast<bool>(cls.msg_const_));
@@ -173,10 +146,7 @@ TEST(NeonavigationCompat, Subscribe)
     ros::NodeHandle("/").setParam("neonavigation_compatible", 3);
     cls.msg_ = nullptr;
     ros::Subscriber sub = neonavigation_common::compat::subscribe(
-        cls.nh_, "test_new",
-        cls.pnh_, "test_old",
-        1,
-        &NeonavigationCompatCallbacks::cbConst, &cls);
+      cls.nh_, "test_new", cls.pnh_, "test_old", 1, &NeonavigationCompatCallbacks::cbConst, &cls);
     ros::Duration(0.1).sleep();
     ros::spinOnce();
     ASSERT_TRUE(static_cast<bool>(cls.msg_const_));
@@ -201,9 +171,7 @@ TEST(NeonavigationCompat, AdvertiseService)
     ros::NodeHandle("/").setParam("neonavigation_compatible", 2);
 
     ros::ServiceServer srv = neonavigation_common::compat::advertiseService(
-        cls.nh_, "srv_new",
-        cls.pnh_, "srv_old",
-        &NeonavigationCompatCallbacks::cbSrv, &cls);
+      cls.nh_, "srv_new", cls.pnh_, "srv_old", &NeonavigationCompatCallbacks::cbSrv, &cls);
     ros::Duration(0.1).sleep();
     std_srvs::Empty empty;
     ASSERT_TRUE(cli_old.call(empty.request, empty.response));
@@ -213,9 +181,7 @@ TEST(NeonavigationCompat, AdvertiseService)
     ros::NodeHandle("/").setParam("neonavigation_compatible", 3);
 
     ros::ServiceServer srv = neonavigation_common::compat::advertiseService(
-        cls.nh_, "srv_new",
-        cls.pnh_, "srv_old",
-        &NeonavigationCompatCallbacks::cbSrv, &cls);
+      cls.nh_, "srv_new", cls.pnh_, "srv_old", &NeonavigationCompatCallbacks::cbSrv, &cls);
     ros::Duration(0.1).sleep();
     std_srvs::Empty empty;
     ASSERT_TRUE(cli_new.call(empty.request, empty.response));
@@ -224,7 +190,7 @@ TEST(NeonavigationCompat, AdvertiseService)
   spinner.stop();
 }
 
-int main(int argc, char** argv)
+int main(int argc, char ** argv)
 {
   testing::InitGoogleTest(&argc, argv);
   ros::init(argc, argv, "test_compat");

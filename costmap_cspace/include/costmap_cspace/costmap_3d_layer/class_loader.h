@@ -27,22 +27,21 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef COSTMAP_CSPACE_COSTMAP_3D_LAYER_CLASS_LOADER_H
-#define COSTMAP_CSPACE_COSTMAP_3D_LAYER_CLASS_LOADER_H
+#ifndef COSTMAP_CSPACE__COSTMAP_3D_LAYER__CLASS_LOADER_H_
+#define COSTMAP_CSPACE__COSTMAP_3D_LAYER__CLASS_LOADER_H_
 
 #include <map>
 #include <memory>
+#include <stdexcept>
 #include <string>
 
-#include <ros/ros.h>
-
-#include <geometry_msgs/PolygonStamped.h>
-#include <nav_msgs/OccupancyGrid.h>
-#include <costmap_cspace_msgs/CSpace3D.h>
-#include <costmap_cspace_msgs/CSpace3DUpdate.h>
-
-#include <costmap_cspace/cspace3_cache.h>
-#include <costmap_cspace/polygon.h>
+#include "costmap_cspace/costmap_3d_layer/base.h"
+#include "costmap_cspace/cspace3_cache.h"
+#include "costmap_cspace/polygon.h"
+#include "costmap_cspace_msgs/msg/c_space3_d.hpp"
+#include "costmap_cspace_msgs/msg/c_space3_d_update.hpp"
+#include "geometry_msgs/msg/polygon_stamped.hpp"
+#include "nav_msgs/msg/occupancy_grid.hpp"
 
 namespace costmap_cspace
 {
@@ -56,10 +55,7 @@ template <typename T>
 class Costmap3dLayerSpawner : public Costmap3dLayerSpawnerBase
 {
 public:
-  Costmap3dLayerBase::Ptr spawn() const
-  {
-    return Costmap3dLayerBase::Ptr(new T);
-  }
+  Costmap3dLayerBase::Ptr spawn() const { return Costmap3dLayerBase::Ptr(new T); }
 };
 class Costmap3dLayerClassLoader
 {
@@ -68,39 +64,37 @@ protected:
   static ClassList classes_;
 
 public:
-  static Costmap3dLayerBase::Ptr loadClass(const std::string& name)
+  static Costmap3dLayerBase::Ptr loadClass(const std::string & name)
   {
-    if (classes_.find(name) == classes_.end())
-    {
+    if (classes_.find(name) == classes_.end()) {
       throw std::runtime_error("Costmap3dLayerSpawner: class not found");
     }
     return classes_[name]->spawn();
   };
-  static void registerClass(const std::string& name, Costmap3dLayerSpawnerBase::Ptr spawner)
+  static void registerClass(const std::string & name, Costmap3dLayerSpawnerBase::Ptr spawner)
   {
     classes_[name] = spawner;
   };
 };
 #define COSTMAP_3D_LAYER_CLASS_LOADER_ENABLE()         \
   costmap_cspace::Costmap3dLayerClassLoader::ClassList \
-      costmap_cspace::Costmap3dLayerClassLoader::classes_;
+    costmap_cspace::Costmap3dLayerClassLoader::classes_;
 
-#define COSTMAP_3D_LAYER_CLASS_LOADER_REGISTER(name, klass, id)   \
-  namespace                                                       \
-  {                                                               \
-  struct ClassLoaderRegister##id                                  \
-  {                                                               \
-    ClassLoaderRegister##id()                                     \
-    {                                                             \
-      costmap_cspace::Costmap3dLayerClassLoader::registerClass(   \
-          name,                                                   \
-          costmap_cspace::Costmap3dLayerSpawnerBase::Ptr(         \
-              new costmap_cspace::Costmap3dLayerSpawner<klass>)); \
-    } /* NOLINT(whitespace/braces)*/                              \
-  };  /* NOLINT(whitespace/braces)*/                              \
-  static ClassLoaderRegister##id g_register_class_##id;           \
+#define COSTMAP_3D_LAYER_CLASS_LOADER_REGISTER(name, klass, id)     \
+  namespace                                                         \
+  {                                                                 \
+  struct ClassLoaderRegister##id                                    \
+  {                                                                 \
+    ClassLoaderRegister##id()                                       \
+    {                                                               \
+      costmap_cspace::Costmap3dLayerClassLoader::registerClass(     \
+        name, costmap_cspace::Costmap3dLayerSpawnerBase::Ptr(       \
+                new costmap_cspace::Costmap3dLayerSpawner<klass>)); \
+    } /* NOLINT(whitespace/braces)*/                                \
+  }; /* NOLINT(whitespace/braces)*/                                 \
+  static ClassLoaderRegister##id g_register_class_##id;             \
   } /* NOLINT(readability/namespace) */  // namespace
 
 }  // namespace costmap_cspace
 
-#endif  // COSTMAP_CSPACE_COSTMAP_3D_LAYER_CLASS_LOADER_H
+#endif  // COSTMAP_CSPACE__COSTMAP_3D_LAYER__CLASS_LOADER_H_

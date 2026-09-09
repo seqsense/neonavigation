@@ -27,14 +27,14 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <gtest/gtest.h>
+
 #include <cmath>
 #include <cstddef>
 
-#include <planner_cspace/cyclic_vec.h>
-#include <planner_cspace/blockmem_gridmap.h>
-#include <planner_cspace/planner_3d/motion_cache.h>
-
-#include <gtest/gtest.h>
+#include "planner_cspace/blockmem_gridmap.h"
+#include "planner_cspace/cyclic_vec.h"
+#include "planner_cspace/planner_3d/motion_cache.h"
 
 namespace planner_cspace
 {
@@ -49,33 +49,25 @@ TEST(MotionCache, Generate)
 
   BlockMemGridmap<char, 3, 2, 0x20> gm;
   MotionCache cache;
-  cache.reset(
-      linear_resolution, angular_resolution, range,
-      gm.getAddressor(), 0.5, 0.1);
+  cache.reset(linear_resolution, angular_resolution, range, gm.getAddressor(), 0.5, 0.1);
 
   // Straight motions
-  const int xy_yaw_straight[][3] =
-      {
-          {1, 0, 0},
-          {0, 1, 1},
-          {-1, 0, 2},
-          {0, -1, 3},
-      };
-  for (auto& xy_yaw : xy_yaw_straight)
-  {
-    for (int i = 1; i <= range + 1; ++i)
-    {
-      const CyclicVecInt<3, 2> goal(
-          i * xy_yaw[0], i * xy_yaw[1], xy_yaw[2]);
+  const int xy_yaw_straight[][3] = {
+    {1, 0, 0},
+    {0, 1, 1},
+    {-1, 0, 2},
+    {0, -1, 3},
+  };
+  for (auto & xy_yaw : xy_yaw_straight) {
+    for (int i = 1; i <= range + 1; ++i) {
+      const CyclicVecInt<3, 2> goal(i * xy_yaw[0], i * xy_yaw[1], xy_yaw[2]);
       const auto c = cache.find(xy_yaw[2], goal);
-      if (i > range)
-      {
+      if (i > range) {
         ASSERT_EQ(c, cache.end(xy_yaw[2]));
         continue;
       }
       ASSERT_NE(c, cache.end(xy_yaw[2]));
-      for (const auto& p : c->second.getMotion())
-      {
+      for (const auto & p : c->second.getMotion()) {
         // Must be in the same quadrant
         if (xy_yaw[0] == 0)
           ASSERT_EQ(xy_yaw[0], 0);
@@ -92,33 +84,21 @@ TEST(MotionCache, Generate)
   }
 
   // 90 deg rotation
-  const int xy_syaw_gyaw_90[][4] =
-      {
-          {1, 1, 0, 1},
-          {-1, 1, 1, 2},
-          {-1, -1, 2, 3},
-          {1, -1, 3, 0},
-          {1, -1, 0, 3},
-          {1, 1, 1, 0},
-          {-1, 1, 2, 1},
-          {-1, -1, 3, 2},
-      };
-  for (auto& xy_syaw_gyaw : xy_syaw_gyaw_90)
-  {
-    for (int i = 1; i <= range + 1; ++i)
-    {
-      const CyclicVecInt<3, 2> goal(
-          i * xy_syaw_gyaw[0], i * xy_syaw_gyaw[1], xy_syaw_gyaw[3]);
+  const int xy_syaw_gyaw_90[][4] = {
+    {1, 1, 0, 1},  {-1, 1, 1, 2}, {-1, -1, 2, 3}, {1, -1, 3, 0},
+    {1, -1, 0, 3}, {1, 1, 1, 0},  {-1, 1, 2, 1},  {-1, -1, 3, 2},
+  };
+  for (auto & xy_syaw_gyaw : xy_syaw_gyaw_90) {
+    for (int i = 1; i <= range + 1; ++i) {
+      const CyclicVecInt<3, 2> goal(i * xy_syaw_gyaw[0], i * xy_syaw_gyaw[1], xy_syaw_gyaw[3]);
       const auto c = cache.find(xy_syaw_gyaw[2], goal);
-      if (i * std::sqrt(2.0) >= range)
-      {
+      if (i * std::sqrt(2.0) >= range) {
         ASSERT_EQ(c, cache.end(xy_syaw_gyaw[2]));
         continue;
       }
       ASSERT_NE(c, cache.end(xy_syaw_gyaw[2]));
 
-      for (const auto& p : c->second.getMotion())
-      {
+      for (const auto & p : c->second.getMotion()) {
         // Must be in the same quadrant
         ASSERT_GE(p[0] * xy_syaw_gyaw[0], 0);
         ASSERT_GE(p[1] * xy_syaw_gyaw[1], 0);
@@ -132,7 +112,7 @@ TEST(MotionCache, Generate)
 }  // namespace planner_3d
 }  // namespace planner_cspace
 
-int main(int argc, char** argv)
+int main(int argc, char ** argv)
 {
   testing::InitGoogleTest(&argc, argv);
 

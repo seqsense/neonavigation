@@ -27,13 +27,13 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <gtest/gtest.h>
+
 #include <algorithm>
 #include <vector>
 
-#include <planner_cspace/cyclic_vec.h>
-#include <planner_cspace/planner_3d/motion_primitive_builder.h>
-
-#include <gtest/gtest.h>
+#include "planner_cspace/cyclic_vec.h"
+#include "planner_cspace/planner_3d/motion_primitive_builder.h"
 
 namespace planner_cspace
 {
@@ -41,26 +41,21 @@ namespace planner_3d
 {
 using Vec = MotionPrimitiveBuilder::Vec;
 
-bool compareVecs(const Vec& v1, const Vec& v2)
+bool compareVecs(const Vec & v1, const Vec & v2)
 {
-  if (v1[0] != v2[0])
-    return v1[0] < v2[0];
-  if (v1[1] != v2[1])
-    return v1[1] < v2[1];
+  if (v1[0] != v2[0]) return v1[0] < v2[0];
+  if (v1[1] != v2[1]) return v1[1] < v2[1];
   return v1[2] < v2[2];
 }
 
-std::vector<Vec> buildExpectedPrimitives(const std::vector<std::vector<Vec>> original_primitives_vector,
-                                         const int quadrant)
+std::vector<Vec> buildExpectedPrimitives(
+  const std::vector<std::vector<Vec>> original_primitives_vector, const int quadrant)
 {
   std::vector<Vec> results;
-  for (const auto& original_primitives : original_primitives_vector)
-  {
-    for (const auto& original_primitive : original_primitives)
-    {
+  for (const auto & original_primitives : original_primitives_vector) {
+    for (const auto & original_primitive : original_primitives) {
       Vec primitive;
-      switch (quadrant)
-      {
+      switch (quadrant) {
         case 0:
           primitive = original_primitive;
           break;
@@ -85,8 +80,7 @@ std::vector<Vec> buildExpectedPrimitives(const std::vector<std::vector<Vec>> ori
     }
   }
   // In-place turns
-  for (int i = 1; i < 16; ++i)
-  {
+  for (int i = 1; i < 16; ++i) {
     results.push_back(Vec(0, 0, i));
   }
   std::sort(results.begin(), results.end(), &compareVecs);
@@ -95,165 +89,118 @@ std::vector<Vec> buildExpectedPrimitives(const std::vector<std::vector<Vec>> ori
 
 TEST(MotionPrimitiveBuilder, Generate)
 {
-  const std::vector<Vec> expected_0deg_straight_primitives =
-      {
-          Vec(1, 0, 0),
-          Vec(2, 0, 0),
-          Vec(3, 0, 0),
-          Vec(4, 0, 0),
-      };
-  const std::vector<Vec> expected_0deg_rotation_1_primitives =
-      {
-          Vec(3, -2, 15),
-          Vec(3, -1, 15),
-          Vec(3, 1, 1),
-          Vec(3, 2, 1),
-      };
-  const std::vector<Vec> expected_0deg_rotation_2_primitives =
-      {
-          Vec(3, -2, 14),
-          Vec(3, -1, 14),
-          Vec(3, 1, 2),
-          Vec(3, 2, 2),
-      };
-  const std::vector<Vec> expected_0deg_rotation_3_primitives =
-      {
-          Vec(3, -2, 13),
-          Vec(3, -1, 13),
-          Vec(3, 1, 3),
-          Vec(3, 2, 3),
-      };
-  const std::vector<std::vector<Vec>> expected_0deg_primitives =
-      {
-          expected_0deg_straight_primitives,
-          expected_0deg_rotation_1_primitives,
-          expected_0deg_rotation_2_primitives,
-          expected_0deg_rotation_3_primitives,
-      };
+  const std::vector<Vec> expected_0deg_straight_primitives = {
+    Vec(1, 0, 0),
+    Vec(2, 0, 0),
+    Vec(3, 0, 0),
+    Vec(4, 0, 0),
+  };
+  const std::vector<Vec> expected_0deg_rotation_1_primitives = {
+    Vec(3, -2, 15),
+    Vec(3, -1, 15),
+    Vec(3, 1, 1),
+    Vec(3, 2, 1),
+  };
+  const std::vector<Vec> expected_0deg_rotation_2_primitives = {
+    Vec(3, -2, 14),
+    Vec(3, -1, 14),
+    Vec(3, 1, 2),
+    Vec(3, 2, 2),
+  };
+  const std::vector<Vec> expected_0deg_rotation_3_primitives = {
+    Vec(3, -2, 13),
+    Vec(3, -1, 13),
+    Vec(3, 1, 3),
+    Vec(3, 2, 3),
+  };
+  const std::vector<std::vector<Vec>> expected_0deg_primitives = {
+    expected_0deg_straight_primitives,
+    expected_0deg_rotation_1_primitives,
+    expected_0deg_rotation_2_primitives,
+    expected_0deg_rotation_3_primitives,
+  };
 
-  const std::vector<Vec> expected_23deg_straight_primitives =
-      {
-          Vec(2, 1, 0),
-          Vec(3, 1, 0),
-          Vec(3, 2, 0),
-      };
-  const std::vector<Vec> expected_23deg_rotation_1_primitives =
-      {
-          Vec(2, 3, 1),
-          Vec(3, 0, 15),
-          Vec(3, 2, 1),
-          Vec(4, 0, 15),
-      };
-  const std::vector<Vec> expected_23deg_rotation_2_primitives =
-      {
-          Vec(2, 3, 2),
-          Vec(3, 2, 2),
-          Vec(3, -1, 14),
-          Vec(3, 0, 14),
-          Vec(4, 0, 14),
-      };
-  const std::vector<Vec> expected_23deg_rotation_3_primitives =
-      {
-          Vec(1, 3, 3),
-          Vec(2, 3, 3),
-          Vec(3, -1, 13),
-          Vec(3, 0, 13),
-          Vec(4, 0, 13),
-      };
-  const std::vector<std::vector<Vec>> expected_23deg_primitives =
-      {
-          expected_23deg_straight_primitives,
-          expected_23deg_rotation_1_primitives,
-          expected_23deg_rotation_2_primitives,
-          expected_23deg_rotation_3_primitives,
-      };
+  const std::vector<Vec> expected_23deg_straight_primitives = {
+    Vec(2, 1, 0),
+    Vec(3, 1, 0),
+    Vec(3, 2, 0),
+  };
+  const std::vector<Vec> expected_23deg_rotation_1_primitives = {
+    Vec(2, 3, 1),
+    Vec(3, 0, 15),
+    Vec(3, 2, 1),
+    Vec(4, 0, 15),
+  };
+  const std::vector<Vec> expected_23deg_rotation_2_primitives = {
+    Vec(2, 3, 2), Vec(3, 2, 2), Vec(3, -1, 14), Vec(3, 0, 14), Vec(4, 0, 14),
+  };
+  const std::vector<Vec> expected_23deg_rotation_3_primitives = {
+    Vec(1, 3, 3), Vec(2, 3, 3), Vec(3, -1, 13), Vec(3, 0, 13), Vec(4, 0, 13),
+  };
+  const std::vector<std::vector<Vec>> expected_23deg_primitives = {
+    expected_23deg_straight_primitives,
+    expected_23deg_rotation_1_primitives,
+    expected_23deg_rotation_2_primitives,
+    expected_23deg_rotation_3_primitives,
+  };
 
-  const std::vector<Vec> expected_45deg_straight_primitives =
-      {
-          Vec(1, 1, 0),
-          Vec(2, 2, 0),
-          Vec(3, 2, 0),
-          Vec(2, 3, 0),
-      };
-  const std::vector<Vec> expected_45deg_rotation_1_primitives =
-      {
-          Vec(1, 3, 1),
-          Vec(2, 3, 1),
-          Vec(3, 1, 15),
-          Vec(3, 2, 15),
-      };
-  const std::vector<Vec> expected_45deg_rotation_2_primitives =
-      {
-          Vec(0, 3, 2),
-          Vec(1, 3, 2),
-          Vec(2, 3, 2),
-          Vec(3, 0, 14),
-          Vec(3, 1, 14),
-          Vec(3, 2, 14),
-      };
-  const std::vector<Vec> expected_45deg_rotation_3_primitives =
-      {
-          Vec(0, 3, 3),
-          Vec(0, 4, 3),
-          Vec(1, 3, 3),
-          Vec(3, 0, 13),
-          Vec(3, 1, 13),
-          Vec(4, 0, 13),
-      };
-  const std::vector<std::vector<Vec>> expected_45deg_primitives =
-      {
-          expected_45deg_straight_primitives,
-          expected_45deg_rotation_1_primitives,
-          expected_45deg_rotation_2_primitives,
-          expected_45deg_rotation_3_primitives,
-      };
+  const std::vector<Vec> expected_45deg_straight_primitives = {
+    Vec(1, 1, 0),
+    Vec(2, 2, 0),
+    Vec(3, 2, 0),
+    Vec(2, 3, 0),
+  };
+  const std::vector<Vec> expected_45deg_rotation_1_primitives = {
+    Vec(1, 3, 1),
+    Vec(2, 3, 1),
+    Vec(3, 1, 15),
+    Vec(3, 2, 15),
+  };
+  const std::vector<Vec> expected_45deg_rotation_2_primitives = {
+    Vec(0, 3, 2), Vec(1, 3, 2), Vec(2, 3, 2), Vec(3, 0, 14), Vec(3, 1, 14), Vec(3, 2, 14),
+  };
+  const std::vector<Vec> expected_45deg_rotation_3_primitives = {
+    Vec(0, 3, 3), Vec(0, 4, 3), Vec(1, 3, 3), Vec(3, 0, 13), Vec(3, 1, 13), Vec(4, 0, 13),
+  };
+  const std::vector<std::vector<Vec>> expected_45deg_primitives = {
+    expected_45deg_straight_primitives,
+    expected_45deg_rotation_1_primitives,
+    expected_45deg_rotation_2_primitives,
+    expected_45deg_rotation_3_primitives,
+  };
 
-  const std::vector<Vec> expected_67deg_straight_primitives =
-      {
-          Vec(1, 2, 0),
-          Vec(1, 3, 0),
-          Vec(2, 3, 0),
-      };
-  const std::vector<Vec> expected_67deg_rotation_1_primitives =
-      {
-          Vec(0, 3, 1),
-          Vec(0, 4, 1),
-          Vec(2, 3, 15),
-          Vec(3, 2, 15),
-      };
-  const std::vector<Vec> expected_67deg_rotation_2_primitives =
-      {
-          Vec(0, 3, 2),
-          Vec(0, 4, 2),
-          Vec(-1, 3, 2),
-          Vec(2, 3, 14),
-          Vec(3, 2, 14),
-      };
-  const std::vector<Vec> expected_67deg_rotation_3_primitives =
-      {
-          Vec(0, 3, 3),
-          Vec(0, 4, 3),
-          Vec(1, -3, 3),
-          Vec(3, 1, 13),
-          Vec(3, 2, 13),
-      };
-  const std::vector<std::vector<Vec>> expected_67deg_primitives =
-      {
-          expected_67deg_straight_primitives,
-          expected_67deg_rotation_1_primitives,
-          expected_67deg_rotation_2_primitives,
-          expected_67deg_rotation_3_primitives,
-      };
+  const std::vector<Vec> expected_67deg_straight_primitives = {
+    Vec(1, 2, 0),
+    Vec(1, 3, 0),
+    Vec(2, 3, 0),
+  };
+  const std::vector<Vec> expected_67deg_rotation_1_primitives = {
+    Vec(0, 3, 1),
+    Vec(0, 4, 1),
+    Vec(2, 3, 15),
+    Vec(3, 2, 15),
+  };
+  const std::vector<Vec> expected_67deg_rotation_2_primitives = {
+    Vec(0, 3, 2), Vec(0, 4, 2), Vec(-1, 3, 2), Vec(2, 3, 14), Vec(3, 2, 14),
+  };
+  const std::vector<Vec> expected_67deg_rotation_3_primitives = {
+    Vec(0, 3, 3), Vec(0, 4, 3), Vec(1, -3, 3), Vec(3, 1, 13), Vec(3, 2, 13),
+  };
+  const std::vector<std::vector<Vec>> expected_67deg_primitives = {
+    expected_67deg_straight_primitives,
+    expected_67deg_rotation_1_primitives,
+    expected_67deg_rotation_2_primitives,
+    expected_67deg_rotation_3_primitives,
+  };
 
-  const std::vector<std::vector<std::vector<Vec>>> expected_original_primitives =
-      {
-          expected_0deg_primitives,
-          expected_23deg_primitives,
-          expected_45deg_primitives,
-          expected_67deg_primitives,
-      };
+  const std::vector<std::vector<std::vector<Vec>>> expected_original_primitives = {
+    expected_0deg_primitives,
+    expected_23deg_primitives,
+    expected_45deg_primitives,
+    expected_67deg_primitives,
+  };
 
-  costmap_cspace_msgs::MapMetaData3D map_info;
+  costmap_cspace_msgs::msg::MapMetaData3D map_info;
   map_info.linear_resolution = 0.1f;
   map_info.angular_resolution = static_cast<float>(M_PI / 8);
   map_info.angle = 16;
@@ -264,24 +211,24 @@ TEST(MotionPrimitiveBuilder, Generate)
 
   const int range = 4;
   const std::vector<std::vector<MotionPrimitiveBuilder::Vec>> motion_primitives =
-      MotionPrimitiveBuilder::build(map_info, cc, range);
+    MotionPrimitiveBuilder::build(map_info, cc, range);
 
   EXPECT_EQ(map_info.angle, static_cast<unsigned int>(motion_primitives.size()));
-  for (size_t i = 0; i < motion_primitives.size(); ++i)
-  {
+  for (size_t i = 0; i < motion_primitives.size(); ++i) {
     std::vector<Vec> current_primitives = motion_primitives[i];
     std::sort(current_primitives.begin(), current_primitives.end(), &compareVecs);
-    const auto expected_primitives = buildExpectedPrimitives(expected_original_primitives[i % 4], i / 4);
+    const auto expected_primitives =
+      buildExpectedPrimitives(expected_original_primitives[i % 4], i / 4);
     ASSERT_EQ(expected_primitives.size(), current_primitives.size());
-    for (size_t j = 0; j < current_primitives.size(); ++j)
-    {
-      const Vec& expected_prim = expected_primitives[j];
-      const Vec& actual_prim = current_primitives[j];
+    for (size_t j = 0; j < current_primitives.size(); ++j) {
+      const Vec & expected_prim = expected_primitives[j];
+      const Vec & actual_prim = current_primitives[j];
 
-      EXPECT_EQ(expected_prim, actual_prim)
-          << "Error at " << i << "," << j << "\n"
-          << " Expected: (" << expected_prim[0] << "," << expected_prim[1] << "," << expected_prim[2] << ")\n"
-          << " Actual: (" << actual_prim[0] << "," << actual_prim[1] << "," << actual_prim[2] << ")\n";
+      EXPECT_EQ(expected_prim, actual_prim) << "Error at " << i << "," << j << "\n"
+                                            << " Expected: (" << expected_prim[0] << ","
+                                            << expected_prim[1] << "," << expected_prim[2] << ")\n"
+                                            << " Actual: (" << actual_prim[0] << ","
+                                            << actual_prim[1] << "," << actual_prim[2] << ")\n";
     }
   }
 }
@@ -289,7 +236,7 @@ TEST(MotionPrimitiveBuilder, Generate)
 }  // namespace planner_3d
 }  // namespace planner_cspace
 
-int main(int argc, char** argv)
+int main(int argc, char ** argv)
 {
   testing::InitGoogleTest(&argc, argv);
 

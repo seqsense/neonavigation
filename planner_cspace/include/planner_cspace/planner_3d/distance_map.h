@@ -27,8 +27,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PLANNER_CSPACE_PLANNER_3D_DISTANCE_MAP_H
-#define PLANNER_CSPACE_PLANNER_3D_DISTANCE_MAP_H
+#ifndef PLANNER_CSPACE__PLANNER_3D__DISTANCE_MAP_H_
+#define PLANNER_CSPACE__PLANNER_3D__DISTANCE_MAP_H_
 
 #include <cmath>
 #include <limits>
@@ -36,9 +36,9 @@
 #include <utility>
 #include <vector>
 
-#include <planner_cspace/grid_astar.h>
-#include <planner_cspace/planner_3d/grid_astar_model.h>
-#include <planner_cspace/planner_3d/costmap_bbf.h>
+#include "planner_cspace/grid_astar.h"
+#include "planner_cspace/planner_3d/costmap_bbf.h"
+#include "planner_cspace/planner_3d/grid_astar_model.h"
 
 namespace planner_cspace
 {
@@ -53,9 +53,8 @@ public:
   {
     Astar::Vec min;
     Astar::Vec max;
-    Rect(const Astar::Vec& min, const Astar::Vec& max)
-      : min(min)
-      , max(max)  // NOLINT(build/include_what_you_use)
+    Rect(const Astar::Vec & min, const Astar::Vec & max)
+    : min(min), max(max)  // NOLINT(build/include_what_you_use)
     {
     }
   };
@@ -86,46 +85,28 @@ public:
   };
 
   DistanceMap(
-      const BlockMemGridmapBase<char, 3, 2>& cm_rough,
-      const CostmapBBF::ConstPtr bbf_costmap);
+    const BlockMemGridmapBase<char, 3, 2> & cm_rough, const CostmapBBF::ConstPtr bbf_costmap);
 
-  void setParams(const CostCoeff& cc, const int num_cost_estim_task);
+  void setParams(const CostCoeff & cc, const int num_cost_estim_task);
 
-  void init(const GridAstarModel3D::Ptr model, const Params& p);
+  void init(const GridAstarModel3D::Ptr model, const Params & p);
 
-  void update(
-      const Astar::Vec& s, const Astar::Vec& e,
-      const Rect& rect);
+  void update(const Astar::Vec & s, const Astar::Vec & e, const Rect & rect);
 
-  void create(const Astar::Vec& s, const Astar::Vec& e);
+  void create(const Astar::Vec & s, const Astar::Vec & e);
 
-  inline const Astar::Vec& size() const
-  {
-    return g_.size();
-  }
-  inline float& operator[](const Astar::Vec& pos)
-  {
-    return g_.operator[](pos);
-  }
-  inline const float operator[](const Astar::Vec& pos) const
-  {
-    return g_.operator[](pos);
-  }
-  inline const Astar::Gridmap<float>& gridmap() const
-  {
-    return g_;
-  }
-  inline const DebugData& getDebugData() const
-  {
-    return debug_data_;
-  }
+  inline const Astar::Vec & size() const { return g_.size(); }
+  inline float & operator[](const Astar::Vec & pos) { return g_.operator[](pos); }
+  inline float operator[](const Astar::Vec & pos) const { return g_.operator[](pos); }
+  inline const Astar::Gridmap<float> & gridmap() const { return g_; }
+  inline const DebugData & getDebugData() const { return debug_data_; }
 
 protected:
   Astar::Gridmap<float> g_;
   Params p_;
   CostCoeff cc_;
   int num_cost_estim_task_;
-  const BlockMemGridmapBase<char, 3, 2>& cm_rough_;
+  const BlockMemGridmapBase<char, 3, 2> & cm_rough_;
   const CostmapBBF::ConstPtr bbf_costmap_;
 
   std::vector<SearchDiffs> search_diffs_;
@@ -138,10 +119,9 @@ protected:
   Astar::Vec goal_;
 
   void fillCostmap(
-      reservable_priority_queue<Astar::PriorityVec>& open,
-      const Astar::Vec& s_rough);
+    reservable_priority_queue<Astar::PriorityVec> & open, const Astar::Vec & s_rough);
 };
 }  // namespace planner_3d
 }  // namespace planner_cspace
 
-#endif  // PLANNER_CSPACE_PLANNER_3D_DISTANCE_MAP_H
+#endif  // PLANNER_CSPACE__PLANNER_3D__DISTANCE_MAP_H_

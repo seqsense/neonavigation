@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<package format="2">
+<package format="3">
   <name>neonavigation_common</name>
   <version>0.18.3</version>
   <description>Common headers for neonavigation meta-package</description>
@@ -8,11 +8,21 @@
   <license>BSD</license>
   <author email="atsushi.w@ieee.org">Atsushi Watanabe</author>
 
-  <buildtool_depend>catkin</buildtool_depend>
+  <buildtool_depend condition="$ROS_VERSION == 1">catkin</buildtool_depend>
+  <buildtool_depend condition="$ROS_VERSION == 2">ament_cmake</buildtool_depend>
 
-  <depend>roscpp</depend>
-  <test_depend>roslint</test_depend>
-  <test_depend>rostest</test_depend>
-  <test_depend>std_srvs</test_depend>
-  <test_depend>std_msgs</test_depend>
+  <depend condition="$ROS_VERSION == 1">roscpp</depend>
+
+  <test_depend condition="$ROS_VERSION == 1">rostest</test_depend>
+  <test_depend condition="$ROS_VERSION == 1">std_srvs</test_depend>
+  <test_depend condition="$ROS_VERSION == 1">std_msgs</test_depend>
+
+  <test_depend condition="$ROS_VERSION == 2">ament_lint_auto</test_depend>
+  <test_depend condition="$ROS_VERSION == 2">ament_lint_common</test_depend>
+  <test_depend condition="$ROS_VERSION == 2">ament_cmake_clang_format</test_depend>
+
+  <export>
+    <build_type condition="$ROS_VERSION == 1">catkin</build_type>
+    <build_type condition="$ROS_VERSION == 2">ament_cmake</build_type>
+  </export>
 </package>

@@ -27,17 +27,17 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PLANNER_CSPACE_PLANNER_3D_START_POSE_PREDICTOR_H
-#define PLANNER_CSPACE_PLANNER_3D_START_POSE_PREDICTOR_H
+#ifndef PLANNER_CSPACE__PLANNER_3D__START_POSE_PREDICTOR_H_
+#define PLANNER_CSPACE__PLANNER_3D__START_POSE_PREDICTOR_H_
 
 #include <vector>
 
-#include <nav_msgs/Path.h>
-
-#include <costmap_cspace_msgs/CSpace3D.h>
-#include <planner_cspace/grid_astar.h>
-#include <planner_cspace/planner_3d/grid_metric_converter.h>
-#include <trajectory_tracker/path2d.h>
+#include "costmap_cspace_msgs/msg/c_space3_d.hpp"
+#include "nav_msgs/msg/path.hpp"
+#include "planner_cspace/grid_astar.h"
+#include "planner_cspace/planner_3d/grid_metric_converter.h"
+#include "rclcpp/rclcpp.hpp"
+#include "trajectory_tracker/path2d.h"
 
 namespace planner_cspace
 {
@@ -57,49 +57,46 @@ public:
     double lin_vel_;
     double ang_vel_;
   };
-  void setConfig(const Config& config)
+  void setConfig(const Config & config)
   {
     config_ = config;
     clear();
   }
-  bool process(const geometry_msgs::Pose& robot_pose,
-               const GridAstar<3, 2>::Gridmap<char, 0x40>& cm,
-               const costmap_cspace_msgs::MapMetaData3D& map_info,
-               const nav_msgs::Path& previous_path_msg,
-               Astar::Vec& result_start_grid);
+  void setLogger(const rclcpp::Logger & logger) { logger_ = logger; }
+  bool process(
+    const geometry_msgs::msg::Pose & robot_pose, const GridAstar<3, 2>::Gridmap<char, 0x40> & cm,
+    const costmap_cspace_msgs::msg::MapMetaData3D & map_info,
+    const nav_msgs::msg::Path & previous_path_msg, Astar::Vec & result_start_grid);
   void clear();
-  const nav_msgs::Path& getPreservedPath() const
-  {
-    return preserved_path_;
-  }
-  const double getPreservedPathLength() const
-  {
-    return preserved_path_length_;
-  }
+  const nav_msgs::msg::Path & getPreservedPath() const { return preserved_path_; }
+  double getPreservedPathLength() const { return preserved_path_length_; }
 
 private:
-  bool removeAlreadyPassed(const geometry_msgs::Pose& robot_pose);
+  bool removeAlreadyPassed(const geometry_msgs::msg::Pose & robot_pose);
   double getInitialETA(
-      const geometry_msgs::Pose& robot_pose, const trajectory_tracker::Pose2D& initial_path_pose) const;
-  bool buildResults(const trajectory_tracker::Path2D::ConstIterator& expected_start_pose_it,
-                    const geometry_msgs::Pose& start_metric,
-                    const GridAstar<3, 2>::Gridmap<char, 0x40>& cm,
-                    Astar::Vec& start_grid);
-  bool isGridCenter(const trajectory_tracker::Pose2D& pose) const;
-  bool isPathColliding(const trajectory_tracker::Path2D::ConstIterator& begin,
-                       const trajectory_tracker::Path2D::ConstIterator& end,
-                       const GridAstar<3, 2>::Gridmap<char, 0x40>& cm);
-  trajectory_tracker::Path2D::ConstIterator getSwitchBack(const std::vector<double>& etas) const;
-  trajectory_tracker::Path2D::ConstIterator getExpectedPose(const std::vector<double>& etas) const;
+    const geometry_msgs::msg::Pose & robot_pose,
+    const trajectory_tracker::Pose2D & initial_path_pose) const;
+  bool buildResults(
+    const trajectory_tracker::Path2D::ConstIterator & expected_start_pose_it,
+    const geometry_msgs::msg::Pose & start_metric, const GridAstar<3, 2>::Gridmap<char, 0x40> & cm,
+    Astar::Vec & start_grid);
+  bool isGridCenter(const trajectory_tracker::Pose2D & pose) const;
+  bool isPathColliding(
+    const trajectory_tracker::Path2D::ConstIterator & begin,
+    const trajectory_tracker::Path2D::ConstIterator & end,
+    const GridAstar<3, 2>::Gridmap<char, 0x40> & cm);
+  trajectory_tracker::Path2D::ConstIterator getSwitchBack(const std::vector<double> & etas) const;
+  trajectory_tracker::Path2D::ConstIterator getExpectedPose(const std::vector<double> & etas) const;
 
   Config config_;
-  costmap_cspace_msgs::MapMetaData3D map_info_;
+  costmap_cspace_msgs::msg::MapMetaData3D map_info_;
   trajectory_tracker::Path2D previous_path_2d_;
-  nav_msgs::Path preserved_path_;
+  nav_msgs::msg::Path preserved_path_;
   double preserved_path_length_ = 0.0;
+  rclcpp::Logger logger_ = rclcpp::get_logger("planner_cspace");
 };
 
 }  // namespace planner_3d
 }  // namespace planner_cspace
 
-#endif  // PLANNER_CSPACE_PLANNER_3D_START_POSE_PREDICTOR_H
+#endif  // PLANNER_CSPACE__PLANNER_3D__START_POSE_PREDICTOR_H_

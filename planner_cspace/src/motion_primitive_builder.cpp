@@ -27,41 +27,37 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <planner_cspace/planner_3d/motion_primitive_builder.h>
+#include "planner_cspace/planner_3d/motion_primitive_builder.h"
 
 #include <utility>
 #include <vector>
 
-#include <costmap_cspace_msgs/MapMetaData3D.h>
-#include <planner_cspace/cyclic_vec.h>
-#include <planner_cspace/planner_3d/grid_astar_model.h>
-#include <planner_cspace/planner_3d/rotation_cache.h>
+#include "costmap_cspace_msgs/msg/map_meta_data3_d.hpp"
+#include "planner_cspace/cyclic_vec.h"
+#include "planner_cspace/planner_3d/grid_astar_model.h"
+#include "planner_cspace/planner_3d/rotation_cache.h"
 
 namespace planner_cspace
 {
 namespace planner_3d
 {
 std::vector<std::vector<MotionPrimitiveBuilder::Vec>> MotionPrimitiveBuilder::build(
-    const costmap_cspace_msgs::MapMetaData3D& map_info, const CostCoeff& cc, const int range)
+  const costmap_cspace_msgs::msg::MapMetaData3D & map_info, const CostCoeff & cc, const int range)
 {
   RotationCache rot_cache;
   rot_cache.reset(map_info.linear_resolution, map_info.angular_resolution, range);
-  Vecf resolution_(1.0f / map_info.linear_resolution,
-                   1.0f / map_info.linear_resolution,
-                   1.0f / map_info.angular_resolution);
+  Vecf resolution_(
+    1.0f / map_info.linear_resolution, 1.0f / map_info.linear_resolution,
+    1.0f / map_info.angular_resolution);
 
   std::vector<std::vector<Vec>> motion_primitives;
   std::vector<Vec> search_list;
   {
     Vec d;
-    for (d[0] = -range; d[0] <= range; d[0]++)
-    {
-      for (d[1] = -range; d[1] <= range; d[1]++)
-      {
-        if (d.sqlen() > range * range)
-          continue;
-        for (d[2] = 0; d[2] < static_cast<int>(map_info.angle); d[2]++)
-        {
+    for (d[0] = -range; d[0] <= range; d[0]++) {
+      for (d[1] = -range; d[1] <= range; d[1]++) {
+        if (d.sqlen() > range * range) continue;
+        for (d[2] = 0; d[2] < static_cast<int>(map_info.angle); d[2]++) {
           search_list.push_back(d);
         }
       }
@@ -69,15 +65,11 @@ std::vector<std::vector<MotionPrimitiveBuilder::Vec>> MotionPrimitiveBuilder::bu
   }
 
   motion_primitives.resize(map_info.angle);
-  for (int i = 0; i < static_cast<int>(motion_primitives.size()); ++i)
-  {
-    auto& current_primitives = motion_primitives[i];
-    for (const auto& prim : search_list)
-    {
-      if (prim[0] == 0 && prim[1] == 0)
-      {
-        if (prim[2] == 0)
-        {
+  for (int i = 0; i < static_cast<int>(motion_primitives.size()); ++i) {
+    auto & current_primitives = motion_primitives[i];
+    for (const auto & prim : search_list) {
+      if (prim[0] == 0 && prim[1] == 0) {
+        if (prim[2] == 0) {
           continue;
         }
         // Rotation
@@ -85,71 +77,58 @@ std::vector<std::vector<MotionPrimitiveBuilder::Vec>> MotionPrimitiveBuilder::bu
         continue;
       }
       int next_angle = i + prim[2];
-      if (next_angle >= static_cast<int>(map_info.angle))
-      {
+      if (next_angle >= static_cast<int>(map_info.angle)) {
         next_angle -= map_info.angle;
       }
       const Vec d2(prim[0] + range, prim[1] + range, next_angle);
       const Vecf motion = rot_cache.getMotion(i, d2);
       const Vecf motion_grid = motion * resolution_;
 
-      if (std::lround(motion_grid[0]) == 0 && std::lround(motion_grid[1]) != 0)
-      {
+      if (std::lround(motion_grid[0]) == 0 && std::lround(motion_grid[1]) != 0) {
         // Not non-holonomic
         continue;
       }
 
       static constexpr float EPS = 1.0e-6f;
-      if (std::abs(motion[2]) >= 2.0 * M_PI / 4.0 - EPS)
-      {
+      if (std::abs(motion[2]) >= 2.0 * M_PI / 4.0 - EPS) {
         // Over 90 degree turn
         // must be separated into two curves
         continue;
       }
 
-      if (prim[2] == 0)
-      {
+      if (prim[2] == 0) {
         // Straight
-        if (std::lround(motion_grid[0]) == 0)
-        {
+        if (std::lround(motion_grid[0]) == 0) {
           // side slip
           continue;
         }
         const float aspect = motion[0] / motion[1];
-        if (std::abs(aspect) < cc.angle_resolution_aspect_)
-        {
+        if (std::abs(aspect) < cc.angle_resolution_aspect_) {
           // large y offset
           continue;
         }
         current_primitives.push_back(prim);
-      }
-      else
-      {
+      } else {
         // Curve
-        if (std::abs(motion[1]) < map_info.linear_resolution / 2.0)
-        {
+        if (std::abs(motion[1]) < map_info.linear_resolution / 2.0) {
           // No y direction movement
           continue;
         }
-        if (motion[0] * motion[1] * motion[2] < 0)
-        {
+        if (motion[0] * motion[1] * motion[2] < 0) {
           continue;
         }
-        if (prim.sqlen() < 3 * 3)
-        {
+        if (prim.sqlen() < 3 * 3) {
           continue;
         }
-        const std::pair<float, float>& radiuses = rot_cache.getRadiuses(i, d2);
+        const std::pair<float, float> & radiuses = rot_cache.getRadiuses(i, d2);
         const float r1 = radiuses.first;
         const float r2 = radiuses.second;
-        if (std::abs(r1 - r2) >= map_info.linear_resolution * 1.5)
-        {
+        if (std::abs(r1 - r2) >= map_info.linear_resolution * 1.5) {
           // Drifted
           continue;
         }
         const float curv_radius = (r1 + r2) / 2;
-        if (std::abs(curv_radius) < cc.min_curve_radius_)
-        {
+        if (std::abs(curv_radius) < cc.min_curve_radius_) {
           continue;
         }
         current_primitives.push_back(prim);

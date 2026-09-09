@@ -30,49 +30,42 @@
 #ifndef PLANNER_CSPACE_ACTION_TEST_BASE_H
 #define PLANNER_CSPACE_ACTION_TEST_BASE_H
 
-#include <memory>
-#include <string>
-
-#include <gtest/gtest.h>
-
-#include <ros/ros.h>
-
 #include <actionlib/client/simple_action_client.h>
+#include <gtest/gtest.h>
 #include <move_base_msgs/MoveBaseAction.h>
 #include <nav_msgs/GetPlan.h>
 #include <planner_cspace_msgs/PlannerStatus.h>
+#include <ros/ros.h>
 #include <tf2/utils.h>
 #include <tf2_ros/transform_listener.h>
+
+#include <memory>
+#include <string>
 
 constexpr const char ACTION_TOPIC_MOVE_BASE[] = "/move_base";
 constexpr const char ACTION_TOPIC_TOLERANT_MOVE[] = "/tolerant_move";
 
-template <typename ACTION, char const* TOPIC>
+template <typename ACTION, char const * TOPIC>
 class ActionTestBase : public ::testing::Test
 {
 public:
-  ActionTestBase()
-    : tfl_(tfbuf_)
-    , map_ready_(false)
+  ActionTestBase() : tfl_(tfbuf_), map_ready_(false)
   {
     move_base_ = std::make_shared<ActionClient>(TOPIC);
-    sub_status_ = node_.subscribe(
-        "/planner_3d/status", 10, &ActionTestBase::cbStatus, this);
+    sub_status_ = node_.subscribe("/planner_3d/status", 10, &ActionTestBase::cbStatus, this);
   }
   void SetUp()
   {
-    if (!move_base_->waitForServer(ros::Duration(30.0)))
-    {
+    if (!move_base_->waitForServer(ros::Duration(30.0))) {
       FAIL() << "Failed to connect move_base action";
     }
 
     ros::ServiceClient srv_plan =
-        node_.serviceClient<nav_msgs::GetPlanRequest, nav_msgs::GetPlanResponse>(
-            "/planner_3d/make_plan");
+      node_.serviceClient<nav_msgs::GetPlanRequest, nav_msgs::GetPlanResponse>(
+        "/planner_3d/make_plan");
 
     const ros::Time deadline = ros::Time::now() + ros::Duration(10.0);
-    while (ros::ok())
-    {
+    while (ros::ok()) {
       nav_msgs::GetPlanRequest req;
       nav_msgs::GetPlanResponse res;
       req.tolerance = 10.0;
@@ -84,36 +77,28 @@ public:
       req.goal.pose.position.x = 1.25;
       req.goal.pose.position.y = 0.75;
       req.goal.pose.orientation.w = 1;
-      if (srv_plan.call(req, res))
-      {
+      if (srv_plan.call(req, res)) {
         // Planner is ready.
         break;
       }
-      if (ros::Time::now() > deadline)
-      {
+      if (ros::Time::now() > deadline) {
         FAIL() << "planner_3d didn't receive map";
       }
       ros::Duration(1).sleep();
       ros::spinOnce();
     }
   }
-  ~ActionTestBase()
-  {
-  }
+  ~ActionTestBase() {}
 
 protected:
   using ActionClient = actionlib::SimpleActionClient<ACTION>;
   using ActionClientPtr = std::shared_ptr<ActionClient>;
 
-  void cbStatus(const planner_cspace_msgs::PlannerStatus::ConstPtr& msg)
-  {
-    planner_status_ = msg;
-  }
+  void cbStatus(const planner_cspace_msgs::PlannerStatus::ConstPtr & msg) { planner_status_ = msg; }
 
   std::string statusString() const
   {
-    if (!planner_status_)
-    {
+    if (!planner_status_) {
       return "(no status)";
     }
     return "(status: " + std::to_string(planner_status_->status) +

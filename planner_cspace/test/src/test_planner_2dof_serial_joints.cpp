@@ -27,12 +27,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <ros/ros.h>
+#include <gtest/gtest.h>
 #include <planner_cspace_msgs/PlannerStatus.h>
+#include <ros/ros.h>
 #include <sensor_msgs/JointState.h>
 #include <trajectory_msgs/JointTrajectory.h>
-
-#include <gtest/gtest.h>
 
 TEST(Planner2DOFSerialJoints, Plan)
 {
@@ -41,19 +40,18 @@ TEST(Planner2DOFSerialJoints, Plan)
   ros::Publisher pub_cmd = nh.advertise<trajectory_msgs::JointTrajectory>("trajectory_in", 1, true);
 
   trajectory_msgs::JointTrajectory::ConstPtr planned;
-  const auto cb_plan = [&planned](const trajectory_msgs::JointTrajectory::ConstPtr& msg)
-  {
+  const auto cb_plan = [&planned](const trajectory_msgs::JointTrajectory::ConstPtr & msg) {
     planned = msg;
   };
-  ros::Subscriber sub_plan = nh.subscribe<trajectory_msgs::JointTrajectory>("joint_trajectory", 1, cb_plan);
+  ros::Subscriber sub_plan =
+    nh.subscribe<trajectory_msgs::JointTrajectory>("joint_trajectory", 1, cb_plan);
 
   planner_cspace_msgs::PlannerStatus::ConstPtr status;
-  const auto cb_status = [&status](const planner_cspace_msgs::PlannerStatus::ConstPtr& msg)
-  {
+  const auto cb_status = [&status](const planner_cspace_msgs::PlannerStatus::ConstPtr & msg) {
     status = msg;
   };
   ros::Subscriber sub_status = nh.subscribe<planner_cspace_msgs::PlannerStatus>(
-      "/planner_2dof_serial_joints/group0/status", 1, cb_status);
+    "/planner_2dof_serial_joints/group0/status", 1, cb_status);
 
   sensor_msgs::JointState s;
   s.name.push_back("front");
@@ -72,10 +70,8 @@ TEST(Planner2DOFSerialJoints, Plan)
   ros::Rate rate(1);
   const ros::Time deadline = ros::Time::now() + ros::Duration(10);
   int cnt = 0;
-  while (ros::ok())
-  {
-    if (ros::Time::now() > deadline)
-    {
+  while (ros::ok()) {
+    if (ros::Time::now() > deadline) {
       FAIL() << "Timeout";
     }
 
@@ -84,11 +80,9 @@ TEST(Planner2DOFSerialJoints, Plan)
 
     ros::spinOnce();
     rate.sleep();
-    if (planned && status)
-    {
+    if (planned && status) {
       cnt++;
-      if (cnt > 5)
-      {
+      if (cnt > 5) {
         break;
       }
     }
@@ -105,10 +99,9 @@ TEST(Planner2DOFSerialJoints, Plan)
   // collision at front=-3.14, rear=0.0 must be avoided.
   const float fc = -3.14;
   const float rc = 0.0;
-  for (int i = 1; i < static_cast<int>(planned->points.size()); ++i)
-  {
-    const trajectory_msgs::JointTrajectoryPoint& p0 = planned->points[i - 1];
-    const trajectory_msgs::JointTrajectoryPoint& p1 = planned->points[i];
+  for (int i = 1; i < static_cast<int>(planned->points.size()); ++i) {
+    const trajectory_msgs::JointTrajectoryPoint & p0 = planned->points[i - 1];
+    const trajectory_msgs::JointTrajectoryPoint & p1 = planned->points[i];
     ASSERT_EQ(2u, p0.positions.size());
     ASSERT_EQ(2u, p1.positions.size());
 
@@ -129,13 +122,8 @@ TEST(Planner2DOFSerialJoints, Plan)
     const float front_diff = f1 - f0;
     const float rear_diff = r1 - r0;
 
-    const float d =
-        std::abs(
-            rear_diff * fc -
-            front_diff * rc +
-            f1 * r0 -
-            r1 * f0) /
-        std::hypot(front_diff, rear_diff);
+    const float d = std::abs(rear_diff * fc - front_diff * rc + f1 * r0 - r1 * f0) /
+                    std::hypot(front_diff, rear_diff);
     // std::cerr << d << std::endl;
     ASSERT_GT(d, 0.15);
 
@@ -151,12 +139,11 @@ TEST(Planner2DOFSerialJoints, NoPath)
   ros::Publisher pub_cmd = nh.advertise<trajectory_msgs::JointTrajectory>("trajectory_in", 1, true);
 
   planner_cspace_msgs::PlannerStatus::ConstPtr status;
-  const auto cb_status = [&status](const planner_cspace_msgs::PlannerStatus::ConstPtr& msg)
-  {
+  const auto cb_status = [&status](const planner_cspace_msgs::PlannerStatus::ConstPtr & msg) {
     status = msg;
   };
   ros::Subscriber sub_status = nh.subscribe<planner_cspace_msgs::PlannerStatus>(
-      "/planner_2dof_serial_joints/group0/status", 1, cb_status);
+    "/planner_2dof_serial_joints/group0/status", 1, cb_status);
 
   sensor_msgs::JointState s;
   s.name.push_back("front");
@@ -175,10 +162,8 @@ TEST(Planner2DOFSerialJoints, NoPath)
   ros::Rate rate(1);
   const ros::Time deadline = ros::Time::now() + ros::Duration(10);
   int cnt = 0;
-  while (ros::ok())
-  {
-    if (ros::Time::now() > deadline)
-    {
+  while (ros::ok()) {
+    if (ros::Time::now() > deadline) {
       FAIL() << "Timeout";
     }
 
@@ -187,11 +172,9 @@ TEST(Planner2DOFSerialJoints, NoPath)
 
     ros::spinOnce();
     rate.sleep();
-    if (status)
-    {
+    if (status) {
       cnt++;
-      if (cnt > 5)
-      {
+      if (cnt > 5) {
         break;
       }
     }
@@ -202,7 +185,7 @@ TEST(Planner2DOFSerialJoints, NoPath)
   ASSERT_EQ(planner_cspace_msgs::PlannerStatus::PATH_NOT_FOUND, status->error);
 }
 
-int main(int argc, char** argv)
+int main(int argc, char ** argv)
 {
   testing::InitGoogleTest(&argc, argv);
   ros::init(argc, argv, "test_planner_2dof_serial_joints");
