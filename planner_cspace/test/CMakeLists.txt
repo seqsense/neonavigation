@@ -16,6 +16,14 @@ target_compile_definitions(planner_3d_debug PUBLIC DEBUG)
 target_link_libraries(planner_3d_debug ${catkin_LIBRARIES} ${OpenMP_CXX_FLAGS})
 add_dependencies(planner_3d_debug ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg)
 
+# Deterministic ports of the navigation scenarios: they step Planner3dCore
+# directly, so no nodes, no roscore and no simulated clock are involved. The
+# sources are shared with the ROS 2 build (see ../CMakeLists.txt).
+catkin_add_gtest(test_${PROJECT_NAME}_scenarios src/test_planner_scenarios.cpp)
+target_link_libraries(test_${PROJECT_NAME}_scenarios
+  -Wl,--no-as-needed planner_3d_core ${catkin_LIBRARIES} ${OpenMP_CXX_FLAGS})
+add_dependencies(test_${PROJECT_NAME}_scenarios planner_3d_core)
+
 catkin_add_gtest(test_blockmem_gridmap src/test_blockmem_gridmap.cpp)
 target_link_libraries(test_blockmem_gridmap ${catkin_LIBRARIES})
 

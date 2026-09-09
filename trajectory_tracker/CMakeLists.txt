@@ -101,10 +101,18 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
   if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND NOT CMAKE_CXX_COMPILER_VERSION VERSION_LESS 15)
     # GCC 15 crashes (ICE, "during GIMPLE pass: strlen") while instantiating
     # rclcpp/service.hpp with coverage instrumentation, which is how CI builds.
-    # It hits whichever translation unit happens to instantiate it, so every
-    # package carries this; suppressing the pass' warnings is not enough,
-    # the pass itself has to go.
-    add_compile_options(-fno-optimize-strlen)
+    # It lands on whichever translation unit instantiates it, and only sometimes,
+    # so every package carries this guard. -fno-optimize-strlen is not enough:
+    # the pass still runs to emit its printf diagnostics, which is where it dies.
+    # The pass names are GCC internals, hence the flag check.
+    include(CheckCXXCompilerFlag)
+    check_cxx_compiler_flag(-fdisable-tree-strlen1 HAS_DISABLE_TREE_STRLEN1)
+    check_cxx_compiler_flag(-fdisable-tree-strlen2 HAS_DISABLE_TREE_STRLEN2)
+    if(HAS_DISABLE_TREE_STRLEN1 AND HAS_DISABLE_TREE_STRLEN2)
+      add_compile_options(-fdisable-tree-strlen1 -fdisable-tree-strlen2)
+    else()
+      add_compile_options(-fno-optimize-strlen)
+    endif()
   endif()
 
   find_package(Eigen3 REQUIRED)
@@ -172,6 +180,13 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
 
     ament_auto_add_executable(ros2_time_source test/src/ros2_time_source.cpp)
 
+    # Deterministic ports of the tracker scenarios: they drive TrackerController
+    # directly, so they need no node, no DDS and no simulated clock. Shared with
+    # the ROS 1 build (see test/CMakeLists.txt).
+    ament_add_gtest(test_${PROJECT_NAME}_scenarios test/src/test_tracker_scenarios.cpp)
+    target_include_directories(test_${PROJECT_NAME}_scenarios PRIVATE include test/include)
+    target_link_libraries(test_${PROJECT_NAME}_scenarios trajectory_tracker_controller)
+
     ament_auto_add_executable(ros2_test_trajectory_tracker
       test/src/ros2_test_trajectory_tracker.cpp)
     target_link_libraries(ros2_test_trajectory_tracker ${GTEST_LIBRARIES})
@@ -184,32 +199,57 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
       test/src/ros2_test_trajectory_tracker_overshoot.cpp)
     target_link_libraries(ros2_test_trajectory_tracker_overshoot ${GTEST_LIBRARIES})
 
+    ament_auto_add_executable(ros2_test_trajectory_recorder
+      test/src/ros2_test_trajectory_recorder.cpp)
+    target_link_libraries(ros2_test_trajectory_recorder ${GTEST_LIBRARIES})
+
     install(DIRECTORY test/configs
       DESTINATION share/${PROJECT_NAME}/test/)
 
-    # Main tracker tests: use_sim_time with an accelerated /clock from
-    # ros2_time_source. Three variants mirror the ROS 1 rostest matrix.
-    add_launch_test(test/test/test_trajectory_tracker_launch.py
+    # The control law is covered by test_trajectory_tracker_scenarios, which
+    # needs no node at all. What runs here has to run as a node: that the
+    # interface layer publishes and subscribes what the scenarios assume, once
+    # per parameter combination, and that the node's own timers behave - the
+    # control rate and the odometry timeout. Each of these drives a single
+    # short path rather than the whole scenario set.
+    #
+    # Each launch test gets a private DDS domain and local-only discovery. ctest
+    # runs them one at a time, but a node from the previous test can still be on
+    # its way out, and nothing should be able to join from the host either.
+    set(_launch_test_domain 91)
+    macro(tracker_add_launch_test path)
+      add_launch_test(${path} ${ARGN}
+        ENV
+          "ROS_DOMAIN_ID=${_launch_test_domain}"
+          "ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST")
+      math(EXPR _launch_test_domain "${_launch_test_domain} + 1")
+    endmacro()
+
+    tracker_add_launch_test(test/test/test_trajectory_tracker_launch.py
       TARGET test_trajectory_tracker
       ARGS "use_sim_time:=true"
       TIMEOUT 120)
-    add_launch_test(test/test/test_trajectory_tracker_launch.py
+    tracker_add_launch_test(test/test/test_trajectory_tracker_launch.py
       TARGET test_trajectory_tracker_with_odom_delay
       ARGS "use_sim_time:=true" "odom_delay:=0.04" "use_odom:=true" "use_time_optimal_control:=true"
       TIMEOUT 120)
-    add_launch_test(test/test/test_trajectory_tracker_launch.py
+    tracker_add_launch_test(test/test/test_trajectory_tracker_launch.py
       TARGET test_trajectory_tracker_without_time_optimal_control
       ARGS "use_sim_time:=true" "odom_delay:=0.04" "use_odom:=true" "use_time_optimal_control:=false"
       TIMEOUT 120)
-
-    # Overshoot and with_odom tests run in wall-clock time (no /clock source).
-    add_launch_test(test/test/test_trajectory_tracker_realtime_launch.py
+    tracker_add_launch_test(test/test/test_trajectory_tracker_realtime_launch.py
+      TARGET test_trajectory_tracker_with_odom
+      ARGS "test_executable:=ros2_test_trajectory_tracker_with_odom"
+      TIMEOUT 120)
+    # Two cases only: what is left to prove here is that a parameter changed at
+    # runtime reaches the controller (see the test source).
+    tracker_add_launch_test(test/test/test_trajectory_tracker_realtime_launch.py
       TARGET test_trajectory_tracker_overshoot
       ARGS "test_executable:=ros2_test_trajectory_tracker_overshoot"
       TIMEOUT 120)
-    add_launch_test(test/test/test_trajectory_tracker_realtime_launch.py
-      TARGET test_trajectory_tracker_with_odom
-      ARGS "test_executable:=ros2_test_trajectory_tracker_with_odom"
+
+    tracker_add_launch_test(test/test/test_trajectory_recorder_launch.py
+      TARGET test_trajectory_recorder
       TIMEOUT 120)
   endif()
 

@@ -149,10 +149,18 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
   if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND NOT CMAKE_CXX_COMPILER_VERSION VERSION_LESS 15)
     # GCC 15 crashes (ICE, "during GIMPLE pass: strlen") while instantiating
     # rclcpp/service.hpp with coverage instrumentation, which is how CI builds.
-    # It hits whichever translation unit happens to instantiate it, so every
-    # package carries this; suppressing the pass' warnings is not enough,
-    # the pass itself has to go.
-    add_compile_options(-fno-optimize-strlen)
+    # It lands on whichever translation unit instantiates it, and only sometimes,
+    # so every package carries this guard. -fno-optimize-strlen is not enough:
+    # the pass still runs to emit its printf diagnostics, which is where it dies.
+    # The pass names are GCC internals, hence the flag check.
+    include(CheckCXXCompilerFlag)
+    check_cxx_compiler_flag(-fdisable-tree-strlen1 HAS_DISABLE_TREE_STRLEN1)
+    check_cxx_compiler_flag(-fdisable-tree-strlen2 HAS_DISABLE_TREE_STRLEN2)
+    if(HAS_DISABLE_TREE_STRLEN1 AND HAS_DISABLE_TREE_STRLEN2)
+      add_compile_options(-fdisable-tree-strlen1 -fdisable-tree-strlen2)
+    else()
+      add_compile_options(-fno-optimize-strlen)
+    endif()
   endif()
   # ament_auto does not take care of OpenMP, so request it explicitly.
   find_package(OpenMP REQUIRED)
@@ -303,6 +311,14 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
     target_include_directories(test_${PROJECT_NAME}_motion_primitive_builder PRIVATE include)
     target_link_libraries(test_${PROJECT_NAME}_motion_primitive_builder planner_3d_core)
 
+    # Deterministic ports of the navigation scenarios: they step Planner3dCore
+    # directly, so no nodes, no DDS and no simulated clock are involved. Shared
+    # with the ROS 1 build (see test/CMakeLists.txt).
+    ament_add_gtest(test_${PROJECT_NAME}_scenarios test/src/test_planner_scenarios.cpp
+      TIMEOUT 300)
+    target_include_directories(test_${PROJECT_NAME}_scenarios PRIVATE include test/include)
+    target_link_libraries(test_${PROJECT_NAME}_scenarios planner_3d_core ${OpenMP_CXX_FLAGS})
+
     ament_add_gtest(test_${PROJECT_NAME}_start_pose_predictor
       test/src/test_start_pose_predictor.cpp)
     target_include_directories(test_${PROJECT_NAME}_start_pose_predictor PRIVATE include)
@@ -423,22 +439,30 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
       TARGET test_dynamic_parameter_change
       TIMEOUT 360)
 
-    # Same matrix the ROS 1 CMakeLists registered with add_rostest.
+    # Integration tests: the whole graph - map server, costmap, planner, dummy
+    # robot and tracker - driving over a short route, once per parameter
+    # combination. What the robot does over a long route, and how the planner
+    # recovers from obstacles, is covered by test_planner_cspace_scenarios;
+    # these prove that the nodes are wired together and that each parameter
+    # combination still brings a robot to a goal.
     add_launch_test(test_ros2/test/test_navigate_launch.py
       TARGET test_navigate
-      TIMEOUT 700)
+      TIMEOUT 180)
     add_launch_test(test_ros2/test/test_navigate_launch.py
       TARGET test_navigate_antialias_start
       ARGS "antialias_start:=true"
-      TIMEOUT 700)
+      TIMEOUT 180)
     add_launch_test(test_ros2/test/test_navigate_launch.py
       TARGET test_navigate_antialias_start_fast_map_update
       ARGS "antialias_start:=true" "fast_map_update:=true"
-      TIMEOUT 700)
+      TIMEOUT 180)
     add_launch_test(test_ros2/test/test_navigate_launch.py
       TARGET test_navigate_with_tolerance
       ARGS "with_tolerance:=true"
-      TIMEOUT 700)
+      TIMEOUT 180)
+    # The crowd-mode run also exercises the escape cases, which drive the robot
+    # across the map and cannot be shortened without changing what they are
+    # about; the deterministic scenarios cover the escapes themselves.
     add_launch_test(test_ros2/test/test_navigate_launch.py
       TARGET test_navigate_enable_crowd_mode
       ARGS "enable_crowd_mode:=true"

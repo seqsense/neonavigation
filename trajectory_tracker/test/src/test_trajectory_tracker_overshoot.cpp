@@ -33,6 +33,13 @@
 
 #include <vector>
 
+// What the goal_tolerance_lin_vel / goal_tolerance_ang_vel combinations do to
+// the control law is covered by test_trajectory_tracker_scenarios, which needs
+// no node. What only a running node can show is that a parameter changed at
+// runtime actually reaches the controller, so the two cases left here are the
+// same run with and without a linear velocity tolerance: without it the tracker
+// reports GOAL, with it FOLLOWING. If the parameter update were dropped, both
+// would report GOAL.
 class TrajectoryTrackerOvershootTest : public TrajectoryTrackerTest
 {
 protected:
@@ -94,34 +101,10 @@ TEST_F(TrajectoryTrackerOvershootTest, NoVelocityToleranceWithRemainingLinearVel
   runTest(0.0, 0.0, 0.1, 0.0, trajectory_tracker_msgs::TrajectoryTrackerStatus::GOAL);
 }
 
-TEST_F(TrajectoryTrackerOvershootTest, NoVelocityToleranceWithRemainingAngularVel)
-{
-  SCOPED_TRACE("NoVelocityToleranceWithRemainingAngularVel");
-  runTest(0.0, 0.0, 0.0, 0.1, trajectory_tracker_msgs::TrajectoryTrackerStatus::GOAL);
-}
-
 TEST_F(TrajectoryTrackerOvershootTest, LinearVelocityToleranceWithRemainingLinearVel)
 {
   SCOPED_TRACE("LinearVelocityToleranceWithRemainingLinearVel");
   runTest(0.05, 0.0, 0.1, 0.0, trajectory_tracker_msgs::TrajectoryTrackerStatus::FOLLOWING);
-}
-
-TEST_F(TrajectoryTrackerOvershootTest, LinearVelocityToleranceWithRemainingAngularVel)
-{
-  SCOPED_TRACE("LinearVelocityToleranceWithRemainingAngularVel");
-  runTest(0.05, 0.0, 0.0, 0.1, trajectory_tracker_msgs::TrajectoryTrackerStatus::GOAL);
-}
-
-TEST_F(TrajectoryTrackerOvershootTest, AngularrVelocityToleranceWithRemainingLinearVel)
-{
-  SCOPED_TRACE("AngularrVelocityToleranceWithRemainingLinearVel");
-  runTest(0.0, 0.05, 0.1, 0.0, trajectory_tracker_msgs::TrajectoryTrackerStatus::GOAL);
-}
-
-TEST_F(TrajectoryTrackerOvershootTest, AngularrVelocityToleranceWithRemainingAngularVel)
-{
-  SCOPED_TRACE("AngularrVelocityToleranceWithRemainingAngularVel");
-  runTest(0.0, 0.05, 0.0, 0.1, trajectory_tracker_msgs::TrajectoryTrackerStatus::FOLLOWING);
 }
 
 int main(int argc, char ** argv)
