@@ -32,9 +32,11 @@
 
 #include <chrono>
 #include <functional>
+#include <memory>
 #include <string>
 #include <utility>
 
+#include "nav_msgs/srv/get_plan.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 namespace planner_cspace_testing
@@ -74,6 +76,44 @@ inline bool spinUntil(
   }
   return false;
 }
+// Whether planner_3d has a map yet.
+//
+// ROS 1 polled ~/make_plan, which returned false until the map had arrived. A
+// ROS 2 service cannot report a failure, so the node answers with an empty
+// plan instead and the emptiness is what is polled here. The two poses are
+// adjacent free cells of test/data/global_map.yaml, which every launch using
+// this helper serves.
+//
+// Without this, a goal published before the map is rejected ("pose must be in
+// the map frame []") and the planner never leaves NONE -- the goal is not
+// re-delivered, so the test waits for a state that can no longer arrive.
+inline bool planIsAvailable(
+  const rclcpp::Node::SharedPtr & node,
+  const rclcpp::Client<nav_msgs::srv::GetPlan>::SharedPtr & client)
+{
+  if (!client->service_is_ready()) {
+    return false;
+  }
+  auto req = std::make_shared<nav_msgs::srv::GetPlan::Request>();
+  req->tolerance = 10.0;
+  req->start.header.frame_id = "map";
+  req->start.pose.position.x = 1.24;
+  req->start.pose.position.y = 0.65;
+  req->start.pose.orientation.w = 1;
+  req->goal.header.frame_id = "map";
+  req->goal.pose.position.x = 1.25;
+  req->goal.pose.position.y = 0.75;
+  req->goal.pose.orientation.w = 1;
+  auto future = client->async_send_request(req);
+  if (!spinUntil(node, std::chrono::seconds(2), [&future] {
+        return future.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
+      })) {
+    client->remove_pending_request(future);
+    return false;
+  }
+  return !future.get()->plan.poses.empty();
+}
+
 // nav2_msgs/NavigateToPose only gained the error_msg result field after humble,
 // where the result is an empty message, so the status text can only be checked
 // on the distributions that carry it.
