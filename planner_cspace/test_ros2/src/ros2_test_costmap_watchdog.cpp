@@ -45,6 +45,7 @@
 #include "diagnostic_msgs/msg/diagnostic_array.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "nav_msgs/msg/path.hpp"
+#include "nav_msgs/srv/get_plan.hpp"
 #include "planner_cspace/ros2_test_helpers.h"
 #include "planner_cspace_msgs/msg/planner_status.hpp"
 #include "rclcpp/rclcpp.hpp"
@@ -52,6 +53,7 @@
 namespace
 {
 using planner_cspace_testing::latchedQos;
+using planner_cspace_testing::planIsAvailable;
 using planner_cspace_testing::spinUntil;
 
 class Planner3D : public ::testing::Test
@@ -64,6 +66,7 @@ protected:
   rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr sub_path_;
   rclcpp::Subscription<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr sub_diag_;
   rclcpp::Subscription<costmap_cspace_msgs::msg::CSpace3D>::SharedPtr sub_costmap_;
+  rclcpp::Client<nav_msgs::srv::GetPlan>::SharedPtr srv_plan_;
 
   planner_cspace_msgs::msg::PlannerStatus::ConstSharedPtr status_;
   nav_msgs::msg::Path::ConstSharedPtr path_;
@@ -94,6 +97,7 @@ protected:
     sub_costmap_ = node_->create_subscription<costmap_cspace_msgs::msg::CSpace3D>(
       "/costmap", latchedQos(),
       [this](const costmap_cspace_msgs::msg::CSpace3D::ConstSharedPtr msg) { costmap_ = msg; });
+    srv_plan_ = node_->create_client<nav_msgs::srv::GetPlan>("/planner_3d/make_plan");
   }
 
   // ROS 1 relied on a fixed 0.5 s sleep to make sure planner_3d had the map
@@ -108,6 +112,11 @@ protected:
                pub_cost_update_->get_subscription_count() > 0;
       }))
       << "planner_3d/costmap_3d are not up";
+
+    ASSERT_TRUE(spinUntil(
+      node_, std::chrono::seconds(20), [this] { return planIsAvailable(node_, srv_plan_); },
+      nullptr, std::chrono::milliseconds(500)))
+      << "planner_3d didn't receive map";
     cnt_ = 0;
   }
 
