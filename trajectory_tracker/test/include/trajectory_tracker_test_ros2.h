@@ -144,6 +144,15 @@ public:
     }
   }
 
+  void sleepSimTime(const double seconds)
+  {
+    const auto until = now() + rclcpp::Duration::from_seconds(seconds);
+    while (rclcpp::ok() && now() < until) {
+      rclcpp::spin_some(get_node_base_interface());
+      rclcpp::sleep_for(std::chrono::milliseconds(1));
+    }
+  }
+
   void initState(const Eigen::Vector2d & pos, const float yaw)
   {
     // Wait trajectory_tracker node
@@ -169,7 +178,7 @@ public:
         << "trajectory_tracker status timeout, status: "
         << (status_ ? std::to_string(static_cast<int>(status_->status)) : "none");
     }
-    rclcpp::sleep_for(std::chrono::milliseconds(500));
+    sleepSimTime(0.5);
   }
   void waitUntilStart(const std::function<void()> func = nullptr)
   {
@@ -237,7 +246,7 @@ public:
       path.poses.push_back(pose);
     }
     // needs sleep to prevent that the empty path from initState arrives later.
-    rclcpp::sleep_for(std::chrono::milliseconds(500));
+    sleepSimTime(0.5);
     pub_path_vel_->publish(path);
     last_path_header_ = path.header;
   }
