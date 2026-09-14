@@ -145,8 +145,9 @@ public:
     timeout_ = this->declare_parameter("timeout", 0.5);
     last_joy_msg_ = this->now();
 
-    timer_ = this->create_wall_timer(
-      std::chrono::duration<double>(0.1), std::bind(&JoystickMux::cbTimer, this));
+    timer_ = rclcpp::create_timer(
+      this, this->get_clock(), rclcpp::Duration::from_seconds(0.1),
+      std::bind(&JoystickMux::cbTimer, this));
   }
 };
 }  // namespace joystick_interrupt
