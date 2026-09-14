@@ -106,9 +106,6 @@ protected:
         [this] { return action_client_->action_server_is_ready(); }))
       << "Failed to connect " << TOPIC << " action";
 
-    // ROS 1 polled ~/make_plan, which returned false until planner_3d had a
-    // map. A ROS 2 service cannot report a failure, so the node answers with
-    // an empty plan instead and the emptiness is what is polled here.
     ASSERT_TRUE(
       planner_cspace_testing::spinUntil(
         node_, std::chrono::seconds(30), [this] { return planIsAvailable(); }, nullptr,
@@ -116,32 +113,7 @@ protected:
       << "planner_3d didn't receive map";
   }
 
-  // Fires a ~/make_plan request between two nearby free poses and reports
-  // whether a non-empty plan came back within a short timeout.
-  bool planIsAvailable()
-  {
-    if (!srv_plan_->service_is_ready()) {
-      return false;
-    }
-    auto req = std::make_shared<nav_msgs::srv::GetPlan::Request>();
-    req->tolerance = 10.0;
-    req->start.header.frame_id = "map";
-    req->start.pose.position.x = 1.24;
-    req->start.pose.position.y = 0.65;
-    req->start.pose.orientation.w = 1;
-    req->goal.header.frame_id = "map";
-    req->goal.pose.position.x = 1.25;
-    req->goal.pose.position.y = 0.75;
-    req->goal.pose.orientation.w = 1;
-    auto future = srv_plan_->async_send_request(req);
-    if (!planner_cspace_testing::spinUntil(node_, std::chrono::seconds(2), [&future] {
-          return future.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
-        })) {
-      srv_plan_->remove_pending_request(future);
-      return false;
-    }
-    return !future.get()->plan.poses.empty();
-  }
+  bool planIsAvailable() { return planner_cspace_testing::planIsAvailable(node_, srv_plan_); }
 
   // One sent goal and the terminal result which came back for it. Kept in a
   // shared_ptr so that a test can hold on to a goal after it has sent the next
