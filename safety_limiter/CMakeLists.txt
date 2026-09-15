@@ -155,8 +155,11 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
     find_package(ament_cmake_gtest REQUIRED)
     find_package(GTest REQUIRED)
     find_package(launch_testing_ament_cmake REQUIRED)
-    # Pull the test-only message deps (tf2_geometry_msgs) into the ament_auto
-    # link set so the ros2_test_* executables below link against them.
+    # Populates ${PROJECT_NAME}_FOUND_TEST_DEPENDS (tf2_geometry_msgs et al).
+    # ament_auto_add_gtest would link that set on its own, but the binaries
+    # below own their main() and so are plain executables, and
+    # ament_auto_add_executable links only FOUND_BUILD_DEPENDS -- hence the
+    # explicit ament_target_dependencies on each.
     ament_auto_find_test_dependencies()
 
     include_directories(test/include)
@@ -168,10 +171,12 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
     ament_auto_add_executable(ros2_test_safety_limiter
       test/src/ros2_test_safety_limiter.cpp)
     target_link_libraries(ros2_test_safety_limiter ${GTEST_LIBRARIES})
+    ament_target_dependencies(ros2_test_safety_limiter ${${PROJECT_NAME}_FOUND_TEST_DEPENDS})
 
     ament_auto_add_executable(ros2_test_safety_limiter2
       test/src/ros2_test_safety_limiter2.cpp)
     target_link_libraries(ros2_test_safety_limiter2 ${GTEST_LIBRARIES})
+    ament_target_dependencies(ros2_test_safety_limiter2 ${${PROJECT_NAME}_FOUND_TEST_DEPENDS})
 
     install(DIRECTORY test/configs
       DESTINATION share/${PROJECT_NAME}/test/)
