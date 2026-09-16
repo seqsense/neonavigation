@@ -197,8 +197,9 @@ public:
     track_odometry_.setParameters(params);
 
     if (without_odom_) {
-      timer_ = this->create_wall_timer(
-        std::chrono::duration<double>(1.0 / 50.0), std::bind(&TrackOdometryNode::cbTimer, this));
+      timer_ = rclcpp::create_timer(
+        this, this->get_clock(), rclcpp::Duration::from_seconds(1.0 / 50.0),
+        std::bind(&TrackOdometryNode::cbTimer, this));
     }
   }
 };

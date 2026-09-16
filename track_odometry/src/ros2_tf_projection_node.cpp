@@ -160,8 +160,9 @@ public:
     project_posture_ = this->declare_parameter("project_posture", false);
     align_all_posture_to_source_ = this->declare_parameter("align_all_posture_to_source", false);
 
-    timer_ = this->create_wall_timer(
-      std::chrono::duration<double>(1.0 / rate_), std::bind(&TfProjectionNode::cbTimer, this));
+    timer_ = rclcpp::create_timer(
+      this, this->get_clock(), rclcpp::Duration::from_seconds(1.0 / rate_),
+      std::bind(&TfProjectionNode::cbTimer, this));
   }
 };
 }  // namespace track_odometry
