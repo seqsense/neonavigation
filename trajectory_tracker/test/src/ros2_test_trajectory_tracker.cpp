@@ -217,7 +217,8 @@ TEST_F(TrajectoryTrackerTest, StraightStopConvergence)
     const rclcpp::Time start = now();
     while (rclcpp::ok()) {
       if (
-        now() > start + rclcpp::Duration::from_seconds(timeout_scale_ * (5.0 + path_length / vel))) {
+        now() >
+        start + rclcpp::Duration::from_seconds(timeout_scale_ * (5.0 + path_length / vel))) {
         FAIL() << "Timeout" << std::endl
                << "Pos " << pos_ << std::endl
                << "Yaw " << yaw_ << std::endl
