@@ -37,17 +37,9 @@ using std::chrono::duration;
 using std::chrono::duration_cast;
 using std::chrono::nanoseconds;
 
-// The simulated clock is published by a separate process at a fixed wall rate
-// (4x, as ROS 1 published it), so it keeps advancing even when the machine is
-// busy and the tracker misses control cycles. The budgets below only exist to
-// catch a hang, so they are scaled well past the nominal motion time; a loaded
-// CI runner otherwise fails them while the robot is still converging.
-//
-// ROS 1 used no scale at all. 2.0 still lost StraightStopConvergence at
-// vel=0.2 on a busy humble runner, with the robot 4 mm past a 2 m goal and
-// converging. Since a run that reaches the goal breaks out of the loop, a
-// larger scale costs nothing when the test passes -- only a hang waits longer.
-constexpr double kTimeoutScale = 5.0;
+// The budgets below only exist to catch a hang, so they are scaled past the
+// nominal motion time. ROS 1 used no scale at all.
+constexpr double kTimeoutScale = 1.0;
 
 class RosRate : public rclcpp::RateBase
 {
