@@ -79,6 +79,10 @@ protected:
   double error_lin_;
   double error_large_lin_;
   double error_ang_;
+  // Budgets are hang detectors, not performance assertions. humble keeps
+  // losing control cycles under the simulated clock, so it is given room
+  // the other distributions do not need; the launch decides.
+  double timeout_scale_;
 
 private:
   void cbStatus(const trajectory_tracker_msgs::msg::TrajectoryTrackerStatus::ConstSharedPtr & msg)
@@ -131,11 +135,13 @@ public:
     declare_parameter("error_lin", 0.01);
     declare_parameter("error_large_lin", 0.1);
     declare_parameter("error_ang", 0.01);
+    declare_parameter("timeout_scale", 1.0);
 
     delay_ = rclcpp::Duration::from_seconds(get_parameter("odom_delay").as_double());
     get_parameter("error_lin", error_lin_);
     get_parameter("error_large_lin", error_large_lin_);
     get_parameter("error_ang", error_ang_);
+    get_parameter("timeout_scale", timeout_scale_);
     rclcpp::Rate wait(10);
     for (size_t i = 0; i < 100; ++i) {
       wait.sleep();
