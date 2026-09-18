@@ -649,7 +649,7 @@ TEST_F(Navigate, CrowdEscapeOnSurrounded)
   tf2::fromMsg(path.poses.back().pose, goal);
 
   rclcpp::WallRate wait(10.0);
-  const rclcpp::Time deadline = node_->now() + rclcpp::Duration::from_seconds(90);
+  const rclcpp::Time deadline = node_->now() + rclcpp::Duration::from_seconds(60);
   while (rclcpp::ok()) {
     pubMapLocal();
     rclcpp::spin_some(node_);
@@ -715,7 +715,7 @@ TEST_F(Navigate, CrowdEscapeOnPathNotFound)
 
   rclcpp::WallRate wait(10.0);
   bool unreachable = false;
-  const rclcpp::Time deadline = node_->now() + rclcpp::Duration::from_seconds(90);
+  const rclcpp::Time deadline = node_->now() + rclcpp::Duration::from_seconds(60);
   rclcpp::Time check_until = deadline;
   while (rclcpp::ok()) {
     for (size_t x = 0; x < map_local_->info.width; ++x) {
@@ -778,7 +778,7 @@ TEST_F(Navigate, CrowdEscapeOnGoalIsInRock)
 
   rclcpp::WallRate wait(10.0);
   bool unreachable = false;
-  const rclcpp::Time deadline = node_->now() + rclcpp::Duration::from_seconds(90);
+  const rclcpp::Time deadline = node_->now() + rclcpp::Duration::from_seconds(60);
   rclcpp::Time check_until = deadline;
   while (rclcpp::ok()) {
     const int gx = path.poses[0].pose.position.x / map_->info.resolution;
@@ -897,7 +897,7 @@ TEST_F(Navigate, ForceTemporaryEscape)
   tf2::fromMsg(path.poses.back().pose, goal);
 
   rclcpp::WallRate wait(2.0);
-  const rclcpp::Time deadline = node_->now() + rclcpp::Duration::from_seconds(90);
+  const rclcpp::Time deadline = node_->now() + rclcpp::Duration::from_seconds(60);
   while (rclcpp::ok()) {
     const size_t data_size = map_local_->data.size();
     map_local_->data.clear();

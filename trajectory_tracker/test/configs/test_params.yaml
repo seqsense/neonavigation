@@ -3,7 +3,7 @@ test_trajectory_tracker:
 #    use_sim_time: true
     odom_delay: 0.0
     error_lin: 0.03
-    error_ang: 0.03
+    error_ang: 0.02
 
 trajectory_tracker:
   ros__parameters:
