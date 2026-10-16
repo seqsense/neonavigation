@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.1...3.26)
 project(costmap_cspace)
 
+# char is unsigned on aarch64; keep it signed as on x86, as planner_cspace,
+# which reads this package's maps, does.
+add_compile_options(-fsigned-char)
+
 if($ENV{ROS_VERSION} EQUAL 1)
   message(STATUS "Building costmap_cspace for ROS 1 (Noetic)")
 

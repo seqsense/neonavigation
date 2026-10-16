@@ -30,6 +30,7 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <cstdint>
 #include <map>
 
 #include "planner_cspace/bbf.h"
@@ -70,12 +71,12 @@ TEST(CostmapBBFImpl, Update)
 {
   const float odds_hit = bbf::probabilityToOdds(0.8);
   const float odds_miss = bbf::probabilityToOdds(0.3);
-  const char costmap0[3][3] = {
+  const int8_t costmap0[3][3] = {
     {10, 100, 100},
     {100, 100, 100},
     {100, 100, 100},
   };
-  const char costmap1[3][3] = {
+  const int8_t costmap1[3][3] = {
     {0, -1, 0},
     {100, 0, 0},
     {0, 0, 100},
@@ -85,7 +86,7 @@ TEST(CostmapBBFImpl, Update)
     {bbf::MIN_ODDS * odds_hit * odds_hit, bbf::MIN_ODDS * odds_hit * odds_miss, bbf::MIN_ODDS},
     {bbf::MIN_ODDS * odds_hit * odds_miss, bbf::MIN_ODDS, bbf::MIN_ODDS},
   };
-  const char expected_cost[3][3] = {
+  const int8_t expected_cost[3][3] = {
     {0, 26, 8},
     {68, 8, 0},
     {8, 0, 0},
