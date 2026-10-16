@@ -56,7 +56,7 @@ const costmap_cspace::PolygonPoints footprint_points = {
 //  0 0 0
 //  1 1 0  <--x
 //  0 0 0
-const char temp_dir[4][2] = {
+const int temp_dir[4][2] = {
   // x, y which must be occupied in the template
   {-1, 0},
   {0, -1},
