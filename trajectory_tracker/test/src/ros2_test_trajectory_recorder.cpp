@@ -137,14 +137,15 @@ TEST_F(TrajectoryRecorderTest, TfToPath)
     expectSameRotation(path_->poses[i].pose.orientation, kPoints[i].getRotation());
   }
 
+  // The next timer tick starts the path over from wherever the robot is now,
+  // and publishes it once. Forget the old path before asking, since that one
+  // can arrive while waiting for the service response.
+  path_.reset();
   ASSERT_TRUE(client_->wait_for_service(std::chrono::seconds(5)));
   auto future = client_->async_send_request(std::make_shared<std_srvs::srv::Empty::Request>());
   ASSERT_EQ(
     rclcpp::spin_until_future_complete(node_, future, std::chrono::seconds(5)),
     rclcpp::FutureReturnCode::SUCCESS);
-
-  // The next timer tick starts the path over from wherever the robot is now.
-  path_.reset();
   ASSERT_NO_FATAL_FAILURE(waitForPathSize(1, 5.0));
   EXPECT_NEAR(path_->poses.back().pose.position.x, kPoints[kLen - 1].getOrigin().x(), 1.0e-9);
   EXPECT_NEAR(path_->poses.back().pose.position.y, kPoints[kLen - 1].getOrigin().y(), 1.0e-9);
