@@ -149,6 +149,52 @@ TEST_F(TrajectoryTrackerTest, FollowsPathThroughTheNodeInterface)
   ASSERT_EQ(last_path_header_.stamp, status_->path_header.stamp);
 }
 
+// The same through the separate path_velocity subscription: the node takes the
+// per-pose speed from the message rather than its own max_vel.
+TEST_F(TrajectoryTrackerTest, FollowsPathWithVelocityThroughTheNodeInterface)
+{
+  initState(Eigen::Vector2d(0, 0), 0);
+
+  std::vector<Eigen::Vector4d> poses;
+  for (double x = 0.0; x < 0.6; x += 0.01) poses.push_back(Eigen::Vector4d(x, 0.0, 0.0, 0.3));
+  poses.push_back(Eigen::Vector4d(0.6, 0.0, 0.0, 0.3));
+  waitUntilStart(std::bind(&TrajectoryTrackerTest::publishPathVelocity, this, poses));
+
+  RosRate rate(50, *this);
+  const rclcpp::Time start = now();
+  while (rclcpp::ok()) {
+    if (now() > start + rclcpp::Duration::from_seconds(timeout_scale_ * 10.0)) {
+      FAIL() << "Timeout" << std::endl
+             << "Pos " << pos_ << std::endl
+             << "Yaw " << yaw_ << std::endl
+             << "Status " << std::endl
+             << status_ << std::endl;
+    }
+    publishTransform();
+    rate.sleep();
+    rclcpp::spin_some(get_node_base_interface());
+
+    if (0.3 < pos_[0] && pos_[0] < 0.35) {
+      ASSERT_NEAR(cmd_vel_->linear.x, 0.3, error_lin_);
+    }
+
+    if (status_->status == trajectory_tracker_msgs::msg::TrajectoryTrackerStatus::GOAL) break;
+  }
+  for (int j = 0; j < 5; ++j) {
+    for (int i = 0; i < 5; ++i) {
+      publishTransform();
+      rate.sleep();
+      rclcpp::spin_some(get_node_base_interface());
+    }
+
+    // Check multiple times to assert overshoot.
+    ASSERT_NEAR(yaw_, 0.0, error_ang_) << "[overshoot after goal (" << j << ")] ";
+    ASSERT_NEAR(pos_[0], 0.6, error_lin_) << "[overshoot after goal (" << j << ")] ";
+    ASSERT_NEAR(pos_[1], 0.0, error_lin_) << "[overshoot after goal (" << j << ")] ";
+  }
+  ASSERT_EQ(last_path_header_.stamp, status_->path_header.stamp);
+}
+
 // The remaining scenarios - overshoot behaviour, velocity changes, curves,
 // in-place turns, switchbacks, far-away paths - are covered without a node by
 // test_trajectory_tracker_scenarios, which drives the same controller through

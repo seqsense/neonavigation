@@ -77,6 +77,53 @@ TEST_F(TrajectoryTrackerTest, FollowsPathThroughTheNodeInterface)
   ASSERT_EQ(last_path_header_.stamp, status_->path_header.stamp);
 }
 
+// The same through the separate path_velocity subscription: the node takes the
+// per-pose speed from the message rather than its own max_vel.
+TEST_F(TrajectoryTrackerTest, FollowsPathWithVelocityThroughTheNodeInterface)
+{
+  initState(Eigen::Vector2d(0, 0), 0);
+
+  std::vector<Eigen::Vector4d> poses;
+  for (double x = 0.0; x < 0.6; x += 0.01) poses.push_back(Eigen::Vector4d(x, 0.0, 0.0, 0.3));
+  poses.push_back(Eigen::Vector4d(0.6, 0.0, 0.0, 0.3));
+  waitUntilStart(std::bind(&TrajectoryTrackerTest::publishPathVelocity, this, poses));
+
+  ros::Rate rate(50);
+  const ros::Time start = ros::Time::now();
+  while (ros::ok()) {
+    if (ros::Time::now() > start + ros::Duration(10.0)) {
+      FAIL() << "Timeout" << std::endl
+             << "Pos " << getPos() << std::endl
+             << "Yaw " << getYaw() << std::endl
+             << "Status " << std::endl
+             << status_ << std::endl;
+    }
+
+    publishTransform();
+    rate.sleep();
+    ros::spinOnce();
+
+    if (0.3 < getPos()[0] && getPos()[0] < 0.35) {
+      ASSERT_NEAR(cmd_vel_->linear.x, 0.3, error_lin_);
+    }
+
+    if (status_->status == trajectory_tracker_msgs::TrajectoryTrackerStatus::GOAL) break;
+  }
+  for (int j = 0; j < 5; ++j) {
+    for (int i = 0; i < 5; ++i) {
+      publishTransform();
+      rate.sleep();
+      ros::spinOnce();
+    }
+
+    // Check multiple times to assert overshoot.
+    ASSERT_NEAR(getYaw(), 0.0, error_ang_) << "[overshoot after goal (" << j << ")] ";
+    ASSERT_NEAR(getPos()[0], 0.6, error_lin_) << "[overshoot after goal (" << j << ")] ";
+    ASSERT_NEAR(getPos()[1], 0.0, error_lin_) << "[overshoot after goal (" << j << ")] ";
+  }
+  ASSERT_EQ(last_path_header_.stamp, status_->path_header.stamp);
+}
+
 // The remaining scenarios - overshoot behaviour, velocity changes, curves,
 // in-place turns, switchbacks, far-away paths - are covered without a node by
 // test_trajectory_tracker_scenarios, which drives the same controller through
