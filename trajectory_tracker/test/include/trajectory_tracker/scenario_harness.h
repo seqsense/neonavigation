@@ -163,6 +163,9 @@ public:
   {
     Eigen::Vector2d pos{0.0, 0.0};
     double yaw = 0.0;
+    // Tilt about the robot's x axis, held constant. The robot still moves in the
+    // plane; only the transform the controller reads carries the tilt.
+    double roll = 0.0;
     geometry_msgs::msg::Twist cmd_vel;
     trajectory_tracker_msgs::msg::TrajectoryTrackerStatus status;
     // Simulated seconds since the scenario started.
@@ -185,11 +188,12 @@ public:
     publishStaticPathTransform();
   }
 
-  void initState(const Eigen::Vector2d & pos, const double yaw)
+  void initState(const Eigen::Vector2d & pos, const double yaw, const double roll = 0.0)
   {
     state_ = State();
     state_.pos = pos;
     state_.yaw = yaw;
+    state_.roll = roll;
   }
 
   template <typename MSG_TYPE>
@@ -256,7 +260,9 @@ public:
     odom_to_robot.frame_id_ = options_.frame_odom;
     odom_to_robot.setData(
       tf2::Transform(
-        tf2::Quaternion(tf2::Vector3(0, 0, 1), yaw), tf2::Vector3(pos.x(), pos.y(), 0.0)));
+        tf2::Quaternion(tf2::Vector3(0, 0, 1), yaw) *
+          tf2::Quaternion(tf2::Vector3(1, 0, 0), state_.roll),
+        tf2::Vector3(pos.x(), pos.y(), 0.0)));
 
     const auto out = controller_->control(odom_to_robot, prediction_offset, odom_lin, odom_ang, dt);
 

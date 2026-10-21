@@ -199,7 +199,7 @@ TEST_P(TrackerScenario, StraightStopOvershoot)
 TEST_P(TrackerScenario, StraightStopConvergence)
 {
   const double path_length = 2.0;
-  for (const double vel : {0.05, 0.1, 0.2, 0.5, 1.0}) {
+  for (const double vel : {0.02, 0.05, 0.1, 0.2, 0.5, 1.0}) {
     const std::string info = "linear vel: " + std::to_string(vel);
 
     Scenario scenario(params(), options());
@@ -332,12 +332,12 @@ TEST_P(TrackerScenario, SwitchBack)
 
 TEST_P(TrackerScenario, FarAray)
 {
-  // Same path as StraightStop, but 500 m away from the origin: the tracker must
-  // stay accurate where float precision starts to bite.
+  // Same path as StraightStop, but 500 m away from the origin, where float
+  // precision starts to bite, and on a robot rolled by 0.1 rad, as ROS 1 had it.
   const double y_pos = 500.0;
 
   Scenario scenario(params(), options());
-  scenario.initState(Eigen::Vector2d(0.0, y_pos), 0);
+  scenario.initState(Eigen::Vector2d(0.0, y_pos), 0, 0.1);
 
   std::vector<Eigen::Vector3d> poses;
   for (double x = 0.0; x < 0.5; x += 0.01) {
