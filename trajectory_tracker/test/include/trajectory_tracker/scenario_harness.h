@@ -143,8 +143,13 @@ public:
     // Fed to TrackerController::control() as the odometry twist, mirroring the
     // node's odometry path. False means the timer path (no odometry).
     bool use_odom = false;
-    // Delay of that odometry feedback, as the node tests' "odom_delay".
+    // Delay of that odometry feedback, as the node tests' "odom_delay". The node
+    // tests hold back the whole message, pose and twist alike.
     double odom_delay = 0.0;
+    // As the node's "predict_odom" and "max_dt": a delayed odometry pose is
+    // moved forward by its own twist over the delay, capped at max_dt.
+    bool predict_odom = true;
+    double max_dt = 0.1;
     // Mirrors the node test's cap on the integration step.
     double dt_cap = 0.1;
     std::string frame_odom = "odom";
@@ -215,15 +220,9 @@ public:
   {
     const double dt = std::min(1.0 / options_.hz, options_.dt_cap);
 
-    // Only the transform itself is read by the controller; stamp_ has a
-    // different type on ROS 1 and ROS 2, so it is left alone.
-    tf2::Stamped<tf2::Transform> odom_to_robot;
-    odom_to_robot.frame_id_ = options_.frame_odom;
-    odom_to_robot.setData(
-      tf2::Transform(
-        tf2::Quaternion(tf2::Vector3(0, 0, 1), state_.yaw),
-        tf2::Vector3(state_.pos.x(), state_.pos.y(), 0.0)));
-
+    Eigen::Vector2d pos = state_.pos;
+    double yaw = state_.yaw;
+    Eigen::Vector3d prediction_offset(0, 0, 0);
     double odom_lin = 0.0;
     double odom_ang = 0.0;
     if (reported_vel_) {
@@ -233,15 +232,33 @@ public:
       // The node feeds back measured odometry, which lags the command.
       const size_t delay_steps =
         static_cast<size_t>(std::lround(options_.odom_delay * options_.hz));
-      cmd_history_.push_back(state_.cmd_vel);
-      if (cmd_history_.size() > delay_steps + 1) {
-        cmd_history_.erase(cmd_history_.begin());
+      odom_history_.push_back(OdomSample{state_.pos, state_.yaw, state_.cmd_vel});
+      if (odom_history_.size() > delay_steps + 1) {
+        odom_history_.erase(odom_history_.begin());
       }
-      odom_lin = cmd_history_.front().linear.x;
-      odom_ang = cmd_history_.front().angular.z;
+      const OdomSample & odom = odom_history_.front();
+      pos = odom.pos;
+      yaw = odom.yaw;
+      odom_lin = odom.cmd_vel.linear.x;
+      odom_ang = odom.cmd_vel.angular.z;
+      if (options_.predict_odom) {
+        // Same compensation as TrackerNode::cbOdometry.
+        const double predict_dt = std::min(options_.max_dt, delay_steps / options_.hz);
+        prediction_offset = Eigen::Vector3d(odom_lin * predict_dt, 0, odom_ang * predict_dt);
+        pos += Eigen::Vector2d(std::cos(yaw), std::sin(yaw)) * prediction_offset[0];
+        yaw += prediction_offset[2];
+      }
     }
-    const auto out =
-      controller_->control(odom_to_robot, Eigen::Vector3d(0, 0, 0), odom_lin, odom_ang, dt);
+
+    // Only the transform itself is read by the controller; stamp_ has a
+    // different type on ROS 1 and ROS 2, so it is left alone.
+    tf2::Stamped<tf2::Transform> odom_to_robot;
+    odom_to_robot.frame_id_ = options_.frame_odom;
+    odom_to_robot.setData(
+      tf2::Transform(
+        tf2::Quaternion(tf2::Vector3(0, 0, 1), yaw), tf2::Vector3(pos.x(), pos.y(), 0.0)));
+
+    const auto out = controller_->control(odom_to_robot, prediction_offset, odom_lin, odom_ang, dt);
 
     if (!pose_frozen_) {
       // Integration order copied from the node tests' cmd_vel callback.
@@ -315,10 +332,17 @@ private:
     buffer_->setTransform(tf, "scenario_harness", true);
   }
 
+  struct OdomSample
+  {
+    Eigen::Vector2d pos;
+    double yaw;
+    geometry_msgs::msg::Twist cmd_vel;
+  };
+
   Options options_;
   bool pose_frozen_ = false;
   std::optional<std::pair<double, double>> reported_vel_;
-  std::vector<geometry_msgs::msg::Twist> cmd_history_;
+  std::vector<OdomSample> odom_history_;
   std::unique_ptr<tf2_ros::Buffer> buffer_;
   std::unique_ptr<trajectory_tracker::TrackerController> controller_;
   State state_;
