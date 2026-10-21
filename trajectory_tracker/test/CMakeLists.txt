@@ -21,6 +21,8 @@ catkin_add_gtest(test_${PROJECT_NAME}_scenarios src/test_tracker_scenarios.cpp)
 target_include_directories(test_${PROJECT_NAME}_scenarios PRIVATE include)
 target_link_libraries(test_${PROJECT_NAME}_scenarios
   -Wl,--no-as-needed trajectory_tracker_controller ${catkin_LIBRARIES})
+# The harness is shared with the ROS 2 build and uses std::optional.
+set_target_properties(test_${PROJECT_NAME}_scenarios PROPERTIES CXX_STANDARD 17)
 target_link_libraries(test_${PROJECT_NAME}_path2d -Wl,--no-as-needed ${catkin_LIBRARIES})
 
 add_rostest_gtest(test_trajectory_recorder test/trajectory_recorder_rostest.test
