@@ -29,11 +29,10 @@ def generate_test_description():
     odom_delay = LaunchConfiguration('odom_delay', default='0.0')
     use_odom = LaunchConfiguration('use_odom', default='false')
     use_time_optimal_control = LaunchConfiguration('use_time_optimal_control', default='true')
-    # humble loses control cycles under the simulated clock that jazzy does not:
-    # StraightStopConvergence at vel=0.05 covers 1.14 m of a 2 m path inside the
-    # unscaled budget, and the settled-pose guards land around 0.031 rad. Both
-    # are given room here, and only here, so the other distributions keep the
-    # ROS 1 values.
+    # humble loses control cycles under the simulated clock that jazzy does not,
+    # enough to run past the unscaled budgets and to land the settled-pose guards
+    # around 0.031 rad. Both are given room here, and only here, so the other
+    # distributions keep the ROS 1 values.
     humble = os.environ.get('ROS_DISTRO') == 'humble'
     distro_relaxations = (
         {'timeout_scale': 5.0, 'error_lin': 0.05, 'error_ang': 0.05} if humble else {})
