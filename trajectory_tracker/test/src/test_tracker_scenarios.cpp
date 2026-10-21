@@ -29,8 +29,9 @@
 
 // Deterministic ports of the trajectory_tracker node scenarios.
 //
-// These are the same paths, the same kinematic model and the same tolerances as
-// the ROS 1 rostest / ROS 2 launch_test versions, but the controller is driven
+// These are the same paths, the same kinematic model, the same tolerances and
+// the same parameter variants as the ROS 1 rostest / ROS 2 launch_test
+// versions, but the controller is driven
 // directly (see scenario_harness.h): no nodes, no DDS, no simulated clock
 // process. That removes the flakiness those tests had and runs the whole set in
 // well under a second, so the node tests only have to prove that the interface
@@ -55,7 +56,8 @@ using trajectory_tracker_testing::Scenario;
 using Status = trajectory_tracker_msgs::msg::TrajectoryTrackerStatus;
 
 constexpr double kErrorLin = 0.03;
-constexpr double kErrorAng = 0.03;
+constexpr double kErrorAng = 0.02;
+constexpr double kErrorLargeLin = 0.1;
 
 // test/configs/test_params.yaml, with the node's declare_parameter defaults for
 // everything that file leaves out.
@@ -100,14 +102,15 @@ trajectory_tracker::TrackerController::Parameters testParameters()
 // The node tests kept sampling the pose for a while after the goal to catch a
 // late overshoot; five rounds of five control cycles is what they did.
 void expectSettledAt(
-  Scenario & scenario, const Eigen::Vector2d & pos, const double yaw, const std::string & info = "")
+  Scenario & scenario, const Eigen::Vector2d & pos, const double yaw, const std::string & info = "",
+  const double error_lin = kErrorLin)
 {
   for (int round = 0; round < 5; ++round) {
     scenario.settle(5);
     const auto & s = scenario.state();
     ASSERT_NEAR(s.yaw, yaw, kErrorAng) << "[overshoot after goal (" << round << ")] " << info;
-    ASSERT_NEAR(s.pos[0], pos[0], kErrorLin) << "[overshoot after goal (" << round << ")] " << info;
-    ASSERT_NEAR(s.pos[1], pos[1], kErrorLin) << "[overshoot after goal (" << round << ")] " << info;
+    ASSERT_NEAR(s.pos[0], pos[0], error_lin) << "[overshoot after goal (" << round << ")] " << info;
+    ASSERT_NEAR(s.pos[1], pos[1], error_lin) << "[overshoot after goal (" << round << ")] " << info;
   }
 }
 
@@ -120,9 +123,45 @@ std::string describe(const Scenario::State & s)
   return ss.str();
 }
 
-TEST(TrackerScenario, StraightStop)
+// The launch tests ran every path scenario three times: on the timer path, and
+// with odometry delayed by 40 ms with and without time-optimal control.
+struct Variant
 {
-  Scenario scenario(testParameters());
+  const char * name;
+  bool use_odom;
+  double odom_delay;
+  bool use_time_optimal_control;
+};
+
+class TrackerScenario : public ::testing::TestWithParam<Variant>
+{
+protected:
+  trajectory_tracker::TrackerController::Parameters params() const
+  {
+    auto p = testParameters();
+    p.use_time_optimal_control = GetParam().use_time_optimal_control;
+    return p;
+  }
+
+  Scenario::Options options() const
+  {
+    Scenario::Options o;
+    o.use_odom = GetParam().use_odom;
+    o.odom_delay = GetParam().odom_delay;
+    return o;
+  }
+};
+
+INSTANTIATE_TEST_SUITE_P(
+  Variants, TrackerScenario,
+  ::testing::Values(
+    Variant{"Timer", false, 0.0, true}, Variant{"DelayedOdomTimeOptimal", true, 0.04, true},
+    Variant{"DelayedOdom", true, 0.04, false}),
+  [](const ::testing::TestParamInfo<Variant> & info) { return std::string(info.param.name); });
+
+TEST_P(TrackerScenario, StraightStop)
+{
+  Scenario scenario(params(), options());
   scenario.initState(Eigen::Vector2d(0, 0), 0);
 
   std::vector<Eigen::Vector3d> poses;
@@ -136,12 +175,12 @@ TEST(TrackerScenario, StraightStop)
   expectSettledAt(scenario, Eigen::Vector2d(0.5, 0.0), 0.0);
 }
 
-TEST(TrackerScenario, StraightStopOvershoot)
+TEST_P(TrackerScenario, StraightStopOvershoot)
 {
   for (const double resolution : {0.1, 0.001, 0.0001}) {
     const std::string info = "resolution: " + std::to_string(resolution);
 
-    Scenario scenario(testParameters());
+    Scenario scenario(params(), options());
     scenario.initState(Eigen::Vector2d(1, 0), 0);
 
     std::vector<Eigen::Vector3d> poses;
@@ -157,13 +196,13 @@ TEST(TrackerScenario, StraightStopOvershoot)
   }
 }
 
-TEST(TrackerScenario, StraightStopConvergence)
+TEST_P(TrackerScenario, StraightStopConvergence)
 {
   const double path_length = 2.0;
   for (const double vel : {0.05, 0.1, 0.2, 0.5, 1.0}) {
     const std::string info = "linear vel: " + std::to_string(vel);
 
-    Scenario scenario(testParameters());
+    Scenario scenario(params(), options());
     scenario.initState(Eigen::Vector2d(0, 0.01), 0);
 
     std::vector<Eigen::Vector4d> poses;
@@ -179,9 +218,9 @@ TEST(TrackerScenario, StraightStopConvergence)
   }
 }
 
-TEST(TrackerScenario, StraightVelocityChange)
+TEST_P(TrackerScenario, StraightVelocityChange)
 {
-  Scenario scenario(testParameters());
+  Scenario scenario(params(), options());
   scenario.initState(Eigen::Vector2d(0, 0), 0);
 
   std::vector<Eigen::Vector4d> poses;
@@ -207,9 +246,9 @@ TEST(TrackerScenario, StraightVelocityChange)
   expectSettledAt(scenario, Eigen::Vector2d(1.5, 0.0), 0.0);
 }
 
-TEST(TrackerScenario, CurveFollow)
+TEST_P(TrackerScenario, CurveFollow)
 {
-  Scenario scenario(testParameters());
+  Scenario scenario(params(), options());
   scenario.initState(Eigen::Vector2d(0, 0), 0);
 
   std::vector<Eigen::Vector3d> poses;
@@ -218,25 +257,30 @@ TEST(TrackerScenario, CurveFollow)
     p += Eigen::Vector3d(std::cos(p[2]) * 0.05, std::sin(p[2]) * 0.05, 0.005);
     poses.push_back(p);
   }
+  for (double t = 0.0; t < 1.0; t += 0.01) {
+    p += Eigen::Vector3d(std::cos(p[2]) * 0.05, std::sin(p[2]) * 0.05, 0.0);
+    poses.push_back(p);
+  }
   scenario.setPath(trajectory_tracker_testing::makePath(poses));
 
   ASSERT_TRUE(scenario.runUntilGoal(20.0)) << describe(scenario.state());
-  expectSettledAt(scenario, Eigen::Vector2d(p[0], p[1]), p[2]);
+  expectSettledAt(scenario, Eigen::Vector2d(p[0], p[1]), p[2], "", kErrorLargeLin);
 }
 
-TEST(TrackerScenario, InPlaceTurn)
+TEST_P(TrackerScenario, InPlaceTurn)
 {
-  const double init_yaws[] = {0.0, 1.0, -2.0};
+  // 3.0 + 0.5 crosses +pi.
+  const double init_yaws[] = {0.0, 3.0};
   for (const double init_yaw : init_yaws) {
     const std::vector<std::vector<float>> target_angle_array = {
-      {0.5}, {-0.5}, {0.5, 0.5}, {-0.5, -0.5}};
+      {0.5}, {-0.5}, {0.1, 0.2, 0.3, 0.4, 0.5}, {-0.1, -0.2, -0.3, -0.4, -0.5}};
     for (const auto & angles : target_angle_array) {
       for (const bool has_short_path : {false, true}) {
         std::stringstream info;
         info << "init_yaw: " << init_yaw << ", angles: " << angles.front() << "-" << angles.back()
              << ", has_short_path: " << has_short_path;
 
-        Scenario scenario(testParameters());
+        Scenario scenario(params(), options());
         scenario.initState(Eigen::Vector2d(0, 0), init_yaw);
 
         std::vector<Eigen::Vector3d> poses;
@@ -265,34 +309,34 @@ TEST(TrackerScenario, InPlaceTurn)
   }
 }
 
-TEST(TrackerScenario, SwitchBack)
+TEST_P(TrackerScenario, SwitchBack)
 {
-  Scenario scenario(testParameters());
+  Scenario scenario(params(), options());
   scenario.initState(Eigen::Vector2d(0, 0), 0);
 
   std::vector<Eigen::Vector3d> poses;
   Eigen::Vector3d p(0.0, 0.0, 0.0);
   for (double t = 0.0; t < 0.5; t += 0.01) {
-    p += Eigen::Vector3d(std::cos(p[2]) * 0.05, std::sin(p[2]) * 0.05, 0.01);
+    p -= Eigen::Vector3d(std::cos(p[2]) * 0.05, std::sin(p[2]) * 0.05, -0.01);
     poses.push_back(p);
   }
   for (double t = 0.0; t < 0.5; t += 0.01) {
-    p -= Eigen::Vector3d(std::cos(p[2]) * 0.05, std::sin(p[2]) * 0.05, -0.01);
+    p += Eigen::Vector3d(std::cos(p[2]) * 0.05, std::sin(p[2]) * 0.05, 0.01);
     poses.push_back(p);
   }
   scenario.setPath(trajectory_tracker_testing::makePath(poses));
 
-  ASSERT_TRUE(scenario.runUntilGoal(20.0)) << describe(scenario.state());
-  expectSettledAt(scenario, Eigen::Vector2d(p[0], p[1]), p[2]);
+  ASSERT_TRUE(scenario.runUntilGoal(10.0)) << describe(scenario.state());
+  expectSettledAt(scenario, Eigen::Vector2d(p[0], p[1]), p[2], "", kErrorLargeLin);
 }
 
-TEST(TrackerScenario, FarAray)
+TEST_P(TrackerScenario, FarAray)
 {
   // Same path as StraightStop, but 500 m away from the origin: the tracker must
   // stay accurate where float precision starts to bite.
   const double y_pos = 500.0;
 
-  Scenario scenario(testParameters());
+  Scenario scenario(params(), options());
   scenario.initState(Eigen::Vector2d(0.0, y_pos), 0);
 
   std::vector<Eigen::Vector3d> poses;
@@ -306,9 +350,9 @@ TEST(TrackerScenario, FarAray)
   expectSettledAt(scenario, Eigen::Vector2d(0.5, y_pos), 0.0);
 }
 
-TEST(TrackerScenario, SwitchBackWithPathUpdate)
+TEST_P(TrackerScenario, SwitchBackWithPathUpdate)
 {
-  Scenario scenario(testParameters());
+  Scenario scenario(params(), options());
   scenario.initState(Eigen::Vector2d(0, 0), 0);
 
   std::vector<Eigen::Vector3d> poses;
@@ -326,23 +370,23 @@ TEST(TrackerScenario, SwitchBackWithPathUpdate)
   }
   scenario.setPath(trajectory_tracker_testing::makePath(poses));
 
-  // Once the robot has been sitting on the switchback point for a while, the
-  // path is replaced by its second half - the same thing a global planner does
-  // when the robot has finished reversing.
+  // The path keeps being republished, as a global planner does. Once the robot
+  // has been sitting on the switchback point for a while, it is replaced by its
+  // second half - what a planner sends when the robot has finished reversing.
   int cnt_arrive_local_goal = 0;
-  bool switched = false;
   const bool reached = scenario.runUntilGoal(15.0, [&](const Scenario::State & s) {
     if ((pos_local_goal - s.pos).norm() < 0.1) {
       ++cnt_arrive_local_goal;
     }
-    if (!switched && cnt_arrive_local_goal > 25) {
-      scenario.setPath(trajectory_tracker_testing::makePath(poses_second_half));
-      switched = true;
+    if (s.steps % 5) {
+      scenario.setPath(
+        trajectory_tracker_testing::makePath(
+          cnt_arrive_local_goal > 25 ? poses_second_half : poses));
     }
   });
   ASSERT_GT(cnt_arrive_local_goal, 25) << "failed to update path";
   ASSERT_TRUE(reached) << describe(scenario.state());
-  expectSettledAt(scenario, Eigen::Vector2d(p[0], p[1]), p[2]);
+  expectSettledAt(scenario, Eigen::Vector2d(p[0], p[1]), p[2], "", kErrorLargeLin);
 }
 
 // Ports of the node-level overshoot tests: the robot is parked on the goal but
@@ -376,64 +420,34 @@ void runVelocityTolerance(
   EXPECT_EQ(scenario.state().status.status, expected_status) << describe(scenario.state());
 }
 
-TEST(TrackerScenario, NoVelocityToleranceWithRemainingLinearVel)
+TEST(TrackerGoalVelocityTolerance, NoVelocityToleranceWithRemainingLinearVel)
 {
   runVelocityTolerance(0.0, 0.0, 0.1, 0.0, Status::GOAL);
 }
 
-TEST(TrackerScenario, NoVelocityToleranceWithRemainingAngularVel)
+TEST(TrackerGoalVelocityTolerance, NoVelocityToleranceWithRemainingAngularVel)
 {
   runVelocityTolerance(0.0, 0.0, 0.0, 0.1, Status::GOAL);
 }
 
-TEST(TrackerScenario, LinearVelocityToleranceWithRemainingLinearVel)
+TEST(TrackerGoalVelocityTolerance, LinearVelocityToleranceWithRemainingLinearVel)
 {
   runVelocityTolerance(0.05, 0.0, 0.1, 0.0, Status::FOLLOWING);
 }
 
-TEST(TrackerScenario, LinearVelocityToleranceWithRemainingAngularVel)
+TEST(TrackerGoalVelocityTolerance, LinearVelocityToleranceWithRemainingAngularVel)
 {
   runVelocityTolerance(0.05, 0.0, 0.0, 0.1, Status::GOAL);
 }
 
-TEST(TrackerScenario, AngularVelocityToleranceWithRemainingLinearVel)
+TEST(TrackerGoalVelocityTolerance, AngularVelocityToleranceWithRemainingLinearVel)
 {
   runVelocityTolerance(0.0, 0.05, 0.1, 0.0, Status::GOAL);
 }
 
-TEST(TrackerScenario, AngularVelocityToleranceWithRemainingAngularVel)
+TEST(TrackerGoalVelocityTolerance, AngularVelocityToleranceWithRemainingAngularVel)
 {
   runVelocityTolerance(0.0, 0.05, 0.0, 0.1, Status::FOLLOWING);
-}
-
-// The launch tests also ran the straight and curved scenarios with delayed
-// odometry feedback, with and without time-optimal control. Those are two
-// parameters here rather than two more processes.
-TEST(TrackerScenario, DelayedOdometryFeedback)
-{
-  for (const bool time_optimal : {true, false}) {
-    const std::string info =
-      std::string("use_time_optimal_control: ") + (time_optimal ? "true" : "false");
-
-    auto params = testParameters();
-    params.use_time_optimal_control = time_optimal;
-
-    Scenario::Options options;
-    options.use_odom = true;
-    options.odom_delay = 0.04;
-    Scenario scenario(params, options);
-    scenario.initState(Eigen::Vector2d(0, 0), 0);
-
-    std::vector<Eigen::Vector3d> poses;
-    for (double x = 0.0; x < 0.5; x += 0.01) {
-      poses.push_back(Eigen::Vector3d(x, 0.0, 0.0));
-    }
-    poses.push_back(Eigen::Vector3d(0.5, 0.0, 0.0));
-    scenario.setPath(trajectory_tracker_testing::makePath(poses));
-
-    ASSERT_TRUE(scenario.runUntilGoal(10.0)) << info << " " << describe(scenario.state());
-    expectSettledAt(scenario, Eigen::Vector2d(0.5, 0.0), 0.0, info);
-  }
 }
 
 }  // namespace
