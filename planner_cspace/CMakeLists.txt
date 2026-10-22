@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.1...3.26)
 project(planner_cspace)
 
+# The cost grids hold int8 message data, -1 for unknown, in char. char is
+# unsigned on aarch64, where -1 would read as 255.
+add_compile_options(-fsigned-char)
+
 if($ENV{ROS_VERSION} EQUAL 1)
   message(STATUS "Building planner_cspace for ROS 1 (Noetic)")
 
