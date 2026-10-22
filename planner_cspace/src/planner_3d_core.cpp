@@ -515,7 +515,7 @@ void Planner3dCore::applyCostmapUpdate(
   const std::shared_ptr<const costmap_cspace_msgs::msg::CSpace3DUpdate> & msg)
 {
   const auto ts_cm_init_start = std::chrono::steady_clock::now();
-  const rclcpp::Time now = rclcpp::Clock(RCL_ROS_TIME).now();
+  const rclcpp::Time now = clock_->now();
 
   const int map_update_x_min = static_cast<int>(msg->x);
   const int map_update_x_max = std::max(static_cast<int>(msg->x + msg->width) - 1, 0);
@@ -704,7 +704,7 @@ Planner3dCore::SetGoalResult Planner3dCore::setGoal(const geometry_msgs::msg::Po
       return SetGoalResult::REJECTED;
     }
     status_.status = planner_cspace_msgs::msg::PlannerStatus::DOING;
-    status_.header.stamp = rclcpp::Clock(RCL_ROS_TIME).now();
+    status_.header.stamp = clock_->now();
     if (cb_.publish_status) cb_.publish_status();
     return SetGoalResult::ACCEPTED;
   }
@@ -817,7 +817,7 @@ bool Planner3dCore::makePlanOnDemand(
 
   nav_msgs::msg::Path path;
   path.header = map_header_;
-  path.header.stamp = rclcpp::Clock(RCL_ROS_TIME).now();
+  path.header.stamp = clock_->now();
 
   const std::list<Astar::Vecf> path_interpolated = model_->interpolatePath(path_grid);
   grid_metric_converter::appendGridPath2MetricPath(map_info_, path_interpolated, path);
@@ -948,7 +948,7 @@ sensor_msgs::msg::PointCloud Planner3dCore::generateDistanceMapMsg() const
 {
   sensor_msgs::msg::PointCloud distance_map;
   distance_map.header = map_header_;
-  distance_map.header.stamp = rclcpp::Clock(RCL_ROS_TIME).now();
+  distance_map.header.stamp = clock_->now();
   distance_map.channels.resize(1);
   distance_map.channels[0].name = "distance";
   distance_map.points.reserve(1024);
@@ -1017,7 +1017,7 @@ void Planner3dCore::publishEmptyPath()
 {
   nav_msgs::msg::Path path;
   path.header.frame_id = robot_frame_;
-  path.header.stamp = rclcpp::Clock(RCL_ROS_TIME).now();
+  path.header.stamp = clock_->now();
   publishPath(path);
 }
 
@@ -1025,7 +1025,7 @@ void Planner3dCore::publishFinishPath()
 {
   nav_msgs::msg::Path path;
   path.header.frame_id = map_header_.frame_id;
-  path.header.stamp = rclcpp::Clock(RCL_ROS_TIME).now();
+  path.header.stamp = clock_->now();
   // Specify single pose to control only orientation
   path.poses.resize(1);
   path.poses[0].header = path.header;
@@ -1085,9 +1085,8 @@ bool Planner3dCore::preparePlanCycle(const rclcpp::Time & now)
     metrics_.data.push_back(
       neonavigation_metrics_msgs::metric("costmap_delay", costmap_delay.seconds(), "second"));
     if (costmap_delay > costmap_watchdog_) {
-      rclcpp::Clock clock(RCL_ROS_TIME);
       RCLCPP_WARN_THROTTLE(
-        logger_, clock, 1000,
+        logger_, *clock_, 1000,
         "Navigation is stopping since the costmap is too old (costmap: %0.3f)",
         last_costmap_.seconds());
       status_.error = planner_cspace_msgs::msg::PlannerStatus::DATA_MISSING;

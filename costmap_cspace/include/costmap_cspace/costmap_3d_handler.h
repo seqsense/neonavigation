@@ -113,11 +113,18 @@ public:
     const Costmap3dLayerBase::Ptr & layer);
 
   // Builds the point cloud visualizing the occupied cells of the costmap.
-  static sensor_msgs::msg::PointCloud generateDebugPointCloud(
+  sensor_msgs::msg::PointCloud generateDebugPointCloud(
     const costmap_cspace_msgs::msg::CSpace3D & map);
+
+  // The clock the logic reads time from. On ROS 2 a bare rclcpp::Clock never
+  // subscribes to /clock, so under use_sim_time it silently is wall time; the
+  // interface node hands in its own clock instead. The default keeps the ROS 1
+  // build right on its own, where the compat rclcpp::Clock is ros::Time.
+  void setClock(const rclcpp::Clock::SharedPtr & clock) { clock_ = clock; }
 
 protected:
   rclcpp::Logger logger_;
+  rclcpp::Clock::SharedPtr clock_ = std::make_shared<rclcpp::Clock>(RCL_ROS_TIME);
 
   Costmap3d::Ptr costmap_;
   Costmap3dLayerFootprint::Ptr root_layer_;

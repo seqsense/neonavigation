@@ -25,7 +25,7 @@ def track_odometry_node(name, namespace, extra_params):
     params.update(extra_params)
     return Node(
         package='track_odometry',
-        executable='track_odometry_node_exec',
+        executable='track_odometry',
         name=name,
         namespace=namespace,
         output='screen',

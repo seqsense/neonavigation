@@ -170,7 +170,7 @@ def generate_launch_description() -> LaunchDescription:
             ),
             Node(
                 package='joystick_interrupt',
-                executable='joystick_interrupt_node',
+                executable='joystick_interrupt',
                 name='joystick_interrupt',
                 parameters=interrupt_parameters,
                 remappings=interrupt_remappings,

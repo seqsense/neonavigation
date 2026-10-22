@@ -119,6 +119,10 @@ public:
     tf_broadcaster_(*this),
     track_odometry_(tf_buffer_, this->get_logger())
   {
+    // Time is read through the node's clock so the logic follows /clock
+    // when use_sim_time is set.
+    track_odometry_.setClock(this->get_clock());
+
     TrackOdometryParams params;
 
     // enable_tcp_no_delay is a ROS 1 transport hint with no ROS 2 QoS

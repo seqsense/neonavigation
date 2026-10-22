@@ -142,6 +142,9 @@ SafetyLimiterNode::SafetyLimiterNode(const rclcpp::NodeOptions & options)
   tfbuf_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
   tfl_ = std::make_shared<tf2_ros::TransformListener>(*tfbuf_);
   limiter_ = std::make_unique<SafetyLimiter>(*tfbuf_, this->get_logger());
+  // Time is read through the node's clock so the logic follows /clock
+  // when use_sim_time is set.
+  limiter_->setClock(this->get_clock());
 
   pub_twist_ =
     this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", rclcpp::QoS(1).transient_local());

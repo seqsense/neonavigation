@@ -143,7 +143,7 @@ TrackerController::ControlOutput TrackerController::control(
   ControlOutput output;
   trajectory_tracker_msgs::msg::TrajectoryTrackerStatus & status = output.status;
   geometry_msgs::msg::Twist & cmd_vel = output.cmd_vel;
-  status.header.stamp = rclcpp::Clock(RCL_ROS_TIME).now();
+  status.header.stamp = clock_->now();
   status.path_header = path_header_;
   if (is_path_updated_) {
     // Call getTrackingResult to update path_step_done_.
@@ -252,12 +252,11 @@ TrackerController::TrackingResult TrackerController::getTrackingResult(
     tf2::fromMsg(path_to_odom_msg, path_to_odom);
     const rclcpp::Time path_to_odom_stamp(path_to_odom_msg.header.stamp);
     const tf2::Transform path_to_robot = path_to_odom * odom_to_robot;
-    transform_delay = (rclcpp::Clock(RCL_ROS_TIME).now() - path_to_odom_stamp).seconds();
+    transform_delay = (clock_->now() - path_to_odom_stamp).seconds();
     if (std::abs(transform_delay) > 0.1 && check_old_path_) {
-      rclcpp::Clock clock(RCL_ROS_TIME);
       RCLCPP_ERROR_THROTTLE(
-        logger_, clock, 1000, "Timestamp of the transform is too old %f %f",
-        rclcpp::Clock(RCL_ROS_TIME).now().seconds(), path_to_odom_stamp.seconds());
+        logger_, *clock_, 1000, "Timestamp of the transform is too old %f %f",
+        clock_->now().seconds(), path_to_odom_stamp.seconds());
     }
     const float robot_yaw = tf2::getYaw(path_to_robot.getRotation());
     const Eigen::Transform<double, 2, Eigen::TransformTraits::AffineCompact> path_to_robot_2d =
@@ -357,9 +356,8 @@ TrackerController::TrackingResult TrackerController::getTrackingResult(
     large_angle_error || std::abs(remain_local) < stop_tolerance_dist_ ||
     path_length < min_track_path_ || in_place_turning) {
     if (large_angle_error) {
-      rclcpp::Clock clock(RCL_ROS_TIME);
       RCLCPP_INFO_THROTTLE(
-        logger_, clock, 1000, "Stop and rotate due to large angular error: %0.3f", angle_remains);
+        logger_, *clock_, 1000, "Stop and rotate due to large angular error: %0.3f", angle_remains);
     }
 
     if (

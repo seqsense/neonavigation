@@ -113,20 +113,26 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
     ${EIGEN3_INCLUDE_DIRS})
 
   # ROS 2 component interface node for the IMU/odometry Kalman fusion logic.
-  ament_auto_add_library(track_odometry_node SHARED
+  ament_auto_add_library(track_odometry_component SHARED
     src/ros2_track_odometry_node.cpp)
-  target_link_libraries(track_odometry_node track_odometry)
-  rclcpp_components_register_node(track_odometry_node
+  target_link_libraries(track_odometry_component track_odometry)
+  # The standalone executable keeps the ROS 1 name, so a migrated launch file
+  # can name it unchanged. The CMake target cannot be called track_odometry -
+  # the logic library already is - so it is renamed on the way out, exactly as
+  # the ROS 1 build does with OUTPUT_NAME.
+  rclcpp_components_register_node(track_odometry_component
     PLUGIN "track_odometry::TrackOdometryNode"
-    EXECUTABLE track_odometry_node_exec)
+    EXECUTABLE track_odometry_node)
+  set_target_properties(track_odometry_node PROPERTIES OUTPUT_NAME track_odometry)
 
   # ROS 2 component interface node for the TF projection logic.
-  ament_auto_add_library(tf_projection_node SHARED
+  ament_auto_add_library(tf_projection_component SHARED
     src/ros2_tf_projection_node.cpp)
-  target_link_libraries(tf_projection_node tf_projection)
-  rclcpp_components_register_node(tf_projection_node
+  target_link_libraries(tf_projection_component tf_projection)
+  rclcpp_components_register_node(tf_projection_component
     PLUGIN "track_odometry::TfProjectionNode"
-    EXECUTABLE tf_projection_node_exec)
+    EXECUTABLE tf_projection_node)
+  set_target_properties(tf_projection_node PROPERTIES OUTPUT_NAME tf_projection)
 
   if(BUILD_TESTING)
     find_package(ament_lint_auto REQUIRED)

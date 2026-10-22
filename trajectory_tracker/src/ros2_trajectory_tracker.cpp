@@ -121,6 +121,9 @@ TrackerNode::TrackerNode(const rclcpp::NodeOptions & options)
   tfl_ = std::make_shared<tf2_ros::TransformListener>(*tfbuf_);
   controller_ =
     std::make_unique<trajectory_tracker::TrackerController>(*tfbuf_, this->get_logger());
+  // Time is read through the node's clock so the logic follows /clock
+  // when use_sim_time is set.
+  controller_->setClock(this->get_clock());
 
   const std::string frame_robot = this->declare_parameter("frame_robot", std::string("base_link"));
   const std::string frame_odom = this->declare_parameter("frame_odom", std::string("odom"));
