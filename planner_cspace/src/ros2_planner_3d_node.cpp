@@ -35,6 +35,7 @@
 #endif
 
 #include <cmath>
+#include <deque>
 #include <limits>
 #include <memory>
 #include <mutex>
@@ -229,7 +230,7 @@ private:
   std::mutex action_mutex_;
   std::shared_ptr<GoalHandleNavigate> gh_move_base_;
   std::shared_ptr<GoalHandleTolerant> gh_tolerant_;
-  std::vector<AcceptedGoal> accepted_goals_;
+  std::deque<AcceptedGoal> accepted_goals_;
   std::vector<std::shared_ptr<GoalHandleNavigate>> cancel_requests_move_base_;
   std::vector<std::shared_ptr<GoalHandleTolerant>> cancel_requests_tolerant_;
   std::shared_ptr<const MoveWithTolerance::Goal> goal_tolerant_;
@@ -779,20 +780,27 @@ void Planner3dNode::setTolerantHandle(const std::shared_ptr<GoalHandleTolerant> 
 }
 
 // Applies the goals and the cancel requests that the action server callbacks
-// recorded since the last call, goals in the order they arrived.
+// recorded, goals in the order they arrived. A goal is dequeued only after its
+// handle is installed, so that the goal callbacks see its action server busy
+// all the time.
 void Planner3dNode::processActionRequests()
 {
-  std::vector<AcceptedGoal> accepted;
-  {
-    std::lock_guard<std::mutex> lock(action_mutex_);
-    accepted.swap(accepted_goals_);
-  }
-  for (const auto & goal : accepted) {
+  while (true) {
+    AcceptedGoal goal;
+    {
+      std::lock_guard<std::mutex> lock(action_mutex_);
+      if (accepted_goals_.empty()) {
+        break;
+      }
+      goal = accepted_goals_.front();
+    }
     if (goal.move_base) {
       startMoveBase(goal.move_base, goal.stamp);
     } else {
       startTolerant(goal.tolerant, goal.stamp);
     }
+    std::lock_guard<std::mutex> lock(action_mutex_);
+    accepted_goals_.pop_front();
   }
   processCancelRequests();
 }
@@ -824,11 +832,12 @@ void Planner3dNode::startTolerant(
   }
 }
 
-// Terminates goals whose cancellation was accepted. A goal handle enters the
-// CANCELING state only after handle_cancel returns, and canceled() is invalid
-// before that, so a request is kept until then. Requests for a goal that is
-// no longer the current one are dropped: it was already terminated by another
-// path (preempted or aborted).
+// Terminates goals whose cancellation was accepted. A request is kept while
+// its goal is still active but cannot be canceled yet: the goal may still be
+// queued (accepted after the goal queue was drained), and a goal handle
+// enters the CANCELING state only after handle_cancel returns, before which
+// canceled() is invalid. Requests for terminated goals (preempted or aborted
+// by another path) are dropped.
 void Planner3dNode::processCancelRequests()
 {
   std::vector<std::shared_ptr<GoalHandleNavigate>> move_base;
@@ -841,10 +850,10 @@ void Planner3dNode::processCancelRequests()
   std::vector<std::shared_ptr<GoalHandleNavigate>> move_base_not_yet;
   std::vector<std::shared_ptr<GoalHandleTolerant>> tolerant_not_yet;
   for (const auto & gh : move_base) {
-    if (gh != gh_move_base_ || !moveBaseActive()) {
+    if (!gh->is_active()) {
       continue;
     }
-    if (!gh->is_canceling()) {
+    if (gh != gh_move_base_ || !gh->is_canceling()) {
       move_base_not_yet.push_back(gh);
       continue;
     }
@@ -857,10 +866,10 @@ void Planner3dNode::processCancelRequests()
     planner_.clearGoal();
   }
   for (const auto & gh : tolerant) {
-    if (gh != gh_tolerant_ || !tolerantActive()) {
+    if (!gh->is_active()) {
       continue;
     }
-    if (!gh->is_canceling()) {
+    if (gh != gh_tolerant_ || !gh->is_canceling()) {
       tolerant_not_yet.push_back(gh);
       continue;
     }
