@@ -281,6 +281,7 @@ protected:
     int cost_acceptable = -1, const int min_xy_range = 0) const;
 
   bool createCostEstimCache(const bool goal_changed = true);
+  void applyNumThreads() const;
   void clearHysteresis();
   void resetGridAstarModel(const bool force_reset);
   void publishDebug();
@@ -363,6 +364,7 @@ protected:
   float remember_miss_odds_;
   bool retain_last_error_status_;
   int num_cost_estim_task_;
+  int num_threads_;
   bool keep_a_part_of_previous_path_;
   bool enable_crowd_mode_;
 

@@ -836,8 +836,9 @@ void Planner3dNode::startTolerant(
 // its goal is still active but cannot be canceled yet: the goal may still be
 // queued (accepted after the goal queue was drained), and a goal handle
 // enters the CANCELING state only after handle_cancel returns, before which
-// canceled() is invalid. Requests for terminated goals (preempted or aborted
-// by another path) are dropped.
+// canceled() is invalid; the planner stops planning toward such a goal
+// already. Requests for terminated goals (preempted or aborted by another
+// path) are dropped.
 void Planner3dNode::processCancelRequests()
 {
   std::vector<std::shared_ptr<GoalHandleNavigate>> move_base;
@@ -853,7 +854,12 @@ void Planner3dNode::processCancelRequests()
     if (!gh->is_active()) {
       continue;
     }
-    if (gh != gh_move_base_ || !gh->is_canceling()) {
+    if (gh != gh_move_base_) {
+      move_base_not_yet.push_back(gh);
+      continue;
+    }
+    if (!gh->is_canceling()) {
+      planner_.clearGoal();
       move_base_not_yet.push_back(gh);
       continue;
     }
@@ -869,7 +875,12 @@ void Planner3dNode::processCancelRequests()
     if (!gh->is_active()) {
       continue;
     }
-    if (gh != gh_tolerant_ || !gh->is_canceling()) {
+    if (gh != gh_tolerant_) {
+      tolerant_not_yet.push_back(gh);
+      continue;
+    }
+    if (!gh->is_canceling()) {
+      planner_.clearGoal();
       tolerant_not_yet.push_back(gh);
       continue;
     }

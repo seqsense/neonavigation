@@ -106,6 +106,7 @@ Planner3dCore::Planner3dCore(const rclcpp::Logger & logger)
   remember_miss_odds_(0.0f),
   retain_last_error_status_(true),
   num_cost_estim_task_(16),
+  num_threads_(1),
   keep_a_part_of_previous_path_(false),
   enable_crowd_mode_(false),
   robot_frame_("base_link"),
@@ -160,8 +161,14 @@ void Planner3dCore::initialize(const StaticParameters & p)
 
   as_.setQueueSizeLimit(p.queue_size_limit);
   as_.setSearchTaskNum(p.num_search_task);
-  omp_set_num_threads(p.num_threads);
+  num_threads_ = p.num_threads;
+  applyNumThreads();
 }
+
+// omp_set_num_threads() only applies to the calling thread. The ROS 2 node
+// calls into the core from whichever executor thread runs the callback, so
+// the functions entering OpenMP regions set it again.
+void Planner3dCore::applyNumThreads() const { omp_set_num_threads(num_threads_); }
 
 void Planner3dCore::setParameters(const Parameters & p)
 {
@@ -514,6 +521,7 @@ void Planner3dCore::clearRetainedMapUpdate() { map_update_retained_ = nullptr; }
 void Planner3dCore::applyCostmapUpdate(
   const std::shared_ptr<const costmap_cspace_msgs::msg::CSpace3DUpdate> & msg)
 {
+  applyNumThreads();
   const auto ts_cm_init_start = std::chrono::steady_clock::now();
   const rclcpp::Time now = clock_->now();
 
@@ -748,6 +756,7 @@ bool Planner3dCore::makePlanOnDemand(
   const geometry_msgs::msg::PoseStamped & start, const geometry_msgs::msg::PoseStamped & goal,
   const double tolerance, nav_msgs::msg::Path & plan)
 {
+  applyNumThreads();
   if (!has_map_) {
     RCLCPP_ERROR(logger_, "make_plan service is called without map.");
     return false;
@@ -832,6 +841,7 @@ bool Planner3dCore::makePlanOnDemand(
 
 bool Planner3dCore::createCostEstimCache(const bool goal_changed)
 {
+  applyNumThreads();
   if (!has_goal_) return true;
 
   if (!has_map_ || !has_start_) {
@@ -1317,6 +1327,7 @@ bool Planner3dCore::makePlan(
   const geometry_msgs::msg::Pose & start_metric, const geometry_msgs::msg::Pose & end_metric,
   nav_msgs::msg::Path & path, bool hyst)
 {
+  applyNumThreads();
   const Astar::Vec start_grid = metric2Grid(start_metric);
   const Astar::Vec end_grid = metric2Grid(end_metric);
   publishStartAndGoalMarkers(start_grid, end_grid);
@@ -1483,6 +1494,7 @@ bool Planner3dCore::makePlan(
 void Planner3dCore::updateTemporaryEscapeGoal(
   const Astar::Vec & start_grid, const bool log_on_unready)
 {
+  applyNumThreads();
   if (!has_map_ || !has_goal_ || !has_start_) {
     if (log_on_unready) {
       RCLCPP_WARN(logger_, "Not ready to update temporary escape goal");
