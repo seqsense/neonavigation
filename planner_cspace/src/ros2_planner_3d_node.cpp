@@ -35,8 +35,10 @@
 #endif
 
 #include <cmath>
+#include <deque>
 #include <limits>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <utility>
 #include <vector>
@@ -159,13 +161,19 @@ float pathLength(const nav_msgs::msg::Path & path)
 //   only be called after a cancel request was accepted. Therefore:
 //     - a goal that is superseded by a new goal on the same action server is
 //       aborted with error_msg/"Preempted.";
-//     - an explicitly cancelled goal is terminated with canceled() (the cancel
-//       request is recorded in the cancel callback and the goal handle is
-//       finished from the spin timer, because a goal handle may not be
-//       terminated from within handle_cancel);
+//     - an explicitly cancelled goal is terminated with canceled();
 //     - a goal that arrives while the *other* action server is busy is
 //       rejected in handle_goal (ROS 1 logged an error and silently left the
 //       goal pending forever).
+//
+// * Threading. The action servers have a callback group of their own, so that
+//   goals and cancel requests are accepted while a plan is running. Their
+//   callbacks only record the request; the planning callbacks apply it before
+//   they plan (processActionRequests). In the node's default group, the
+//   executor served the action servers (waitables) after every pending costmap
+//   update, and a cancel waited for several plans instead of the running one
+//   as on ROS 1. This only helps in a multi-threaded executor, which is why the
+//   standalone executable uses one.
 //
 // * dynamic_reconfigure is replaced by plain ROS 2 parameters with ranges from
 //   cfg/Planner3D.cfg plus a post-set parameter callback.
@@ -206,13 +214,26 @@ private:
   rclcpp::Service<std_srvs::srv::Empty>::SharedPtr srs_forget_;
   rclcpp::Service<nav_msgs::srv::GetPlan>::SharedPtr srs_make_plan_;
 
+  struct AcceptedGoal
+  {
+    std::shared_ptr<GoalHandleNavigate> move_base;
+    std::shared_ptr<GoalHandleTolerant> tolerant;
+    rclcpp::Time stamp;
+  };
+
+  rclcpp::CallbackGroup::SharedPtr action_cb_group_;
   rclcpp_action::Server<NavigateToPose>::SharedPtr act_;
   rclcpp_action::Server<MoveWithTolerance>::SharedPtr act_tolerant_;
+  // Guards everything the action server callbacks touch. gh_move_base_ and
+  // gh_tolerant_ are written only by the planning callbacks, which therefore
+  // read them without the lock.
+  std::mutex action_mutex_;
   std::shared_ptr<GoalHandleNavigate> gh_move_base_;
   std::shared_ptr<GoalHandleTolerant> gh_tolerant_;
+  std::deque<AcceptedGoal> accepted_goals_;
+  std::vector<std::shared_ptr<GoalHandleNavigate>> cancel_requests_move_base_;
+  std::vector<std::shared_ptr<GoalHandleTolerant>> cancel_requests_tolerant_;
   std::shared_ptr<const MoveWithTolerance::Goal> goal_tolerant_;
-  bool cancel_requested_move_base_;
-  bool cancel_requested_tolerant_;
   rclcpp::Time goal_accepted_stamp_;
   float remaining_path_length_;
 
@@ -257,7 +278,12 @@ private:
   void finishTolerant(const bool succeeded, const std::string & text);
   void updateGoalTolerance();
   void publishActionFeedback();
+  void setMoveBaseHandle(const std::shared_ptr<GoalHandleNavigate> & gh);
+  void setTolerantHandle(const std::shared_ptr<GoalHandleTolerant> & gh);
   void preemptCurrentGoals();
+  void processActionRequests();
+  void startMoveBase(const std::shared_ptr<GoalHandleNavigate> & gh, const rclcpp::Time & stamp);
+  void startTolerant(const std::shared_ptr<GoalHandleTolerant> & gh, const rclcpp::Time & stamp);
   void processCancelRequests();
 
   rclcpp_action::GoalResponse cbMoveBaseGoal(
@@ -295,8 +321,6 @@ private:
 
 Planner3dNode::Planner3dNode(const rclcpp::NodeOptions & options)
 : rclcpp::Node("planner_3d", options),
-  cancel_requested_move_base_(false),
-  cancel_requested_tolerant_(false),
   goal_accepted_stamp_(0, 0, RCL_ROS_TIME),
   remaining_path_length_(0.0f),
   tfbuf_(this->get_clock()),
@@ -425,16 +449,19 @@ Planner3dNode::Planner3dNode(const rclcpp::NodeOptions & options)
     "~/make_plan",
     std::bind(&Planner3dNode::cbMakePlan, this, std::placeholders::_1, std::placeholders::_2));
 
+  action_cb_group_ = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
   act_ = rclcpp_action::create_server<NavigateToPose>(
     this, "move_base",
     std::bind(&Planner3dNode::cbMoveBaseGoal, this, std::placeholders::_1, std::placeholders::_2),
     std::bind(&Planner3dNode::cbMoveBaseCancel, this, std::placeholders::_1),
-    std::bind(&Planner3dNode::cbMoveBaseAccepted, this, std::placeholders::_1));
+    std::bind(&Planner3dNode::cbMoveBaseAccepted, this, std::placeholders::_1),
+    rcl_action_server_get_default_options(), action_cb_group_);
   act_tolerant_ = rclcpp_action::create_server<MoveWithTolerance>(
     this, "tolerant_move",
     std::bind(&Planner3dNode::cbTolerantGoal, this, std::placeholders::_1, std::placeholders::_2),
     std::bind(&Planner3dNode::cbTolerantCancel, this, std::placeholders::_1),
-    std::bind(&Planner3dNode::cbTolerantAccepted, this, std::placeholders::_1));
+    std::bind(&Planner3dNode::cbTolerantAccepted, this, std::placeholders::_1),
+    rcl_action_server_get_default_options(), action_cb_group_);
 
   sub_map_ = this->create_subscription<costmap_cspace_msgs::msg::CSpace3D>(
     "costmap", latched, std::bind(&Planner3dNode::cbMap, this, std::placeholders::_1));
@@ -676,7 +703,7 @@ void Planner3dNode::finishMoveBase(const bool succeeded, const std::string & tex
   } else {
     gh_move_base_->abort(result);
   }
-  gh_move_base_.reset();
+  setMoveBaseHandle(nullptr);
 }
 
 void Planner3dNode::finishTolerant(const bool succeeded, const std::string & text)
@@ -692,7 +719,7 @@ void Planner3dNode::finishTolerant(const bool succeeded, const std::string & tex
   } else {
     gh_tolerant_->abort(result);
   }
-  gh_tolerant_.reset();
+  setTolerantHandle(nullptr);
   goal_tolerant_ = nullptr;
 }
 
@@ -740,46 +767,151 @@ void Planner3dNode::preemptCurrentGoals()
   planner_.clearGoal();
 }
 
-// Terminates goals whose cancellation was accepted. This cannot be done from
-// within handle_cancel because the goal handle only enters the CANCELING state
-// after that callback returns.
-void Planner3dNode::processCancelRequests()
+void Planner3dNode::setMoveBaseHandle(const std::shared_ptr<GoalHandleNavigate> & gh)
 {
-  if (cancel_requested_move_base_) {
-    if (gh_move_base_ && gh_move_base_->is_canceling()) {
-      cancel_requested_move_base_ = false;
-      RCLCPP_WARN(this->get_logger(), "Preempting the current goal.");
-      auto result = std::make_shared<NavigateToPose::Result>();
-      setResultStatus(*result, "Preempted.", PreferredTag{});
-      gh_move_base_->canceled(result);
-      gh_move_base_.reset();
-      updateGoalTolerance();
-      planner_.clearGoal();
-    } else if (!moveBaseActive()) {
-      // The goal was already terminated by another path (preempted/aborted).
-      cancel_requested_move_base_ = false;
+  std::lock_guard<std::mutex> lock(action_mutex_);
+  gh_move_base_ = gh;
+}
+
+void Planner3dNode::setTolerantHandle(const std::shared_ptr<GoalHandleTolerant> & gh)
+{
+  std::lock_guard<std::mutex> lock(action_mutex_);
+  gh_tolerant_ = gh;
+}
+
+// Applies the goals and the cancel requests that the action server callbacks
+// recorded, goals in the order they arrived. A goal is dequeued only after its
+// handle is installed, so that the goal callbacks see its action server busy
+// all the time.
+void Planner3dNode::processActionRequests()
+{
+  while (true) {
+    AcceptedGoal goal;
+    {
+      std::lock_guard<std::mutex> lock(action_mutex_);
+      if (accepted_goals_.empty()) {
+        break;
+      }
+      goal = accepted_goals_.front();
     }
+    if (goal.move_base) {
+      startMoveBase(goal.move_base, goal.stamp);
+    } else {
+      startTolerant(goal.tolerant, goal.stamp);
+    }
+    std::lock_guard<std::mutex> lock(action_mutex_);
+    accepted_goals_.pop_front();
   }
-  if (cancel_requested_tolerant_) {
-    if (gh_tolerant_ && gh_tolerant_->is_canceling()) {
-      cancel_requested_tolerant_ = false;
-      RCLCPP_WARN(this->get_logger(), "Preempting the current goal.");
-      gh_tolerant_->canceled(std::make_shared<MoveWithTolerance::Result>());
-      gh_tolerant_.reset();
-      goal_tolerant_ = nullptr;
-      updateGoalTolerance();
-      planner_.clearGoal();
-    } else if (!tolerantActive()) {
-      cancel_requested_tolerant_ = false;
-    }
+  processCancelRequests();
+}
+
+void Planner3dNode::startMoveBase(
+  const std::shared_ptr<GoalHandleNavigate> & gh, const rclcpp::Time & stamp)
+{
+  if (moveBaseActive()) {
+    preemptCurrentGoals();
+  }
+  setMoveBaseHandle(gh);
+  goal_accepted_stamp_ = stamp;
+  if (!setGoal(gh->get_goal()->pose)) {
+    finishMoveBase(false, "Given goal is invalid.");
   }
 }
 
+void Planner3dNode::startTolerant(
+  const std::shared_ptr<GoalHandleTolerant> & gh, const rclcpp::Time & stamp)
+{
+  if (tolerantActive()) {
+    preemptCurrentGoals();
+  }
+  setTolerantHandle(gh);
+  goal_tolerant_ = gh->get_goal();
+  goal_accepted_stamp_ = stamp;
+  if (!setGoal(goal_tolerant_->target_pose)) {
+    finishTolerant(false, "Given goal is invalid.");
+  }
+}
+
+// Terminates goals whose cancellation was accepted. A request is kept while
+// its goal is still active but cannot be canceled yet: the goal may still be
+// queued (accepted after the goal queue was drained), and a goal handle
+// enters the CANCELING state only after handle_cancel returns, before which
+// canceled() is invalid; the planner stops planning toward such a goal
+// already. Requests for terminated goals (preempted or aborted by another
+// path) are dropped.
+void Planner3dNode::processCancelRequests()
+{
+  std::vector<std::shared_ptr<GoalHandleNavigate>> move_base;
+  std::vector<std::shared_ptr<GoalHandleTolerant>> tolerant;
+  {
+    std::lock_guard<std::mutex> lock(action_mutex_);
+    move_base.swap(cancel_requests_move_base_);
+    tolerant.swap(cancel_requests_tolerant_);
+  }
+  std::vector<std::shared_ptr<GoalHandleNavigate>> move_base_not_yet;
+  std::vector<std::shared_ptr<GoalHandleTolerant>> tolerant_not_yet;
+  for (const auto & gh : move_base) {
+    if (!gh->is_active()) {
+      continue;
+    }
+    if (gh != gh_move_base_) {
+      move_base_not_yet.push_back(gh);
+      continue;
+    }
+    if (!gh->is_canceling()) {
+      planner_.clearGoal();
+      move_base_not_yet.push_back(gh);
+      continue;
+    }
+    RCLCPP_WARN(this->get_logger(), "Preempting the current goal.");
+    auto result = std::make_shared<NavigateToPose::Result>();
+    setResultStatus(*result, "Preempted.", PreferredTag{});
+    gh->canceled(result);
+    setMoveBaseHandle(nullptr);
+    updateGoalTolerance();
+    planner_.clearGoal();
+  }
+  for (const auto & gh : tolerant) {
+    if (!gh->is_active()) {
+      continue;
+    }
+    if (gh != gh_tolerant_) {
+      tolerant_not_yet.push_back(gh);
+      continue;
+    }
+    if (!gh->is_canceling()) {
+      planner_.clearGoal();
+      tolerant_not_yet.push_back(gh);
+      continue;
+    }
+    RCLCPP_WARN(this->get_logger(), "Preempting the current goal.");
+    gh->canceled(std::make_shared<MoveWithTolerance::Result>());
+    setTolerantHandle(nullptr);
+    goal_tolerant_ = nullptr;
+    updateGoalTolerance();
+    planner_.clearGoal();
+  }
+  if (!move_base_not_yet.empty() || !tolerant_not_yet.empty()) {
+    std::lock_guard<std::mutex> lock(action_mutex_);
+    cancel_requests_move_base_.insert(
+      cancel_requests_move_base_.end(), move_base_not_yet.begin(), move_base_not_yet.end());
+    cancel_requests_tolerant_.insert(
+      cancel_requests_tolerant_.end(), tolerant_not_yet.begin(), tolerant_not_yet.end());
+  }
+}
+
+// The action server callbacks below run in action_cb_group_, concurrently with
+// the planning callbacks.
 rclcpp_action::GoalResponse Planner3dNode::cbMoveBaseGoal(
   const rclcpp_action::GoalUUID & /* uuid */,
   std::shared_ptr<const NavigateToPose::Goal> /* goal */)
 {
-  if (tolerantActive()) {
+  std::lock_guard<std::mutex> lock(action_mutex_);
+  bool tolerant_busy = gh_tolerant_ && gh_tolerant_->is_active();
+  for (const auto & goal : accepted_goals_) {
+    tolerant_busy |= static_cast<bool>(goal.tolerant);
+  }
+  if (tolerant_busy) {
     RCLCPP_ERROR(
       this->get_logger(),
       "Setting new goal is ignored since planner_3d is proceeding by tolerant_move action.");
@@ -791,29 +923,27 @@ rclcpp_action::GoalResponse Planner3dNode::cbMoveBaseGoal(
 rclcpp_action::CancelResponse Planner3dNode::cbMoveBaseCancel(
   const std::shared_ptr<GoalHandleNavigate> gh)
 {
-  if (gh_move_base_ == gh) {
-    cancel_requested_move_base_ = true;
-  }
+  std::lock_guard<std::mutex> lock(action_mutex_);
+  cancel_requests_move_base_.push_back(gh);
   return rclcpp_action::CancelResponse::ACCEPT;
 }
 
 void Planner3dNode::cbMoveBaseAccepted(const std::shared_ptr<GoalHandleNavigate> gh)
 {
-  if (moveBaseActive()) {
-    preemptCurrentGoals();
-  }
-  gh_move_base_ = gh;
-  goal_accepted_stamp_ = this->now();
-  if (!setGoal(gh->get_goal()->pose)) {
-    finishMoveBase(false, "Given goal is invalid.");
-  }
+  std::lock_guard<std::mutex> lock(action_mutex_);
+  accepted_goals_.push_back({gh, nullptr, this->now()});
 }
 
 rclcpp_action::GoalResponse Planner3dNode::cbTolerantGoal(
   const rclcpp_action::GoalUUID & /* uuid */,
   std::shared_ptr<const MoveWithTolerance::Goal> /* goal */)
 {
-  if (moveBaseActive()) {
+  std::lock_guard<std::mutex> lock(action_mutex_);
+  bool move_base_busy = gh_move_base_ && gh_move_base_->is_active();
+  for (const auto & goal : accepted_goals_) {
+    move_base_busy |= static_cast<bool>(goal.move_base);
+  }
+  if (move_base_busy) {
     RCLCPP_ERROR(
       this->get_logger(),
       "Setting new goal is ignored since planner_3d is proceeding by move_base action.");
@@ -825,23 +955,15 @@ rclcpp_action::GoalResponse Planner3dNode::cbTolerantGoal(
 rclcpp_action::CancelResponse Planner3dNode::cbTolerantCancel(
   const std::shared_ptr<GoalHandleTolerant> gh)
 {
-  if (gh_tolerant_ == gh) {
-    cancel_requested_tolerant_ = true;
-  }
+  std::lock_guard<std::mutex> lock(action_mutex_);
+  cancel_requests_tolerant_.push_back(gh);
   return rclcpp_action::CancelResponse::ACCEPT;
 }
 
 void Planner3dNode::cbTolerantAccepted(const std::shared_ptr<GoalHandleTolerant> gh)
 {
-  if (tolerantActive()) {
-    preemptCurrentGoals();
-  }
-  gh_tolerant_ = gh;
-  goal_tolerant_ = gh->get_goal();
-  goal_accepted_stamp_ = this->now();
-  if (!setGoal(goal_tolerant_->target_pose)) {
-    finishTolerant(false, "Given goal is invalid.");
-  }
+  std::lock_guard<std::mutex> lock(action_mutex_);
+  accepted_goals_.push_back({nullptr, gh, this->now()});
 }
 
 // --- Subscriber/service callbacks -----------------------------------------
@@ -869,6 +991,7 @@ void Planner3dNode::cbMakePlan(
 
 void Planner3dNode::cbGoal(const geometry_msgs::msg::PoseStamped::ConstSharedPtr & msg)
 {
+  processActionRequests();
   if (moveBaseActive() || tolerantActive()) {
     RCLCPP_ERROR(
       this->get_logger(), "Setting new goal is ignored since planner_3d is proceeding the action.");
@@ -993,7 +1116,7 @@ void Planner3dNode::cbNoMapUpdateTimer()
 // One iteration of the ROS 1 spin()/waitUntil() loop.
 void Planner3dNode::cbSpinTimer()
 {
-  processCancelRequests();
+  processActionRequests();
 
   if (trigger_plan_by_costmap_update_) {
     if (jump_.detectJump()) {
@@ -1064,6 +1187,7 @@ void Planner3dNode::updateStart()
 
 void Planner3dNode::planPath(const rclcpp::Time & now)
 {
+  processActionRequests();
   updateGoalTolerance();
   const bool has_costmap = planner_.preparePlanCycle(now);
 
