@@ -198,9 +198,12 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
   ament_auto_add_library(planner_3d_component SHARED
     src/ros2_planner_3d_node.cpp)
   target_link_libraries(planner_3d_component planner_3d_core ${OpenMP_CXX_FLAGS})
+  # The action servers are served in a callback group of their own while a
+  # plan is running, which needs a multi-threaded executor.
   rclcpp_components_register_node(planner_3d_component
     PLUGIN "planner_cspace::planner_3d::Planner3dNode"
-    EXECUTABLE planner_3d)
+    EXECUTABLE planner_3d
+    EXECUTOR MultiThreadedExecutor)
 
   ament_auto_add_library(planner_2dof_serial_joints_component SHARED
     src/ros2_planner_2dof_serial_joints_node.cpp)
@@ -377,7 +380,8 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
     target_link_libraries(planner_3d_debug_component ${OpenMP_CXX_FLAGS})
     rclcpp_components_register_node(planner_3d_debug_component
       PLUGIN "planner_cspace::planner_3d::Planner3dNode"
-      EXECUTABLE planner_3d_debug)
+      EXECUTABLE planner_3d_debug
+      EXECUTOR MultiThreadedExecutor)
 
     ament_auto_add_executable(ros2_test_navigate_boundary
       test_ros2/src/ros2_test_navigate_boundary.cpp)
@@ -388,6 +392,10 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
 
     ament_auto_add_executable(ros2_test_preempt test_ros2/src/ros2_test_preempt.cpp)
     target_link_libraries(ros2_test_preempt ${GTEST_LIBRARIES})
+
+    ament_auto_add_executable(ros2_test_cancel_while_planning
+      test_ros2/src/ros2_test_cancel_while_planning.cpp)
+    target_link_libraries(ros2_test_cancel_while_planning ${GTEST_LIBRARIES})
 
     ament_auto_add_executable(ros2_test_tolerant_action
       test_ros2/src/ros2_test_tolerant_action.cpp)
@@ -428,6 +436,9 @@ elseif($ENV{ROS_VERSION} EQUAL 2)
     add_launch_test(test_ros2/test/test_preempt_launch.py
       TARGET test_preempt
       TIMEOUT 300)
+    add_launch_test(test_ros2/test/test_cancel_while_planning_launch.py
+      TARGET test_cancel_while_planning
+      TIMEOUT 180)
     add_launch_test(test_ros2/test/test_tolerant_action_launch.py
       TARGET test_tolerant_action
       TIMEOUT 300)
