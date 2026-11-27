@@ -78,7 +78,7 @@ private:
           parent_frame_, projection_surface_frame_, trans.stamp_, tf2::durationFromSec(0.1)),
         trans_target);
     } catch (tf2::TransformException & e) {
-      RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "%s", e.what());
+      RCLCPP_INFO(this->get_logger(), "LOOKUP_FAIL %s", e.what());
       return;
     }
 
@@ -110,11 +110,19 @@ private:
 
     if (trans.stamp_ == tf2::TimePointZero) {
       tf_static_broadcaster_.sendTransform(trans_out);
+      RCLCPP_INFO(this->get_logger(), "SENT static %s", projected_frame_.c_str());
     } else {
       tf_broadcaster_.sendTransform(trans_out);
+      RCLCPP_INFO(this->get_logger(), "SENT %s", projected_frame_.c_str());
     }
   }
-  void cbTimer() { process(); }
+  void cbTimer()
+  {
+    ++ticks_;
+    RCLCPP_INFO(this->get_logger(), "TICK %lu", ticks_);
+    process();
+  }
+  uint64_t ticks_{0};
 
 public:
   explicit TfProjectionNode(const rclcpp::NodeOptions & options)
@@ -162,6 +170,10 @@ public:
     timer_ = rclcpp::create_timer(
       this, this->get_clock(), rclcpp::Duration::from_seconds(1.0 / rate_),
       std::bind(&TfProjectionNode::cbTimer, this));
+    RCLCPP_INFO(
+      this->get_logger(), "TIMER created hz=%f clock_type=%d ros_time_active=%d", rate_,
+      static_cast<int>(this->get_clock()->get_clock_type()),
+      static_cast<int>(this->get_clock()->ros_time_is_active()));
   }
 };
 }  // namespace track_odometry
